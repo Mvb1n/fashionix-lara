@@ -9,7 +9,6 @@
 
     <div class="container mx-auto mt-8 px-4 py-16">
 
-
         {{-- Tambahkan Konten lainnya disini (No 1-2) --}}
 
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
@@ -160,6 +159,8 @@
                 </div>
                 </div>
         </section>
+
+        {{-- Tambahkan kode lainnya disini (No. 4) --}}
 
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             
@@ -323,7 +324,8 @@
                 </div>
                 </div>
         </section>
-        {{-- Tambahkan kode lainnya disini (No. 4-8) --}}
+
+        {{-- Tambahkan kode lainnya disini (No. 6-8) --}}
 
     </div>
 </x-shop::layouts>

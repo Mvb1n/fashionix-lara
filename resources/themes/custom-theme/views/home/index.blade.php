@@ -2,5 +2,5 @@
     <x-slot:title>
         Beranda
     </x-slot>
-asdfghjkl
+asdfghjklghjkl;
 </x-shop::layouts>

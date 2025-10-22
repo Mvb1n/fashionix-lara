@@ -1,4 +1,8 @@
-<x-shop::layouts>
+<x-shop::layouts
+    :hasFeature="false"
+    :hasFooter="false"
+    :hasHeader="false"
+>
     <x-slot:title>
         Custom Theme Home
     </x-slot>

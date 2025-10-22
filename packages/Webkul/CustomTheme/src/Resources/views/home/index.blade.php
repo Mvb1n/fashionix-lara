@@ -9,6 +9,9 @@
 
     <div class="container mx-auto mt-8 px-4 py-16">
 
+
+        {{-- Tambahkan Konten lainnya disini (No 1-2) --}}
+
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-4 border-b border-gray-200">
@@ -25,7 +28,7 @@
                 </a>
             </div>
     
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-6 gap-4">
                 
                 <div class="border border-gray-200 rounded-lg overflow-hidden bg-white transition-shadow duration-300 hover:shadow-lg">
                     <div class="relative">
@@ -165,5 +168,8 @@
                 </div>
                 </div>
         </section>
+
+        {{-- Tambahkan kode lainnya disini (No. 4-8) --}}
+
     </div>
 </x-shop::layouts>

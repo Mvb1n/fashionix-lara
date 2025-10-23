@@ -326,6 +326,30 @@
         </section>
 
         {{-- Tambahkan kode lainnya disini (No. 6-8) --}}
+<section class="container mx-auto py-10">
+  <h2 class="text-2xl font-bold text-center mb-6">Kategori Produk</h2>
+
+  <div class="flex overflow-x-auto space-x-4 px-4 pb-4 snap-x snap-mandatory">
+    @php
+      $kategori = [
+        ['nama' => 'Pakaian Wanita', 'gambar' => 'images/pakaian-wanita.jpg'],
+        ['nama' => 'Pakaian Pria', 'gambar' => 'images/pakaian-pria.jpg'],
+        ['nama' => 'Sepatu', 'gambar' => 'images/sepatu.jpg'],
+        ['nama' => 'Sendal', 'gambar' => 'images/sendal.jpg'],
+        ['nama' => 'Fashion Anak', 'gambar' => 'images/fashion-anak.jpg'],
+        ['nama' => 'Aksesoris', 'gambar' => 'images/aksesoris.jpg'],
+      ];
+    @endphp
+
+    @foreach ($kategori as $item)
+      <div class="min-w-[180px] bg-white shadow-md rounded-lg p-4 text-center flex-shrink-0 snap-start">
+        <img src="{{ asset($item['gambar']) }}" alt="{{ $item['nama'] }}"
+             class="mx-auto rounded-full w-24 h-24 object-cover mb-3">
+        <p class="font-semibold">{{ $item['nama'] }}</p>
+      </div>
+    @endforeach
+  </div>
+</section>
 
     </div>
 </x-shop::layouts>

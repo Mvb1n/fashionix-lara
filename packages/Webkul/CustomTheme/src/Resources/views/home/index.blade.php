@@ -6,6 +6,9 @@
     <x-slot:title>
         Custom Theme Home
     </x-slot>
+    
+    {{-- Custom Header --}}
+    <x-custom-theme::layouts.header />
 
     <div class="container mx-auto mt-8 px-4 py-16">
 

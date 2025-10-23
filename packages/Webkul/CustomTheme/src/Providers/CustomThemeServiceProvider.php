@@ -2,8 +2,8 @@
 
 namespace Webkul\CustomTheme\Providers;
 
-use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Blade;
 
 class CustomThemeServiceProvider extends ServiceProvider
 {
@@ -28,18 +28,14 @@ class CustomThemeServiceProvider extends ServiceProvider
             __DIR__ . '/../Resources/views' => resource_path('themes/custom-theme/views'),
         ], 'custom-theme-views');
 
-        // Register custom theme components
-        $this->registerComponents();
-    }
+        Blade::anonymousComponentPath(
+            resource_path('themes/custom-theme/views/components'),
+            'shop'
+        );
 
-    /**
-     * Register custom components.
-     *
-     * @return void
-     */
-    private function registerComponents(): void
-    {
-        // Register custom theme components with proper namespace
-        $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'custom-theme');
+        Blade::anonymousComponentPath(
+            __DIR__ . '/../Resources/views/components',
+            'custom-theme'
+        );
     }
 }

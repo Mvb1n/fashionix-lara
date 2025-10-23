@@ -56,19 +56,27 @@
 
                     <!-- Profile Dropdown -->
                     <div class="relative">
-                        <button type="button" class="text-gray-600 hover:text-gray-900" onclick="toggleProfileDropdown()">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                            </svg>
-                        </button>
+                    <button
+                        type="button"
+                        class="text-gray-600 hover:text-gray-900"
+                        @click.stop="toggleProfileDropdown"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </button>
 
-                        <!-- Dropdown Menu -->
-                        <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                            @guest('customer')
-                                <a href="{{ route('shop.customer.session.create') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign In</a>
-                                <a href="{{ route('shop.customers.register.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Up</a>
-                            @else
-                                <div class="px-4 py-2 text-sm text-gray-700 border-b">
+                    <!-- Dropdown Menu -->
+                    <div
+                        class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
+                        v-show="isProfileDropdownOpen"
+                        @click.stop
+                    >
+                        @guest('customer')
+                            <a href="{{ route('shop.customer.session.create') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign In</a>
+                            <a href="{{ route('shop.customers.register.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Up</a>
+                        @else
+                            <div class="px-4 py-2 text-sm text-gray-700 border-b">
                                     Welcome, {{ auth()->guard('customer')->user()->first_name }}
                                 </div>
                                 <a href="{{ route('shop.customers.account.profile.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Profile</a>
@@ -81,7 +89,11 @@
 
                 <!-- Mobile menu button -->
                 <div class="md:hidden">
-                    <button type="button" class="text-gray-600 hover:text-gray-900" onclick="toggleMobileMenu()">
+                    <button
+                        type="button"
+                        class="text-gray-600 hover:text-gray-900"
+                        @click.stop="toggleMobileMenu"
+                    >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
@@ -91,7 +103,7 @@
         </div>
 
         <!-- Mobile Navigation Menu -->
-        <div id="mobile-menu" class="hidden md:hidden pb-4">
+        <div class="md:hidden pb-4" v-show="isMobileMenuOpen" @click.stop>
             <div class="space-y-1">
                 <a href="{{ route('shop.home.index') }}" class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md">Home</a>
                 <a href="#" class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md">Men</a>
@@ -115,29 +127,3 @@
         </div>
     </div>
 </div>
-
-<script>
-    function toggleMobileMenu() {
-        const menu = document.getElementById('mobile-menu');
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    }
-
-    function toggleProfileDropdown() {
-        const dropdown = document.getElementById('profile-dropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('hidden');
-        }
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('profile-dropdown');
-        const profileButton = event.target.closest('button[onclick="toggleProfileDropdown()"]');
-
-        if (dropdown && !profileButton && !dropdown.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-</script>

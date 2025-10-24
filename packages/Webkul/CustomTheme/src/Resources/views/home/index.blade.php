@@ -1,7 +1,4 @@
-<x-shop::layouts
-    :hasFeature="false"
-    :hasFooter="false"
->
+<x-shop::layouts>
     <x-slot:title>
         Custom Theme Home
     </x-slot>
@@ -327,72 +324,5 @@
         {{-- Tambahkan kode lainnya disini (No. 6-8) --}}
 
     </div>
-
-<footer class="bg-black text-white py-12 mt-20 border-t border-gray-800">
-  <div class="max-w-7xl mx-auto px-16 flex flex-row justify-between gap-2 flex-wrap">
-
-    <!-- Kolom 1 -->
-    <div class="flex-1 min-w-[220px]">
-      <div class="flex items-center gap-2 mb-4">
-        <img src="" alt="Logo Fashionix" class="w-8 h-8 object-contain bg-gray-800 rounded-full" />
-        <h2 class="font-bold text-xl uppercase tracking-wide">FASHIONIX</h2>
-      </div>
-      <p class="text-sm mb-2 font-semibold">Dukungan Pelanggan:</p>
-      <p class="text-lg font-bold mb-3">(629) 555-0129</p>
-      <p class="text-sm mb-2">4517 Washington Ave.<br />Manchester, Kentucky 39495</p>
-      <p class="text-sm">info@fashionix.com</p>
-    </div>
-
-    <!-- Kolom 2 -->
-    <div class="flex-1 min-w-[180px]">
-      <h3 class="font-bold mb-4 uppercase tracking-wide">Kategori Teratas</h3>
-      <ul class="space-y-2 text-sm">
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Pakaian Wanita</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Pakaian Pria</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Aksesoris & Perhiasan</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Tas & Dompet</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Sepatu & Sandal</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Hijab & Muslim Wear</a></li>
-      </ul>
-      <a href="#" class="text-yellow-400 text-sm font-semibold inline-flex items-center mt-3 hover:underline transition-all duration-200">
-        Jelajahi Semua Produk →
-      </a>
-    </div>
-
-    <!-- Kolom 3 -->
-    <div class="flex-1 min-w-[180px]">
-      <h3 class="font-bold mb-4 uppercase tracking-wide">Tautan Cepat</h3>
-      <ul class="space-y-2 text-sm">
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Belanja Produk</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Keranjang Belanja</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Daftar Keinginan</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Bandingkan</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Lacak Pesanan</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Bantuan Pelanggan</a></li>
-        <li><a href="#" class="hover:text-yellow-400 hover:font-bold transition-all duration-200 ease-in-out">Tentang Kami</a></li>
-      </ul>
-    </div>
-
-     <!-- Kolom 4 -->
-    <div class="flex-1 min-w-[220px]">
-      <h3 class="font-bold mb-4 uppercase tracking-wide">Popular Tag</h3>
-      <div class="flex flex-wrap gap-2">
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Dress</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Kemeja</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Jeans</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Hijab</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Sneakers</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Tas</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Aksesoris</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Kalung</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Blazer</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Hoodie</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Rok</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Outerwear</span>
-        <span class="border border-white px-3 py-1 text-sm rounded hover:bg-yellow-400 hover:text-black hover:font-bold transition-all duration-200 cursor-pointer">Fashion Pria</span>
-      </div>
-    </div>
-  </div>
-</footer>
 
 </x-shop::layouts>

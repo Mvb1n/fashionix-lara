@@ -9,7 +9,6 @@
 
     <div class="container mx-auto mt-8 px-4 py-16">
 
-
         {{-- Tambahkan Konten lainnya disini (No 1-2) --}}
 
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
@@ -160,6 +159,8 @@
                 </div>
                 </div>
         </section>
+
+        {{-- Tambahkan kode lainnya disini (No. 4) --}}
 
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             
@@ -323,7 +324,95 @@
                 </div>
                 </div>
         </section>
-        {{-- Tambahkan kode lainnya disini (No. 4-8) --}}
 
+        {{-- Tambahkan kode lainnya disini (No. 6-8) --}}
+<<<<<<< HEAD
+{{-- Tambahkan kode lainnya disini (No. 6-8) --}}
+<section class="container mx-auto py-10">
+  <h2 class="text-2xl font-bold text-center mb-6">Kategori Produk</h2>
+=======
+<section class="container mx-auto py-10">
+  <h2 class="text-2xl font-bold text-center mb-6">Kategori Produk</h2>
+
+  <div class="flex overflow-x-auto space-x-4 px-4 pb-4 snap-x snap-mandatory">
+    @php
+      $kategori = [
+        ['nama' => 'Pakaian Wanita', 'gambar' => 'images/pakaian-wanita.jpg'],
+        ['nama' => 'Pakaian Pria', 'gambar' => 'images/pakaian-pria.jpg'],
+        ['nama' => 'Sepatu', 'gambar' => 'images/sepatu.jpg'],
+        ['nama' => 'Sendal', 'gambar' => 'images/sendal.jpg'],
+        ['nama' => 'Fashion Anak', 'gambar' => 'images/fashion-anak.jpg'],
+        ['nama' => 'Aksesoris', 'gambar' => 'images/aksesoris.jpg'],
+      ];
+    @endphp
+
+    @foreach ($kategori as $item)
+      <div class="min-w-[180px] bg-white shadow-md rounded-lg p-4 text-center flex-shrink-0 snap-start">
+        <img src="{{ asset($item['gambar']) }}" alt="{{ $item['nama'] }}"
+             class="mx-auto rounded-full w-24 h-24 object-cover mb-3">
+        <p class="font-semibold">{{ $item['nama'] }}</p>
+      </div>
+    @endforeach
+  </div>
+</section>
+>>>>>>> 636335e802425ac5518daf598a048f9a366f4b76
+
+  @php
+    $kategori = [
+      ['nama' => 'Pakaian Wanita', 'gambar' => 'https://i.pinimg.com/736x/7c/b0/57/7cb057ab47a53a033aa2e3e29a77c9b3.jpg'],
+      ['nama' => 'Pakaian Pria', 'gambar' => 'https://i.pinimg.com/1200x/18/82/d5/1882d5a0fe3a953c84fccd65141c1831.jpg'],
+      ['nama' => 'Sepatu', 'gambar' => 'https://i.pinimg.com/1200x/da/60/88/da608828b2e33b947e65ec7cf76f3891.jpg'],
+      ['nama' => 'Sendal', 'gambar' => 'https://i.pinimg.com/736x/7c/b0/57/7cb057ab47a53a033aa2e3e29a77c9b3.jpg'],
+      ['nama' => 'Fashion Anak', 'gambar' => 'https://i.pinimg.com/736x/33/88/b6/3388b641ea32754a18b4e62f8e8b21d6.jpg'],
+      ['nama' => 'Aksesoris', 'gambar' => 'https://i.pinimg.com/736x/8d/cf/54/8dcf548370eab9298d3ce7668c4bce3e.jpg'],
+      ['nama' => 'Tas Wanita', 'gambar' => 'https://i.pinimg.com/1200x/4d/3d/36/4d3d36b33f36f149916efb5e7f95e96a.jpg'],
+      ['nama' => 'Jaket Kulit', 'gambar' => 'https://i.pinimg.com/1200x/6e/3b/6c/6e3b6cff7af0c7e6445103d02f2bef5e.jpg'],
+    ];
+  @endphp
+
+  <div class="relative">
+    {{-- Tombol kiri --}}
+    <button id="scrollLeft" 
+      class="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-700 rounded-full p-2 hover:bg-gray-300 shadow-md z-10">
+      ←
+    </button>
+
+    {{-- Kontainer scroll --}}
+    <div id="scrollContainer" 
+      class="flex overflow-x-auto px-12 pb-6 scrollbar-hide scroll-smooth snap-x snap-mandatory gap-6">
+      
+      @foreach ($kategori as $item)
+        <div class="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all flex-shrink-0 w-40 h-58 text-center snap-start flex flex-col justify-between">
+            {{-- Bagian gambar --}}
+            <div class="w-full h-48 rounded-t-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+            <img 
+                src="{{ $item['gambar'] }}" 
+                alt="{{ $item['nama'] }}"
+                class="w-full h-full object-cover"
+            >
+            </div>
+
+            {{-- Bagian nama kategori --}}
+            <div class="p-3">
+            <p class="font-semibold text-gray-800 text-base">{{ $item['nama'] }}</p>
+            </div>
+        </div>
+        @endforeach
+    </div>
+
+    {{-- Tombol kanan --}}
+    <button id="scrollRight" 
+      class="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-700 rounded-full p-2 hover:bg-gray-300 shadow-md z-10">
+      →
+    </button>
+  </div>
+</section>
+
+{{-- Script scroll halus --}}
+<script>
+  const scrollContainer = document.getElementById('scrollContainer');
+  document.getElementById('scrollLeft').onclick = () => scrollContainer.scrollBy({ left: -350, behavior: 'smooth' });
+  document.getElementById('scrollRight').onclick = () => scrollContainer.scrollBy({ left: 350, behavior: 'smooth' });
+</script>
     </div>
 </x-shop::layouts>

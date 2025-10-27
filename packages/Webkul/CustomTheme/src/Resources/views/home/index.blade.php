@@ -326,43 +326,15 @@
         </section>
 
         {{-- Tambahkan kode lainnya disini (No. 6-8) --}}
-<<<<<<< HEAD
-{{-- Tambahkan kode lainnya disini (No. 6-8) --}}
+
 <section class="container mx-auto py-10">
   <h2 class="text-2xl font-bold text-center mb-6">Kategori Produk</h2>
-=======
-<section class="container mx-auto py-10">
-  <h2 class="text-2xl font-bold text-center mb-6">Kategori Produk</h2>
-
-  <div class="flex overflow-x-auto space-x-4 px-4 pb-4 snap-x snap-mandatory">
-    @php
-      $kategori = [
-        ['nama' => 'Pakaian Wanita', 'gambar' => 'images/pakaian-wanita.jpg'],
-        ['nama' => 'Pakaian Pria', 'gambar' => 'images/pakaian-pria.jpg'],
-        ['nama' => 'Sepatu', 'gambar' => 'images/sepatu.jpg'],
-        ['nama' => 'Sendal', 'gambar' => 'images/sendal.jpg'],
-        ['nama' => 'Fashion Anak', 'gambar' => 'images/fashion-anak.jpg'],
-        ['nama' => 'Aksesoris', 'gambar' => 'images/aksesoris.jpg'],
-      ];
-    @endphp
-
-    @foreach ($kategori as $item)
-      <div class="min-w-[180px] bg-white shadow-md rounded-lg p-4 text-center flex-shrink-0 snap-start">
-        <img src="{{ asset($item['gambar']) }}" alt="{{ $item['nama'] }}"
-             class="mx-auto rounded-full w-24 h-24 object-cover mb-3">
-        <p class="font-semibold">{{ $item['nama'] }}</p>
-      </div>
-    @endforeach
-  </div>
-</section>
->>>>>>> 636335e802425ac5518daf598a048f9a366f4b76
-
   @php
     $kategori = [
       ['nama' => 'Pakaian Wanita', 'gambar' => 'https://i.pinimg.com/736x/7c/b0/57/7cb057ab47a53a033aa2e3e29a77c9b3.jpg'],
       ['nama' => 'Pakaian Pria', 'gambar' => 'https://i.pinimg.com/1200x/18/82/d5/1882d5a0fe3a953c84fccd65141c1831.jpg'],
       ['nama' => 'Sepatu', 'gambar' => 'https://i.pinimg.com/1200x/da/60/88/da608828b2e33b947e65ec7cf76f3891.jpg'],
-      ['nama' => 'Sendal', 'gambar' => 'https://i.pinimg.com/736x/7c/b0/57/7cb057ab47a53a033aa2e3e29a77c9b3.jpg'],
+      ['nama' => 'Sendal', 'gambar' => 'https://i.pinimg.com/736x/58/96/13/5896138b0488f30bd9e3d29645a290ef.jpg'],
       ['nama' => 'Fashion Anak', 'gambar' => 'https://i.pinimg.com/736x/33/88/b6/3388b641ea32754a18b4e62f8e8b21d6.jpg'],
       ['nama' => 'Aksesoris', 'gambar' => 'https://i.pinimg.com/736x/8d/cf/54/8dcf548370eab9298d3ce7668c4bce3e.jpg'],
       ['nama' => 'Tas Wanita', 'gambar' => 'https://i.pinimg.com/1200x/4d/3d/36/4d3d36b33f36f149916efb5e7f95e96a.jpg'],

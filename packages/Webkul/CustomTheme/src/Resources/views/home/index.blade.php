@@ -5,7 +5,150 @@
 
     <div class="container mx-auto mt-8 px-4 py-16">
 
-        {{-- Tambahkan Konten lainnya disini (No 1-2) --}}
+        <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            {{-- 🌟 HEADER PENAWARAN TERBAIK --}}
+            <div class="px-5 py-4 bg-gradient-to-r from-yellow-100 via-white to-yellow-50 border-b border-gray-200">
+                <div class="flex items-baseline gap-3 flex-wrap md:flex-nowrap">
+                    <div class="flex items-baseline gap-3 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2l2.39 7.26h7.62l-6.17 4.48 2.39 7.26L12 16.52 5.77 21l2.39-7.26L2 9.26h7.61z"/>
+                            </svg>
+                            <h2 class="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">
+                                Penawaran Terbaik
+                            </h2>
+                        </div>
+                        <span class="text-sm text-gray-600 whitespace-nowrap">Berakhir dalam:</span>
+                        <span id="countdown"
+                            class="bg-yellow-400/80 text-gray-900 font-semibold text-sm px-3 py-1 rounded-md shadow-sm">
+                            16d : 21h : 57m : 23s
+                        </span>
+                    </div>
+                    <a href="#"
+                    class="ml-auto shrink-0 whitespace-nowrap inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition">
+                        Lihat semua produk
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            {{-- 🛍️ PRODUK CARD --}}
+            <div class="p-6 flex justify-center">
+                <div class="relative w-full max-w-xs bg-white rounded-lg border border-gray-200 shadow hover:shadow-lg transition duration-300 overflow-hidden">
+
+                    {{-- Badge Diskon dan HOT --}}
+                    <div class="flex justify-between px-3 pt-3">
+                        <span class="bg-yellow-400 text-xs font-semibold text-white px-2 py-1 rounded shadow-sm">
+                            32% OFF
+                        </span>
+                        <span class="bg-red-500 text-xs font-semibold text-white px-2 py-1 rounded shadow-sm">
+                            HOT
+                        </span>
+                    </div>
+
+                    {{-- Gambar Produk --}}
+                    <div class="flex justify-center items-center mt-3">
+                        <img
+                            src="https://p16-images-sign-sg.tokopedia-static.net/tos-alisg-i-aphluv4xwc-sg/img/VqbcmM/2024/8/6/1982dc00-846a-4344-8654-cb0ede965ddd.jpg~tplv-aphluv4xwc-white-pad-v1:1600:1600.jpeg?lk3s=0ccea506&x-expires=1761548560&x-signature=kLoEMFDLwW7TjoiMQ3gstrGejdw%3D&x-signature-webp=YM1EHbrmYSPOM%2FiJf8wU32Sjtmg%3D"
+                            alt="PUMA Sepatu Smash Leather Sneakers"
+                            class="h-40 object-contain transition-transform duration-300 hover:scale-105"
+                        />
+                    </div>
+
+                    {{-- Konten Produk --}}
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <img src="{{ asset('images/puma-logo.png') }}" alt="PUMA" class="h-4">
+                            <span class="text-xs text-gray-500 font-medium">OFFICIAL STORE</span>
+                        </div>
+
+                        <h3 class="text-sm font-semibold text-gray-800 mb-1">
+                            PUMA Sepatu Smash Leather Sneakers
+                        </h3>
+
+                        {{-- Rating --}}
+                        <div class="flex items-center text-yellow-400 text-xs mb-2">
+                            @for ($i = 0; $i < 5; $i++)
+                                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09L5.82 12.18.764 7.91l6.065-.526L10 2l3.171 5.384 6.065.526-5.056 4.27 1.698 5.91z"/></svg>
+                            @endfor
+                            <span class="ml-2 text-gray-500">(52,677)</span>
+                        </div>
+
+                        {{-- Harga --}}
+                        <div class="mb-1">
+                            <span class="text-gray-400 line-through text-sm">Rp1.249.000</span>
+                        </div>
+                        <div class="text-lg font-bold text-blue-600 mb-2">
+                            Rp749.400
+                        </div>
+
+                        {{-- Deskripsi singkat --}}
+                        <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+                            Mereka bilang Anda tak bisa memperbaiki yang asli, tetapi mereka tak pernah bilang Anda tak bisa melakukan hal baru pada yang asli.
+                        </p>
+
+                        {{-- 🔘 Tombol Aksi di Bawah --}}
+                        <div class="flex items-center justify-between gap-2">
+                            {{-- Love --}}
+                            <button class="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-md hover:bg-gray-100 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600 hover:text-red-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z" />
+                                </svg>
+                            </button>
+
+                            {{-- Tombol Tengah (Fix Lebar dan Center) --}}
+                            <button class="flex items-center justify-center gap-2 flex-grow bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 rounded-md text-sm transition text-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9h12l-2-9M9 21a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                TAMBAH KE KERANJANG
+                            </button>
+
+                            {{-- View --}}
+                            <button class="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-md hover:bg-gray-100 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600 hover:text-blue-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Countdown Timer --}}
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const countdownEl = document.getElementById("countdown");
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + 16);
+
+                function updateCountdown() {
+                    const now = new Date().getTime();
+                    const distance = endDate - now;
+                    if (distance <= 0) {
+                        countdownEl.textContent = "Berakhir";
+                        countdownEl.classList.replace("bg-yellow-400/80", "bg-red-400");
+                        return;
+                    }
+                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    countdownEl.textContent = `${days}d : ${hours}h : ${minutes}m : ${seconds}s`;
+                }
+
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            });
+        </script>
 
         <section class="w-full bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             

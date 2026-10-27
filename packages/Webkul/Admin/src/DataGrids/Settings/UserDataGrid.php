@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Settings;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Webkul\DataGrid\DataGrid;
@@ -26,7 +27,7 @@ class UserDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -38,6 +39,7 @@ class UserDataGrid extends DataGrid
                 'admins.image as user_image',
                 'admins.status',
                 'admins.email',
+                'admins.role_id',
                 'roles.name as role_name'
             );
 
@@ -57,27 +59,27 @@ class UserDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'user_id',
-            'label'      => trans('admin::app.settings.users.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'user_id',
+            'label' => trans('admin::app.settings.users.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'user_name',
-            'label'      => trans('admin::app.settings.users.index.datagrid.name'),
-            'type'       => 'string',
+            'index' => 'user_name',
+            'label' => trans('admin::app.settings.users.index.datagrid.name'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'user_img',
-            'label'      => trans('admin::app.settings.users.index.datagrid.name'),
-            'type'       => 'string',
-            'closure'    => function ($row) {
+            'index' => 'user_img',
+            'label' => trans('admin::app.settings.users.index.datagrid.name'),
+            'type' => 'string',
+            'closure' => function ($row) {
                 if ($row->user_image) {
                     return Storage::url($row->user_image);
                 }
@@ -87,11 +89,11 @@ class UserDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'              => 'status',
-            'label'              => trans('admin::app.settings.users.index.datagrid.status'),
-            'type'               => 'boolean',
-            'searchable'         => true,
-            'filterable'         => true,
+            'index' => 'status',
+            'label' => trans('admin::app.settings.users.index.datagrid.status'),
+            'type' => 'boolean',
+            'searchable' => true,
+            'filterable' => true,
             'filterable_options' => [
                 [
                     'label' => trans('admin::app.settings.users.index.datagrid.active'),
@@ -102,8 +104,8 @@ class UserDataGrid extends DataGrid
                     'value' => 0,
                 ],
             ],
-            'sortable'   => true,
-            'closure'    => function ($value) {
+            'sortable' => true,
+            'closure' => function ($value) {
                 if ($value->status) {
                     return trans('admin::app.settings.users.index.datagrid.active');
                 }
@@ -113,23 +115,23 @@ class UserDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'      => 'email',
-            'label'      => trans('admin::app.settings.users.index.datagrid.email'),
-            'type'       => 'string',
+            'index' => 'email',
+            'label' => trans('admin::app.settings.users.index.datagrid.email'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'role_name',
-            'label'              => trans('admin::app.settings.users.index.datagrid.role'),
-            'type'               => 'string',
-            'searchable'         => true,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'role_name',
+            'label' => trans('admin::app.settings.users.index.datagrid.role'),
+            'type' => 'string',
+            'searchable' => true,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => $this->roleRepository->all(['name as label', 'name as value'])->toArray(),
-            'sortable'           => true,
+            'sortable' => true,
         ]);
     }
 
@@ -140,27 +142,34 @@ class UserDataGrid extends DataGrid
      */
     public function prepareActions()
     {
-        if (bouncer()->hasPermission('settings.users.users.edit')) {
+        $grantableRoleIds = $this->roleRepository->all()
+            ->filter(fn ($role) => bouncer()->canGrantRole($role))
+            ->pluck('id')
+            ->all();
+
+        if (bouncer()->hasPermission('settings.users.edit')) {
             $this->addAction([
-                'index'  => 'edit',
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.settings.users.index.datagrid.edit'),
+                'index' => 'edit',
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.settings.users.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.settings.users.edit', $row->user_id);
                 },
+                'condition' => fn ($row) => in_array($row->role_id, $grantableRoleIds),
             ]);
         }
 
-        if (bouncer()->hasPermission('settings.users.users.delete')) {
+        if (bouncer()->hasPermission('settings.users.delete')) {
             $this->addAction([
-                'index'  => 'delete',
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.settings.users.index.datagrid.delete'),
+                'index' => 'delete',
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.settings.users.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.settings.users.delete', $row->user_id);
                 },
+                'condition' => fn ($row) => in_array($row->role_id, $grantableRoleIds),
             ]);
         }
     }

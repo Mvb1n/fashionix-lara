@@ -3,13 +3,14 @@
 namespace Webkul\Shop\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
 
 class AuthenticateCustomer
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      * @param  string|null  $guard
      * @return mixed
      */
@@ -24,7 +25,9 @@ class AuthenticateCustomer
 
             return redirect()->route('shop.customer.session.index');
         } else {
-            if (! auth()->guard($guard)->user()->status) {
+            $customer = auth()->guard($guard)->user();
+
+            if (! $customer->status) {
                 auth()->guard($guard)->logout();
 
                 if ($request->expectsJson()) {
@@ -34,6 +37,30 @@ class AuthenticateCustomer
                 }
 
                 session()->flash('warning', trans('shop::app.customers.login-form.not-activated'));
+
+                return redirect()->route('shop.customer.session.index');
+            }
+
+            $currentChannel = core()->getCurrentChannel();
+
+            if (
+                $customer->channel_id
+                && $customer->channel_id != $currentChannel?->id
+            ) {
+                if (
+                    $customer->channel?->hostname
+                    && $customer->channel->hostname != $currentChannel?->hostname
+                ) {
+                    return redirect(rtrim($customer->channel->hostname, '/').$request->getRequestUri());
+                }
+
+                auth()->guard($guard)->logout();
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'message' => '',
+                    ], 401);
+                }
 
                 return redirect()->route('shop.customer.session.index');
             }

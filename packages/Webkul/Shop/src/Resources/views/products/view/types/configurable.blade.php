@@ -10,7 +10,7 @@
             type="text/x-template"
             id="v-product-configurable-options-template"
         >
-            <div class="w-[455px] max-w-full max-sm:w-full">
+            <div class="w-113.75 max-w-full max-sm:w-full">
                 <input
                     type="hidden"
                     name="selected_configurable_option"
@@ -66,7 +66,7 @@
                                 <template v-if="option.id">
                                     <!-- Color Swatch Options -->
                                     <label
-                                        class="relative -m-0.5 flex cursor-pointer items-center justify-center rounded-full p-0.5 focus:outline-none"
+                                        class="relative -m-0.5 flex cursor-pointer items-center justify-center rounded-full p-0.5 focus:outline-hidden"
                                         :class="{'ring-2 ring-gray-900' : option.id == attribute.selectedValue}"
                                         :title="option.label"
                                         v-if="attribute.swatch_type == 'color'"
@@ -93,7 +93,7 @@
                                         </v-field>
 
                                         <span
-                                            class="h-8 w-8 rounded-full border border-gray-200 max-sm:h-[25px] max-sm:w-[25px]"
+                                            class="h-8 w-8 rounded-full border border-gray-200 max-sm:h-6.25 max-sm:w-6.25 peer-focus-visible:ring-2 peer-focus-visible:ring-gray-900 peer-focus-visible:ring-offset-2"
                                             tabindex="0"
                                             :style="{ 'background-color': option.swatch_value }"
                                         ></span>
@@ -101,7 +101,7 @@
 
                                     <!-- Image Swatch Options -->
                                     <label 
-                                        class="group relative flex h-[60px] w-[60px] cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-white font-medium uppercase text-gray-900 hover:bg-gray-50 sm:py-6"
+                                        class="group relative flex h-15 w-15 cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-white font-medium uppercase text-gray-900 hover:bg-gray-50 sm:py-6"
                                         :class="{'border-navyBlue' : option.id == attribute.selectedValue }"
                                         :title="option.label"
                                         v-if="attribute.swatch_type == 'image'"
@@ -131,13 +131,15 @@
                                         <img
                                             :src="option.swatch_value"
                                             :title="option.label"
+                                            :alt="option.swatch_alt || option.label"
+                                            class="rounded-md peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2"
                                         />
                                     </label>
 
                                     <!-- Text Swatch Options -->
                                     <label 
                                         class="group relative flex h-fit min-w-fit cursor-pointer items-center justify-center rounded-full border border-gray-300 bg-white px-5 py-3 font-medium uppercase text-gray-900 hover:bg-gray-50 max-sm:h-fit max-sm:w-fit max-sm:px-3.5 max-sm:py-2"
-                                        :class="{'border-transparent !bg-navyBlue text-white' : option.id == attribute.selectedValue }"
+                                        :class="{'border-transparent bg-navyBlue! text-white' : option.id == attribute.selectedValue }"
                                         :title="option.label"
                                         v-if="attribute.swatch_type == 'text'"
                                     >
@@ -163,7 +165,7 @@
                                             />
                                         </v-field>
 
-                                        <span class="text-lg max-sm:text-sm">
+                                        <span class="text-lg max-sm:text-sm peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 rounded px-2">
                                             @{{ option.label }}
                                         </span>
 
@@ -207,7 +209,7 @@
 
                 data() {
                     return {
-                        config: @json(app('Webkul\Product\Helpers\ConfigurableOption')->getConfigurationConfig($product)),
+                        config: @json(app(\Webkul\Product\Helpers\ConfigurableOption::class)->getConfigurationConfig($product)),
 
                         childAttributes: [],
 
@@ -358,7 +360,7 @@
                         if (this.childAttributes.length == selectedOptionCount) {
                             document.querySelector('.price-label').style.display = 'none';
 
-                            if (parseInt(configVariant.regular.price) > parseInt(configVariant.final.price)) {
+                            if (parseFloat(configVariant.regular.price) > parseFloat(configVariant.final.price)) {
                                 regularPrice.style.display = 'block';
 
                                 finalPrice.innerHTML = configVariant.final.formatted_price;
@@ -368,13 +370,31 @@
                                 finalPrice.innerHTML = configVariant.regular.formatted_price;
 
                                 regularPrice.style.display = 'none';
+
+                                regularPrice.innerHTML = '';
                             }
 
                             this.$emitter.emit('configurable-variant-selected-event',this.possibleOptionVariant);
                         } else {
                             document.querySelector('.price-label').style.display = 'inline-block';
 
-                            finalPrice.innerHTML = this.config.regular.formatted_price;
+                            const baseRegular = parseFloat(this.config.regular?.price ?? 0);
+
+                            const baseFinal = parseFloat(this.config.final?.price ?? baseRegular);
+
+                            if (baseFinal < baseRegular) {
+                                regularPrice.style.display = 'block';
+
+                                regularPrice.innerHTML = this.config.regular.formatted_price;
+
+                                finalPrice.innerHTML = this.config.final.formatted_price;
+                            } else {
+                                regularPrice.style.display = 'none';
+
+                                regularPrice.innerHTML = '';
+
+                                finalPrice.innerHTML = this.config.regular.formatted_price;
+                            }
 
                             this.$emitter.emit('configurable-variant-selected-event', 0);
                         }

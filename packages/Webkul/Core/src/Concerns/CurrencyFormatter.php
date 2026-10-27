@@ -20,17 +20,13 @@ trait CurrencyFormatter
     }
 
     /**
-     * Use default formatter.
+     * Use the locale formatter, keeping its own symbol when the custom symbol is the same one.
      */
     public function useDefaultCurrencyFormatter(?float $price, Currency $currency): string
     {
         $formatter = new \NumberFormatter(app()->getLocale(), \NumberFormatter::CURRENCY);
 
         if ($currency->symbol) {
-            /**
-             * If, somehow, the currency symbol mentioned matches with the user-defined symbol,
-             * then we can simply use the 'formatCurrency' method.
-             */
             if ($this->currencySymbol($currency) == $currency->symbol) {
                 return $formatter->formatCurrency($price, $currency->code);
             }
@@ -56,23 +52,21 @@ trait CurrencyFormatter
 
         $formattedCurrency = preg_replace('/^\s+|\s+$/u', '', $formatter->format($price));
 
+        $separators = [];
+
         if (! empty($currency->group_separator)) {
-            $formattedCurrency = str_replace(
-                $formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL),
-                $currency->group_separator,
-                $formattedCurrency
-            );
+            $separators[$formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL)] = $currency->group_separator;
         }
 
         if (
             $currency->decimal > 0
             && ! empty($currency->decimal_separator)
         ) {
-            $formattedCurrency = str_replace(
-                $formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL),
-                $currency->decimal_separator,
-                $formattedCurrency
-            );
+            $separators[$formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL)] = $currency->decimal_separator;
+        }
+
+        if (! empty($separators)) {
+            $formattedCurrency = strtr($formattedCurrency, $separators);
         }
 
         $symbol = ! empty($currency->symbol)
@@ -80,9 +74,9 @@ trait CurrencyFormatter
             : $currency->code;
 
         return match ($currency->currency_position) {
-            CurrencyPositionEnum::LEFT->value             => $symbol.$formattedCurrency,
-            CurrencyPositionEnum::LEFT_WITH_SPACE->value  => $symbol.' '.$formattedCurrency,
-            CurrencyPositionEnum::RIGHT->value            => $formattedCurrency.$symbol,
+            CurrencyPositionEnum::LEFT->value => $symbol.$formattedCurrency,
+            CurrencyPositionEnum::LEFT_WITH_SPACE->value => $symbol.' '.$formattedCurrency,
+            CurrencyPositionEnum::RIGHT->value => $formattedCurrency.$symbol,
             CurrencyPositionEnum::RIGHT_WITH_SPACE->value => $formattedCurrency.' '.$symbol,
         };
     }
@@ -90,11 +84,11 @@ trait CurrencyFormatter
     /**
      * Return currency symbol from currency code.
      *
-     * @param  string|\Webkul\Core\Contracts\Currency  $currency
+     * @param  string|Currency  $currency
      */
     public function currencySymbol($currency): string
     {
-        $code = $currency instanceof \Webkul\Core\Contracts\Currency ? $currency->code : $currency;
+        $code = $currency instanceof Currency ? $currency->code : $currency;
 
         $formatter = new \NumberFormatter(app()->getLocale().'@currency='.$code, \NumberFormatter::CURRENCY);
 

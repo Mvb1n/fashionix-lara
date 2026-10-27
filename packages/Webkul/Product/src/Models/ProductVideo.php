@@ -3,6 +3,7 @@
 namespace Webkul\Product\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Webkul\Product\Contracts\ProductVideo as ProductVideoContract;
 
@@ -32,12 +33,12 @@ class ProductVideo extends Model implements ProductVideoContract
      *
      * @var array
      */
-    protected $appends = ['url'];
+    protected $appends = ['url', 'file_name'];
 
     /**
      * Get the product that owns the image.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function product()
     {
@@ -62,6 +63,16 @@ class ProductVideo extends Model implements ProductVideoContract
     public function getUrlAttribute()
     {
         return $this->url();
+    }
+
+    /**
+     * Get the file name, without the directory and the extension, for the product video.
+     *
+     * @return string
+     */
+    public function getFileNameAttribute()
+    {
+        return pathinfo((string) $this->path, PATHINFO_FILENAME);
     }
 
     /**

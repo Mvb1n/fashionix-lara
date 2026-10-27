@@ -45,13 +45,13 @@
                 {!! view_render_event('bagisto.admin.cms.pages.create.card.description.before') !!}
 
                 <!--Content -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.cms.create.description')
                     </p>
 
                     <!-- Html Content -->
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label class="required">
                             @lang('admin::app.cms.create.content')
                         </x-admin::form.control-group.label>
@@ -65,7 +65,6 @@
                             :label="trans('admin::app.cms.create.content')"
                             :placeholder="trans('admin::app.cms.create.content')"
                             :tinymce="true"
-                            :prompt="core()->getConfigData('general.magic_ai.content_generation.cms_page_content_prompt')"
                         />
 
                         <x-admin::form.control-group.error control-name="html_content" />
@@ -77,13 +76,18 @@
                 {!! view_render_event('bagisto.admin.cms.pages.create.card.seo.before') !!}
 
                 <!-- SEO Input Fields -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.cms.create.seo')
                     </p>
 
                     <!-- SEO Title & Description Blade Component -->
-                    <x-admin::seo/>
+                    <x-admin::seo
+                        slug="page"
+                        meta-title-field="meta_title"
+                        url-key-field="url_key"
+                        meta-description-field="meta_description"
+                    />
 
                     <!-- Meta Title -->
                     <x-admin::form.control-group>
@@ -141,7 +145,7 @@
                     </x-admin::form.control-group>
 
                     <!-- Meta Description -->
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label>
                             @lang('admin::app.cms.create.meta-description')
                         </x-admin::form.control-group.label>
@@ -163,7 +167,7 @@
             </div>
 
             <!-- Right sub-component -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+            <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
                 <!-- General -->
 
                 {!! view_render_event('bagisto.admin.cms.pages.create.card.accordion.general.before') !!}
@@ -196,16 +200,17 @@
                         </x-admin::form.control-group>
 
                         <!-- Select Channels -->
-                        <x-admin::form.control-group.label>
+                        <x-admin::form.control-group.label class="required">
                             @lang('admin::app.cms.create.channels')
                         </x-admin::form.control-group.label>
 
                         @foreach(core()->getAllChannels() as $channel)
-                            <x-admin::form.control-group class="!mb-2 flex select-none items-center gap-2.5 last:!mb-0">
+                            <x-admin::form.control-group class="mb-2! flex select-none items-center gap-2.5 last:mb-0!">
                                 <x-admin::form.control-group.control
                                     type="checkbox"
                                     :id="'channels_' . $channel->id"
                                     name="channels[]"
+                                    rules="required"
                                     :value="$channel->id"
                                     :for="'channels_' . $channel->id"
                                     :label="trans('admin::app.cms.create.channels')"
@@ -213,7 +218,8 @@
 
                                 <label
                                     class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
-                                    for="channels_{{ $channel->id }}" 
+                                    for="channels_{{ $channel->id }}"
+                                    v-pre
                                 >
                                     {{ core()->getChannelName($channel) }}
                                 </label>

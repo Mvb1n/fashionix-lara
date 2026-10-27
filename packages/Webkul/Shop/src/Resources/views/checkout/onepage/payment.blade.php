@@ -2,6 +2,7 @@
 
 <v-payment-methods
     :methods="paymentMethods"
+    @payment-method-selected="setSelectedPaymentMethod"
     @processing="stepForward"
     @processed="stepProcessed"
 >
@@ -15,7 +16,7 @@
         type="text/x-template"
         id="v-payment-methods-template"
     >
-        <div class="mb-7 max-md:last:!mb-0">
+        <div class="mb-7 max-md:last:mb-0!">
             <template v-if="! methods">
                 <!-- Payment Method shimmer Effect -->
                 <x-shop::shimmer.checkout.onepage.payment-method />
@@ -25,7 +26,7 @@
                 {!! view_render_event('bagisto.shop.checkout.onepage.payment_method.accordion.before') !!}
 
                 <!-- Accordion Blade Component -->
-                <x-shop::accordion class="overflow-hidden !border-b-0 max-md:rounded-lg max-md:!border-none max-md:!bg-gray-100">
+                <x-shop::accordion class="overflow-hidden border-b-0! max-md:rounded-lg max-md:border-none! max-md:bg-gray-100!">
                     <!-- Accordion Blade Component Header -->
                     <x-slot:header class="px-0 py-4 max-md:p-3 max-md:text-sm max-md:font-medium max-sm:p-2">
                         
@@ -37,7 +38,7 @@
                     </x-slot>
     
                     <!-- Accordion Blade Component Content -->
-                    <x-slot:content class="mt-8 !p-0 max-md:mt-0 max-md:rounded-t-none max-md:border max-md:border-t-0 max-md:!p-4">
+                    <x-slot:content class="mt-8 p-0! max-md:mt-0 max-md:rounded-t-none max-md:border max-md:border-t-0 max-md:p-4!">
                         <div class="flex flex-wrap gap-7 max-md:gap-4 max-sm:gap-2.5">
                             <div 
                                 class="relative cursor-pointer max-md:max-w-full max-md:flex-auto"
@@ -50,19 +51,19 @@
                                     name="payment[method]" 
                                     :value="payment.payment"
                                     :id="payment.method"
-                                    class="peer hidden"
+                                    class="peer sr-only"
                                     @change="store(payment)"
                                 >
     
                                 <label 
                                     :for="payment.method" 
-                                    class="icon-radio-unselect peer-checked:icon-radio-select absolute top-5 cursor-pointer text-2xl text-navyBlue ltr:right-5 rtl:left-5"
+                                    class="icon-radio-unselect peer-checked:icon-radio-select absolute top-5 cursor-pointer text-2xl text-navyBlue ltr:right-5 rtl:left-5 peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 rounded"
                                 >
                                 </label>
 
-                                <label 
-                                    :for="payment.method" 
-                                    class="block w-[190px] cursor-pointer rounded-xl border border-zinc-200 p-5 max-md:flex max-md:w-full max-md:gap-5 max-md:rounded-lg max-sm:gap-4 max-sm:px-4 max-sm:py-2.5"
+                                <label
+                                    :for="payment.method"
+                                    class="block w-47.5 cursor-pointer rounded-xl border border-zinc-200 p-5 max-md:flex max-md:w-full max-md:gap-5 max-md:rounded-lg max-md:ltr:pr-12 max-md:rtl:pl-12 max-sm:gap-4 max-sm:px-4 max-sm:py-2.5 max-sm:ltr:pr-12 max-sm:rtl:pl-12 peer-focus-visible:border-navyBlue peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue"
                                 >
                                     {!! view_render_event('bagisto.shop.checkout.onepage.payment-method.image.before') !!}
 
@@ -123,10 +124,12 @@
                 },
             },
 
-            emits: ['processing', 'processed'],
+            emits: ['payment-method-selected', 'processing', 'processed'],
 
             methods: {
                 store(selectedMethod) {
+                    this.$emit('payment-method-selected', selectedMethod.method);
+
                     this.$emit('processing', 'review');
 
                     this.$axios.post("{{ route('shop.checkout.onepage.payment_methods.store') }}", {

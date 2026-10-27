@@ -14,6 +14,8 @@
                     role="button"
                     tabindex="0"
                     @click="toggle"
+                    @keydown.enter="toggle"
+                    @keydown.space.prevent="toggle"
                 >
                     {{ $header }}
 
@@ -51,14 +53,14 @@
                 :toggle="toggle"
                 :isOpen="isOpen"
             >
-                @lang('admin::app.components.accordion.default-content')
+                @lang('shop::app.components.accordion.default-content')
             </slot>
 
             <slot
                 name="content"
                 :isOpen="isOpen"
             >
-                @lang('admin::app.components.accordion.default-content')
+                @lang('shop::app.components.accordion.default-content')
             </slot>
         </div>
     </script>

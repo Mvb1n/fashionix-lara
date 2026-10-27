@@ -84,18 +84,29 @@ class Order extends Model implements OrderContract
     ];
 
     /**
+     * Attribute casting.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'total_item_count' => 'integer',
+        'total_qty_ordered' => 'integer',
+        'is_guest' => 'boolean',
+    ];
+
+    /**
      * Status label.
      *
      * @var array
      */
     protected $statusLabel = [
-        self::STATUS_PENDING         => 'Pending',
+        self::STATUS_PENDING => 'Pending',
         self::STATUS_PENDING_PAYMENT => 'Pending Payment',
-        self::STATUS_PROCESSING      => 'Processing',
-        self::STATUS_COMPLETED       => 'Completed',
-        self::STATUS_CANCELED        => 'Canceled',
-        self::STATUS_CLOSED          => 'Closed',
-        self::STATUS_FRAUD           => 'Fraud',
+        self::STATUS_PROCESSING => 'Processing',
+        self::STATUS_COMPLETED => 'Completed',
+        self::STATUS_CANCELED => 'Canceled',
+        self::STATUS_CLOSED => 'Closed',
+        self::STATUS_FRAUD => 'Fraud',
     ];
 
     /**
@@ -350,12 +361,16 @@ class Order extends Model implements OrderContract
 
     /**
      * Checks if order can be canceled or not.
+     *
+     * @param  bool  $force  When true, customer-facing cancellation policies
+     *                       (currently the booking `allow_cancellation` flag)
+     *                       are ignored. Intended for admin overrides.
      */
-    public function canCancel(): bool
+    public function canCancel(bool $force = false): bool
     {
         foreach ($this->items as $item) {
             if (
-                $item->canCancel()
+                $item->canCancel($force)
                 && ! in_array($item->order->status, [
                     self::STATUS_CLOSED,
                     self::STATUS_FRAUD,
@@ -401,13 +416,21 @@ class Order extends Model implements OrderContract
             return false;
         }
 
+        $hasReorderable = false;
+
         foreach ($this->items as $item) {
+            if ($item->type === 'booking') {
+                continue;
+            }
+
             if (! $item->product?->getTypeInstance()->isSaleable()) {
                 return false;
             }
+
+            $hasReorderable = true;
         }
 
-        return true;
+        return $hasReorderable;
     }
 
     /**

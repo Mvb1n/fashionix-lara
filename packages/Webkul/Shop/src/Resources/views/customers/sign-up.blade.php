@@ -33,7 +33,7 @@
             >
                 <img
                     src="{{ core()->getCurrentChannel()->logo_url ?? bagisto_asset('images/logo.svg') }}"
-                    alt="{{ config('app.name') }}"
+                    alt="{{ core()->getCurrentChannel()->logo_alt ?: config('app.name') }}"
                     width="131"
                     height="29"
                 >
@@ -43,7 +43,7 @@
         {!! view_render_event('bagisto.shop.customers.sign-up.logo.before') !!}
 
         <!-- Form Container -->
-		<div class="m-auto w-full max-w-[870px] rounded-xl border border-zinc-200 p-16 px-[90px] max-md:px-8 max-md:py-8 max-sm:border-none max-sm:p-0">
+		<div class="m-auto w-full max-w-217.5 rounded-xl border border-zinc-200 p-16 px-22.5 max-md:px-8 max-md:py-8 max-sm:border-none max-sm:p-0">
 			<h1 class="font-dmserif text-4xl max-md:text-3xl max-sm:text-xl">
                 @lang('shop::app.customers.signup-form.page-title')
             </h1>
@@ -52,7 +52,7 @@
                 @lang('shop::app.customers.signup-form.form-signup-text')
             </p>
 
-            <div class="mt-14 rounded max-sm:mt-8">
+            <div class="mt-14 rounded-sm max-sm:mt-8">
                 <x-shop::form :action="route('shop.customers.register.store')">
                     {!! view_render_event('bagisto.shop.customers.signup_form_controls.before') !!}
 
@@ -172,10 +172,13 @@
 
                     {!! view_render_event('bagisto.shop.customers.signup_form.password_confirmation.after') !!}
 
+                    <!-- Captcha -->
                     @if (core()->getConfigData('customer.captcha.credentials.status'))
-                        <div class="mb-5 flex">
+                        <x-shop::form.control-group>
                             {!! \Webkul\Customer\Facades\Captcha::render() !!}
-                        </div>
+
+                            <x-shop::form.control-group.error control-name="recaptcha_token" />
+                        </x-shop::form.control-group>
                     @endif
 
                     <!-- Subscribed Button -->
@@ -221,6 +224,7 @@
                             <label
                                 class="cursor-pointer select-none text-base text-zinc-500 max-sm:text-sm"
                                 for="agreement"
+                                v-pre
                             >
                                 {{ core()->getConfigData('general.gdpr.agreement.agreement_label') }}
                             </label>
@@ -241,7 +245,7 @@
                     <div class="mt-8 flex flex-wrap items-center gap-9 max-sm:justify-center max-sm:gap-5">
                         <!-- Save Button -->
                         <button
-                            class="primary-button m-0 mx-auto block w-full max-w-[374px] rounded-2xl px-11 py-4 text-center text-base max-md:max-w-full max-md:rounded-lg max-md:py-3 max-sm:py-1.5 ltr:ml-0 rtl:mr-0"
+                            class="primary-button m-0 mx-auto block w-full max-w-93.5 rounded-2xl px-11 py-4 text-center text-base max-md:max-w-full max-md:rounded-lg max-md:py-3 max-sm:py-1.5 ltr:ml-0 rtl:mr-0"
                             type="submit"
                         >
                             @lang('shop::app.customers.signup-form.button-title')
@@ -269,7 +273,9 @@
 		</div>
 
         <p class="mb-4 mt-8 text-center text-xs text-zinc-500">
-            @lang('shop::app.customers.signup-form.footer', ['current_year'=> date('Y') ])
+            <x-shop::layouts.footer.copyright>
+                @lang('shop::app.customers.signup-form.footer', ['current_year'=> date('Y') ])
+            </x-shop::layouts.footer.copyright>
         </p>
 	</div>
 
@@ -281,14 +287,14 @@
     <x-shop::modal ref="termsModal">
         <x-slot:toggle></x-slot>
 
-        <x-slot:header class="!p-5">
+        <x-slot:header class="p-5!">
             <p>@lang('shop::app.customers.signup-form.terms-conditions')</p>
         </x-slot>
 
-        <x-slot:content class="!p-5">
-            <div class="max-h-[500px] overflow-auto">
+        <x-slot:content class="p-5!">
+            <div class="max-h-125 overflow-auto">
                 {!! core()->getConfigData('general.gdpr.agreement.agreement_content') !!}
             </div>
         </x-slot>
-    </x-admin::modal>
+    </x-shop::modal>
 </x-shop::layouts>

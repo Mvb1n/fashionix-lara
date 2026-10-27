@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
-use Shetabit\Visitor\Traits\Visitable;
+use Webkul\Attribute\Contracts\AttributeGroup;
 use Webkul\Attribute\Models\AttributeFamilyProxy;
 use Webkul\Attribute\Models\AttributeProxy;
 use Webkul\Attribute\Repositories\AttributeRepository;
@@ -25,7 +25,7 @@ use Webkul\Product\Type\AbstractType;
 
 class Product extends Model implements ProductContract
 {
-    use HasFactory, Visitable;
+    use HasFactory;
 
     /**
      * The attributes that are mass assignable.
@@ -47,7 +47,7 @@ class Product extends Model implements ProductContract
     /**
      * The type of product.
      *
-     * @var \Webkul\Product\Type\AbstractType
+     * @var AbstractType
      */
     protected $typeInstance;
 
@@ -101,7 +101,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * Get the product customer group prices that owns the product.
+     * Get the catalog rule prices that belong to the product.
      */
     public function catalog_rule_prices(): HasMany
     {
@@ -176,23 +176,23 @@ class Product extends Model implements ProductContract
     }
 
     /**
+     * The inventories that belong to the product.
+     */
+    public function inventories(): HasMany
+    {
+        return $this->hasMany(ProductInventoryProxy::modelClass(), 'product_id');
+    }
+
+    /**
      * Get inventory source quantity.
      *
-     * @return bool
+     * @return float|int
      */
     public function inventory_source_qty($inventorySourceId)
     {
         return $this->inventories()
             ->where('inventory_source_id', $inventorySourceId)
             ->sum('qty');
-    }
-
-    /**
-     * The inventories that belong to the product.
-     */
-    public function inventories(): HasMany
-    {
-        return $this->hasMany(ProductInventoryProxy::modelClass(), 'product_id');
     }
 
     /**
@@ -229,7 +229,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * Get the grouped products that owns the product.
+     * Get the booking products that belong to the product.
      */
     public function booking_products(): HasMany
     {
@@ -237,7 +237,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * The images that belong to the product.
+     * The downloadable samples that belong to the product.
      */
     public function downloadable_samples(): HasMany
     {
@@ -245,7 +245,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * The images that belong to the product.
+     * The downloadable links that belong to the product.
      */
     public function downloadable_links(): HasMany
     {
@@ -285,7 +285,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * The cross sells that belong to the product.
+     * The channels that belong to the product.
      */
     public function channels(): BelongsToMany
     {
@@ -293,11 +293,20 @@ class Product extends Model implements ProductContract
     }
 
     /**
+     * Is assigned to the given channel, defaulting to the current one.
+     */
+    public function isAvailableInChannel(?int $channelId = null): bool
+    {
+        return $this->channels->contains(
+            'id',
+            $channelId ?? core()->getCurrentChannel()->id
+        );
+    }
+
+    /**
      * Is saleable.
      *
-     * @param  string  $key
-     *
-     * @throws \Exception
+     * @throws Exception
      */
     public function isSaleable(): bool
     {
@@ -308,8 +317,7 @@ class Product extends Model implements ProductContract
     /**
      * Is stockable.
      *
-     *
-     * @throws \Exception
+     * @throws Exception
      */
     public function isStockable(): bool
     {
@@ -320,8 +328,7 @@ class Product extends Model implements ProductContract
     /**
      * Total quantity.
      *
-     *
-     * @throws \Exception
+     * @throws Exception
      */
     public function totalQuantity(): int
     {
@@ -332,8 +339,7 @@ class Product extends Model implements ProductContract
     /**
      * Have sufficient quantity.
      *
-     *
-     * @throws \Exception
+     * @throws Exception
      */
     public function haveSufficientQuantity(int $qty): bool
     {
@@ -342,10 +348,23 @@ class Product extends Model implements ProductContract
     }
 
     /**
+     * Retrieve product attributes.
+     *
+     * @param  AttributeGroup|null  $group
+     * @param  bool  $skipSuperAttribute
+     *
+     * @throws Exception
+     */
+    public function getEditableAttributes($group = null, $skipSuperAttribute = true): Collection
+    {
+        return $this->getTypeInstance()
+            ->getEditableAttributes($group, $skipSuperAttribute);
+    }
+
+    /**
      * Get type instance.
      *
-     *
-     * @throws \Exception
+     * @throws Exception
      */
     public function getTypeInstance(): AbstractType
     {
@@ -365,9 +384,9 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * The images that belong to the product.
+     * Get the url of the product's first image.
      *
-     * @return string
+     * @return string|null
      */
     public function getBaseImageUrlAttribute()
     {
@@ -384,7 +403,8 @@ class Product extends Model implements ProductContract
      */
     public function getAttribute($key)
     {
-        if (! method_exists(static::class, $key)
+        if (
+            ! method_exists(static::class, $key)
             && ! in_array($key, [
                 'pivot',
                 'parent_id',
@@ -405,21 +425,7 @@ class Product extends Model implements ProductContract
     }
 
     /**
-     * Retrieve product attributes.
-     *
-     * @param  Group  $group
-     * @param  bool  $skipSuperAttribute
-     *
-     * @throws \Exception
-     */
-    public function getEditableAttributes($group = null, $skipSuperAttribute = true): Collection
-    {
-        return $this->getTypeInstance()
-            ->getEditableAttributes($group, $skipSuperAttribute);
-    }
-
-    /**
-     * Get an product attribute value.
+     * Get a product attribute value in the requested channel and locale.
      *
      * @return mixed
      */
@@ -429,10 +435,23 @@ class Product extends Model implements ProductContract
             return;
         }
 
-        $locale = core()->getRequestedLocaleCodeInRequestedChannel();
+        return $this->getCustomAttributeValueFor(
+            $attribute,
+            core()->getRequestedChannelCode(),
+            core()->getRequestedLocaleCodeInRequestedChannel()
+        );
+    }
 
-        $channel = core()->getRequestedChannelCode();
-
+    /**
+     * Get a product attribute value in the given channel and locale, falling back to the default
+     * channel's default locale when a locale-scoped value is empty.
+     *
+     * @param  string|null  $channelCode
+     * @param  string|null  $localeCode
+     * @return mixed
+     */
+    public function getCustomAttributeValueFor($attribute, $channelCode, $localeCode)
+    {
         if (empty($this->attribute_values->count())) {
             $this->load('attribute_values');
         }
@@ -440,8 +459,8 @@ class Product extends Model implements ProductContract
         if ($attribute->value_per_channel) {
             if ($attribute->value_per_locale) {
                 $attributeValue = $this->attribute_values
-                    ->where('channel', $channel)
-                    ->where('locale', $locale)
+                    ->where('channel', $channelCode)
+                    ->where('locale', $localeCode)
                     ->where('attribute_id', $attribute->id)
                     ->first();
 
@@ -454,14 +473,14 @@ class Product extends Model implements ProductContract
                 }
             } else {
                 $attributeValue = $this->attribute_values
-                    ->where('channel', $channel)
+                    ->where('channel', $channelCode)
                     ->where('attribute_id', $attribute->id)
                     ->first();
             }
         } else {
             if ($attribute->value_per_locale) {
                 $attributeValue = $this->attribute_values
-                    ->where('locale', $locale)
+                    ->where('locale', $localeCode)
                     ->where('attribute_id', $attribute->id)
                     ->first();
 

@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Marketing\SearchSEO;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -10,7 +11,7 @@ class SearchTermDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -44,70 +45,70 @@ class SearchTermDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'id',
-            'label'      => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'id',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'term',
-            'label'      => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.search-query'),
-            'type'       => 'string',
+            'index' => 'term',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.search-query'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'results',
-            'label'      => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.results'),
-            'type'       => 'integer',
+            'index' => 'results',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.results'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'uses',
-            'label'      => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.uses'),
-            'type'       => 'integer',
+            'index' => 'uses',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.uses'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'redirect_url',
-            'label'      => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.redirect-url'),
-            'type'       => 'string',
+            'index' => 'redirect_url',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.redirect-url'),
+            'type' => 'string',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'channel_id',
-            'label'              => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.channel'),
-            'type'               => 'string',
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'channel_id',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.channel'),
+            'type' => 'string',
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => core()->getAllChannels()
                 ->map(fn ($channel) => ['label' => $channel->name, 'value' => $channel->id])
                 ->values()
                 ->toArray(),
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'locale',
-            'label'              => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.locale'),
-            'type'               => 'string',
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'locale',
+            'label' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.locale'),
+            'type' => 'string',
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => core()->getAllLocales()
                 ->map(fn ($locale) => ['label' => $locale->name, 'value' => $locale->code])
                 ->values()
                 ->toArray(),
-            'sortable'   => true,
+            'sortable' => true,
         ]);
     }
 
@@ -118,26 +119,26 @@ class SearchTermDataGrid extends DataGrid
      */
     public function prepareActions()
     {
-        if (bouncer()->hasPermission('marketing.search_terms.edit')) {
+        if (bouncer()->hasPermission('marketing.search_seo.search_terms.edit')) {
             $this->addAction([
-                'index'  => 'edit',
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.edit'),
+                'index' => 'edit',
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.edit'),
                 'method' => 'GET',
-                'route'  => 'admin.marketing.search_seo.search_terms.update',
-                'url'    => function ($row) {
+                'route' => 'admin.marketing.search_seo.search_terms.update',
+                'url' => function ($row) {
                     return route('admin.marketing.search_seo.search_terms.update', $row->id);
                 },
             ]);
         }
 
-        if (bouncer()->hasPermission('marketing.search_terms.delete')) {
+        if (bouncer()->hasPermission('marketing.search_seo.search_terms.delete')) {
             $this->addAction([
-                'index'  => 'delete',
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.delete'),
+                'index' => 'delete',
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.marketing.search_seo.search_terms.delete', $row->id);
                 },
             ]);
@@ -153,9 +154,9 @@ class SearchTermDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('marketing.search_terms.delete')) {
             $this->addMassAction([
-                'title'  => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.delete'),
+                'title' => trans('admin::app.marketing.search-seo.search-terms.index.datagrid.delete'),
                 'method' => 'POST',
-                'url'    => route('admin.marketing.search_seo.search_terms.mass_delete'),
+                'url' => route('admin.marketing.search_seo.search_terms.mass_delete'),
             ]);
         }
     }

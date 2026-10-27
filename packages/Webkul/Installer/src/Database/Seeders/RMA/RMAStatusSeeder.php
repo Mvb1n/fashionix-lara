@@ -1,0 +1,84 @@
+<?php
+
+namespace Webkul\Installer\Database\Seeders\RMA;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Webkul\Core\Concerns\SyncsPostgresSequences;
+
+class RMAStatusSeeder extends Seeder
+{
+    use SyncsPostgresSequences;
+
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
+    public function run($parameters = [])
+    {
+        DB::table('rma_statuses')->delete();
+
+        $defaultStatuses = [
+            [
+                'id' => 1,
+                'title' => 'Pending Review',
+                'status' => 1,
+                'color' => '#efb308',
+                'default' => 1,
+            ], [
+                'id' => 2,
+                'title' => 'Approved',
+                'status' => 1,
+                'color' => '#12af56',
+                'default' => 1,
+            ], [
+                'id' => 3,
+                'title' => 'Awaiting Return',
+                'status' => 1,
+                'color' => '#f59e0b',
+                'default' => 1,
+            ], [
+                'id' => 4,
+                'title' => 'Return In Transit',
+                'status' => 1,
+                'color' => '#3b82f6',
+                'default' => 1,
+            ], [
+                'id' => 5,
+                'title' => 'Refunded',
+                'status' => 1,
+                'color' => '#10b981',
+                'default' => 1,
+            ], [
+                'id' => 6,
+                'title' => 'Solved',
+                'status' => 1,
+                'color' => '#47b84f',
+                'default' => 1,
+            ], [
+                'id' => 7,
+                'title' => 'Request Declined',
+                'status' => 1,
+                'color' => '#e11d48',
+                'default' => 1,
+            ], [
+                'id' => 8,
+                'title' => 'Item Canceled',
+                'status' => 1,
+                'color' => '#dc2626',
+                'default' => 1,
+            ], [
+                'id' => 9,
+                'title' => 'Request Canceled',
+                'status' => 1,
+                'color' => '#991b1b',
+                'default' => 1,
+            ],
+        ];
+
+        DB::table('rma_statuses')->insert($defaultStatuses);
+
+        $this->syncPostgresSequences(['rma_statuses']);
+    }
+}

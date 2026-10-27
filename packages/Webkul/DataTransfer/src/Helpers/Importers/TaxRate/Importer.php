@@ -42,7 +42,7 @@ class Importer extends AbstractImporter
      */
     protected array $messages = [
         self::ERROR_IDENTIFIER_NOT_FOUND_FOR_DELETE => 'data_transfer::app.importers.tax-rates.validation.errors.identifier-not-found',
-        self::ERROR_DUPLICATE_IDENTIFIER            => 'data_transfer::app.importers.tax-rates.validation.errors.duplicate-identifier',
+        self::ERROR_DUPLICATE_IDENTIFIER => 'data_transfer::app.importers.tax-rates.validation.errors.duplicate-identifier',
     ];
 
     /**
@@ -61,6 +61,11 @@ class Importer extends AbstractImporter
      * Identifiers storage
      */
     protected array $identifiers = [];
+
+    /**
+     * Tax rates can be validated in windows — see ValidatesInChunks.
+     */
+    protected bool $chunkedValidationSupported = true;
 
     /**
      * Create a new helper instance.
@@ -88,13 +93,56 @@ class Importer extends AbstractImporter
     }
 
     /**
-     * Validate data.
+     * Load the existing tax rates, which every row is checked against.
      */
-    public function validateData(): void
+    protected function prepareForValidation(): void
     {
         $this->taxRateStorage->init();
+    }
 
-        parent::validateData();
+    /*
+    |--------------------------------------------------------------------------
+    | Chunked / queued validation
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function captureValidationState(): array
+    {
+        return [
+            'identifiers' => $this->identifiers,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function restoreValidationState(array $state): void
+    {
+        $this->identifiers = $state['identifiers'] ?? [];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function fileUniqueColumns(): array
+    {
+        return [
+            'identifier' => self::ERROR_DUPLICATE_IDENTIFIER,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function duplicateValueMessage(string $column, string $value, array $context): ?string
+    {
+        return sprintf(
+            trans($this->messages[self::ERROR_DUPLICATE_IDENTIFIER]),
+            $value
+        );
     }
 
     /**
@@ -128,13 +176,13 @@ class Importer extends AbstractImporter
          * Validate product attributes
          */
         $validator = Validator::make($rowData, [
-            'identifier'   => 'required|string',
+            'identifier' => 'required|string',
             'is_zip_range' => 'sometimes|boolean',
-            'zip_code'     => 'nullable|required_if:is_zip_range,0',
-            'zip_from'     => 'nullable|required_if:is_zip_range,1',
-            'zip_to'       => 'nullable|required_if:is_zip_range,1',
-            'country'      => 'required|string',
-            'tax_rate'     => 'required|numeric|min:0.0001',
+            'zip_code' => 'nullable|required_if:is_zip_range,0',
+            'zip_from' => 'nullable|required_if:is_zip_range,1',
+            'zip_to' => 'nullable|required_if:is_zip_range,1',
+            'country' => 'required|string',
+            'tax_rate' => 'required|numeric|min:0.0001',
         ]);
 
         if ($validator->fails()) {
@@ -183,7 +231,7 @@ class Importer extends AbstractImporter
         $batch = $this->importBatchRepository->update([
             'state' => Import::STATE_PROCESSED,
 
-            'summary'      => [
+            'summary' => [
                 'created' => $this->getCreatedItemsCount(),
                 'updated' => $this->getUpdatedItemsCount(),
                 'deleted' => $this->getDeletedItemsCount(),

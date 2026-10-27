@@ -1,107 +1,43 @@
-import { test, expect } from "../../../setup";
+import { test } from "../../../setup";
+import {
+    SitemapConfigurationPage,
+    type SitemapSettings,
+} from "../../../pages/admin/configuration/general/SitemapConfigurationPage";
 
-async function enableSitemap(adminPage) {
-    /**
-     * Navigating to the gdpr configuration page.
-     */
-    await adminPage.goto("admin/configuration/general/sitemap");
-
-    const isEnabled = adminPage.locator("label > div").check();
-
-    /**
-     * If not enabled, then we enable it.
-     */
-    if (!isEnabled) {
-        const gdprsettingToggle = adminPage.locator("label > div");
-        await gdprsettingToggle.waitFor({ state: "visible", timeout: 5000 });
-        await adminPage.locator("label > div").click();
-    }
-
-    /**
-     * Verifying enable state.
-     */
-    const toggleInput = adminPage.locator("label > div").first();
-    await expect(toggleInput).toBeChecked();
-}
-
-async function disableSitemap(adminPage) {
-    /**
-     * Navigating to the gdpr configuration page.
-     */
-    await adminPage.goto("admin/configuration/general/sitemap");
-
-    const isDisabled = adminPage.locator("label > div").uncheck();
-
-    /**
-     * If not disabled, then we disable it.
-     */
-    if (!isDisabled) {
-        const gdprsettingToggle = adminPage.locator("label > div");
-        await gdprsettingToggle.waitFor({ state: "visible", timeout: 5000 });
-        await adminPage.locator("label > div").click();
-    }
-
-    /**
-     * Verifying disable state.
-     */
-    const toggleInput = adminPage.locator("label > div").first();
-    await expect(toggleInput).not.toBeChecked();
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
 }
 
 test.describe("sitemap configuration", () => {
-    test("should disable the sitemap for your website when sitemap button is disabled", async ({
-        adminPage,
-    }) => {
-        await disableSitemap(adminPage);
+    test.describe.configure({ timeout: 120000 });
 
-        /**
-         * Click the 'Save Configuration' button.
-         */
-        await adminPage
-            .getByRole("button", { name: "Save Configuration" })
-            .click();
+    let configPage: SitemapConfigurationPage;
+    let original: SitemapSettings;
 
-        /*
-         * Verify success message
-         */
-        const successMessage = adminPage.getByText(
-            "Configuration saved successfully Close"
-        );
-        await successMessage.waitFor({ state: "visible" });
-        const toggleInput = adminPage.locator("label > div").first();
-        await expect(toggleInput).not.toBeChecked();
+    test.beforeEach(async ({ adminPage }) => {
+        configPage = new SitemapConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    test("should set maximum number of urls per file", async ({
-        adminPage,
-    }) => {
-        await enableSitemap(adminPage);
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
+    });
 
-        await adminPage
-            .getByRole("textbox", { name: "Maximum no. of URLs per file" })
-            .click();
-        await adminPage
-            .getByRole("textbox", { name: "Maximum no. of URLs per file" })
-            .fill("4000");
+    test("should persist the sitemap status after reload", async () => {
+        const changed = { enabled: !original.enabled };
 
-        /**
-         * Click the 'Save Configuration' button.
-         */
-        await adminPage
-            .getByRole("button", { name: "Save Configuration" })
-            .click();
+        await configPage.applySettings(changed);
 
-        /*
-         * Verify success message
-         */
-        const successMessage = adminPage.getByText(
-            "Configuration saved successfully Close"
-        );
-        await successMessage.waitFor({ state: "visible" });
-        await expect(
-            adminPage.getByRole("textbox", {
-                name: "Maximum no. of URLs per file",
-            })
-        ).toHaveValue("4000");
+        await configPage.expectSettings(changed);
+    });
+
+    test("should persist the maximum number of urls per file after reload", async () => {
+        const changed = {
+            maximumUrls: other(original.maximumUrls, "4000", "5000"),
+        };
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

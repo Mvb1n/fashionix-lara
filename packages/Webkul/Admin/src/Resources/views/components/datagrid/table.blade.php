@@ -1,4 +1,18 @@
-@props(['isMultiRow' => false])
+@props([
+    'isMultiRow' => false,
+    'shimmerColumns' => 6,
+    'shimmerMultiRow' => null,
+    'shimmerMassAction' => null,
+])
+
+@php
+    /**
+     * Whether the placeholder rows group their columns. Follows the grid unless the page
+     * says otherwise, for a grid that cards on mobile yet still lays its rows out as one
+     * column per field.
+     */
+    $shimmerMultiRow = $shimmerMultiRow ?? $isMultiRow;
+@endphp
 
 <v-datagrid-table
     :is-loading="isLoading"
@@ -6,7 +20,9 @@
     :applied="applied"
     @selectAll="selectAll"
     @sort="sort"
+    @actionStart="setLoading(true)"
     @actionSuccess="get"
+    @actionError="setLoading(false)"
 >
     {{ $slot }}
 </v-datagrid-table>
@@ -17,7 +33,7 @@
         id="v-datagrid-table-template"
     >
         <div class="w-full">
-            <div class="table-responsive box-shadow grid w-full overflow-x-auto rounded bg-white dark:bg-gray-900">
+            <div class="table-responsive box-shadow grid w-full overflow-x-auto rounded-sm bg-white dark:bg-gray-900">
                 <slot
                     name="header"
                     :is-loading="isLoading"
@@ -28,12 +44,16 @@
                     :perform-action="performAction"
                 >
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.head :isMultiRow="$isMultiRow" />
+                        <x-admin::shimmer.datagrid.table.head
+                            :isMultiRow="$shimmerMultiRow"
+                            :columns="$shimmerColumns"
+                            :massAction="$shimmerMassAction"
+                        />
                     </template>
 
                     <template v-else>
                         <div
-                            class="row grid min-h-[47px] items-center gap-2.5 border-b bg-gray-50 px-4 py-2.5 font-semibold text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                            class="row datagrid-head grid"
                             :style="`grid-template-columns: repeat(${gridsCount}, minmax(150px, 1fr))`"
                         >
                             <!-- Mass Actions -->
@@ -63,7 +83,7 @@
                             <!-- Columns -->
                             <template v-for="column in available.columns">
                                 <p
-                                    class="flex items-center gap-1.5 break-words"
+                                    class="flex items-center gap-1.5 wrap-break-word"
                                     :class="{'cursor-pointer select-none hover:text-gray-800 dark:hover:text-white': column.sortable}"
                                     @click="sort(column)"
                                     v-if="column.visibility"
@@ -99,7 +119,11 @@
                     :perform-action="performAction"
                 >
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body :isMultiRow="$isMultiRow" />
+                        <x-admin::shimmer.datagrid.table.body
+                            :isMultiRow="$shimmerMultiRow"
+                            :columns="$shimmerColumns"
+                            :massAction="$shimmerMassAction"
+                        />
                     </template>
 
                     <template v-else>
@@ -129,7 +153,7 @@
                                 <!-- Columns -->
                                 <template v-for="column in available.columns">
                                     <p
-                                        class="break-words"
+                                        class="wrap-break-word"
                                         v-html="record[column.index]"
                                         v-if="column.visibility"
                                     >
@@ -154,9 +178,20 @@
                         </template>
 
                         <template v-else>
-                            <div class="row grid border-b px-4 py-4 text-center text-gray-600 dark:border-gray-800 dark:text-gray-300">
-                                <p>
+                            <div class="row grid min-h-65 place-content-center justify-items-center gap-3 border-b px-4 py-8 text-center text-gray-600 dark:border-gray-800 dark:text-gray-300">
+                                <img
+                                    class="h-30 w-30 select-none p-2 dark:mix-blend-exclusion dark:invert"
+                                    src="{{ bagisto_asset('images/empty-placeholders/default.svg') }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                />
+
+                                <p class="text-base font-semibold text-gray-500 dark:text-gray-300">
                                     @lang('admin::app.components.datagrid.table.no-records-available')
+                                </p>
+
+                                <p class="max-w-sm text-sm text-gray-400 dark:text-gray-400">
+                                    @lang('admin::app.components.datagrid.table.no-records-hint')
                                 </p>
                             </div>
                         </template>
@@ -229,6 +264,8 @@
                         case 'delete':
                             this.$emitter.emit('open-confirm-modal', {
                                 agree: () => {
+                                    this.$emit('actionStart', action);
+
                                     this.$axios[method](action.url)
                                         .then(response => {
                                             this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
@@ -236,9 +273,12 @@
                                             this.$emit('actionSuccess', response.data);
                                         })
                                         .catch((error) => {
-                                            this.$emitter.emit('add-flash', { type: 'error', message: error.response.data.message });
+                                            this.$emitter.emit('add-flash', {
+                                                type: 'error',
+                                                message: error.response?.data?.message ?? "@lang('admin::app.components.datagrid.index.action-error')",
+                                            });
 
-                                            this.$emit('actionError', error.response.data);
+                                            this.$emit('actionError', error.response?.data);
                                         });
                                 }
                             });

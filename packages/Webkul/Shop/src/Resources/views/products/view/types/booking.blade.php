@@ -15,7 +15,7 @@
             type="text/x-template"
             id="v-booking-information-template"
         >
-            <div class="mt-6 grid w-full max-w-[470px] grid-cols-1 gap-6">
+            <div class="mt-6 grid w-full max-w-117.5 grid-cols-1 gap-6">
                 @if ($bookingProduct->location)
                     <div class="flex gap-4">
                         <span class="icon-location text-2xl"></span>
@@ -26,7 +26,12 @@
                             </p>
 
                             <div class="grid grid-cols-1 gap-3">
-                                <p class="text-[#6E6E6E]">{{ $bookingProduct->location }}</p>
+                                <p
+                                    class="text-[#6E6E6E]"
+                                    v-pre
+                                >
+                                    {{ $bookingProduct->location }}
+                                </p>
 
                                 <a
                                     href="https://maps.google.com/maps?q={{ $bookingProduct->location }}"
@@ -40,9 +45,25 @@
                     </div>
                 @endif
 
-                <div class="w-full max-w-[470px]">
+                <div class="w-full max-w-117.5">
                     @include ('shop::products.view.types.booking.' . $bookingProduct->type, ['bookingProduct' => $bookingProduct])
                 </div>
+
+                @if (! $bookingProduct->allow_cancellation)
+                    <div class="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                        <span class="icon-error mt-0.5 text-lg"></span>
+
+                        <div>
+                            <p class="font-semibold">
+                                @lang('shop::app.products.view.type.booking.cancellation-not-allowed.title')
+                            </p>
+
+                            <p class="text-xs">
+                                @lang('shop::app.products.view.type.booking.cancellation-not-allowed.description')
+                            </p>
+                        </div>
+                    </div>
+                @endif
             </div>
         </script>
 

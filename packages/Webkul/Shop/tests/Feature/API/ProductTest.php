@@ -1,79 +1,55 @@
 <?php
 
 use Pest\Expectation;
-use Webkul\Faker\Helpers\Product as ProductFaker;
 
 use function Pest\Laravel\getJson;
 
-it('returns a new products listing', function () {
-    // Arrange.
-    $newProductOptions = [
-        'attributes' => [
-            5 => 'new',
-        ],
+// ============================================================================
+// Product Listing API
+// ============================================================================
 
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ];
+it('should list only new products when asked for them', function () {
+    $product = $this->createSimpleProduct();
 
-    (new ProductFaker($newProductOptions))
-        ->getSimpleProductFactory()
-        ->create();
-
-    // Act
-    $response = getJson(route('shop.api.products.index', ['new' => 1]))
+    $response = getJson(route('shop.api.products.index', ['new' => 1, 'sort' => 'created_at-desc']))
         ->assertOk()
+        ->assertJsonPath('data.0.id', $product->id)
         ->collect();
 
-    // Assert
     expect($response['data'])->each(function (Expectation $product) {
         return $product->is_new->toBeTrue();
     });
 });
 
-it('returns a featured products listing', function () {
-    // Arrange.
-    $featuredProductOptions = [
-        'attributes' => [
-            6 => 'featured',
-        ],
+it('should list only featured products when asked for them', function () {
+    $product = $this->createSimpleProduct();
 
-        'attribute_value' => [
-            'featured' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ];
-
-    (new ProductFaker($featuredProductOptions))
-        ->getSimpleProductFactory()
-        ->create();
-
-    // Act
-    $response = getJson(route('shop.api.products.index', ['featured' => 1]))
+    $response = getJson(route('shop.api.products.index', ['featured' => 1, 'sort' => 'created_at-desc']))
         ->assertOk()
+        ->assertJsonPath('data.0.id', $product->id)
         ->collect();
 
-    // Assert
     expect($response['data'])->each(function (Expectation $product) {
         return $product->is_featured->toBeTrue();
     });
 });
 
-it('returns all products listing', function () {
-    // Arrange.
-    $product = (new ProductFaker)
-        ->getSimpleProductFactory()
-        ->create();
+it('should list the newest product first when sorted by creation date', function () {
+    $product = $this->createSimpleProduct();
 
-    // Act and Assert.
-    getJson(route('shop.api.products.index'))
+    getJson(route('shop.api.products.index', ['sort' => 'created_at-desc']))
         ->assertOk()
         ->assertJsonIsArray('data')
-        ->assertJsonFragment([
-            'id' => $product->id,
-        ]);
+        ->assertJsonPath('data.0.id', $product->id)
+        ->assertJsonPath('data.0.sku', $product->sku);
+});
+
+it('should leave inactive products out of the listing', function () {
+    $product = $this->createSimpleProduct([
+        'status' => ['boolean_value' => false, 'channel' => core()->getCurrentChannelCode()],
+    ]);
+
+    getJson(route('shop.api.products.index', ['sort' => 'created_at-desc']))
+        ->assertOk()
+        ->assertJsonMissing(['id' => $product->id]);
 });

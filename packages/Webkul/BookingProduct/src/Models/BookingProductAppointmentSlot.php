@@ -15,7 +15,10 @@ class BookingProductAppointmentSlot extends Model implements BookingProductAppoi
     /**
      * The attributes that should be cast.
      */
-    protected $casts = ['slots' => 'array'];
+    protected $casts = [
+        'same_slot_all_days' => 'boolean',
+        'slots' => 'array',
+    ];
 
     /**
      * The attributes that are mass assignable.
@@ -25,6 +28,7 @@ class BookingProductAppointmentSlot extends Model implements BookingProductAppoi
         'break_time',
         'same_slot_all_days',
         'slots',
+        'allow_slot_overlap',
         'booking_product_id',
     ];
 }

@@ -3,6 +3,7 @@
 <!-- Vue JS Component -->
 <v-cart-addresses
     :cart="cart"
+    :current-step="currentStep"
     @processing="stepForward"
     @processed="stepProcessed"
 ></v-cart-addresses>
@@ -17,7 +18,7 @@
         id="v-cart-addresses-template"
     >
         <div
-            class="box-shadow rounded bg-white dark:bg-gray-900"
+            class="box-shadow rounded-sm bg-white dark:bg-gray-900"
             id="address-step-container"
         >
             <div class="flex items-center border-b p-4 dark:border-gray-800">
@@ -32,7 +33,10 @@
                     v-slot="{ meta, errors, handleSubmit }"
                     as="div"
                 >
-                    <form @submit="handleSubmit($event, addAddressToCart)">
+                    <form
+                        @submit="handleSubmit($event, addAddressToCart)"
+                        @input="handleAddressChange"
+                    >
                         <!-- Billing Address Header -->
                         <div class="mb-4 flex items-center justify-between">
                             <p class="text-base font-medium text-gray-600 dark:text-gray-300">
@@ -55,7 +59,7 @@
                                 class="flex gap-2"
                                 v-for="address in customerSavedAddresses.billing"
                             >
-                                <x-admin::form.control-group class="!mb-0 flex items-center gap-2.5 self-start">
+                                <x-admin::form.control-group class="mb-0! flex items-center gap-2.5 self-start">
                                     <x-admin::form.control-group.control
                                         type="radio"
                                         name="billing.id"
@@ -119,7 +123,7 @@
                         <!-- Shipping Address Block if have stockable items -->
                         <template v-if="cart.have_stockable_items">
                             <!-- Use for Shipping Checkbox -->
-                            <x-admin::form.control-group class="!mb-0 mt-5 flex items-center gap-2.5">
+                            <x-admin::form.control-group class="mb-0! mt-5 flex items-center gap-2.5">
                                 <x-admin::form.control-group.control
                                     type="checkbox"
                                     name="billing.use_for_shipping"
@@ -170,7 +174,7 @@
                                         class="flex gap-2"
                                         v-for="address in customerSavedAddresses.shipping"
                                     >
-                                        <x-admin::form.control-group class="!mb-0 flex items-center gap-2.5 self-start">
+                                        <x-admin::form.control-group class="mb-0! flex items-center gap-2.5 self-start">
                                             <x-admin::form.control-group.control
                                                 type="radio"
                                                 name="shipping.id"
@@ -233,10 +237,42 @@
                             </div>
                         </template>
 
+                        <!-- Address Updated Notice -->
+                        <transition
+                            enter-from-class="scale-95 opacity-0"
+                            enter-active-class="transform transition duration-200 ease-in-out"
+                            leave-active-class="transform transition duration-200 ease-in-out"
+                            leave-to-class="scale-95 opacity-0"
+                        >
+                            <div
+                                class="mt-4 flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                                role="status"
+                                v-if="isAddressUpdated"
+                            >
+                                <span class="icon-information flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xl text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"></span>
+
+                                <div>
+                                    <p class="font-semibold">
+                                        @lang('admin::app.sales.orders.create.cart.address.address-updated-title')
+                                    </p>
+
+                                    <p class="text-xs">
+                                        <template v-if="cart.have_stockable_items">
+                                            @lang('admin::app.sales.orders.create.cart.address.address-updated-shipping-info')
+                                        </template>
+
+                                        <template v-else>
+                                            @lang('admin::app.sales.orders.create.cart.address.address-updated-payment-info')
+                                        </template>
+                                    </p>
+                                </div>
+                            </div>
+                        </transition>
+
                         <!-- Proceed Button -->
                         <div
                             class="mt-4 flex justify-end"
-                            v-if="customerSavedAddresses.billing.length"
+                            v-if="customerSavedAddresses.billing.length && (currentStep == 'address' || isStoring)"
                         >
                             <x-admin::button
                                 class="primary-button"
@@ -246,14 +282,17 @@
                             />
                         </div>
                     </form>
-                </x-shop::form>
+                </x-admin::form>
             </div>
 
             <x-admin::form
                 v-slot="{ meta, errors, handleSubmit }"
                 as="div"
             >
-                <form @submit="handleSubmit($event, updateOrCreateAddress)">
+                <form
+                    @submit="handleSubmit($event, updateOrCreateAddress)"
+                    @input="handleAddressChange"
+                >
                     <!-- Drawer Form -->
                     <x-admin::drawer
                         width="350px"
@@ -317,7 +356,7 @@
         app.component('v-cart-addresses', {
             template: '#v-cart-addresses-template',
 
-            props: ['cart'],
+            props: ['cart', 'currentStep'],
 
             emits: ['processing', 'processed'],
 
@@ -346,6 +385,8 @@
                     isLoading: true,
 
                     isStoring: false,
+
+                    isAddressUpdated: false,
                 }
             },
 
@@ -393,7 +434,7 @@
                 },
 
                 updateOrCreateAddress(params, { setErrors }) {
-                    this.$emit('processing', 'address');
+                    this.handleAddressChange();
 
                     params = params[this.activeAddressForm];
 
@@ -546,6 +587,8 @@
                         .then((response) => {
                             this.isStoring = false;
 
+                            this.isAddressUpdated = false;
+
                             if (this.cart.have_stockable_items) {
                                 this.$emit('processed', response.data.data.shippingMethods);
                             } else {
@@ -586,6 +629,14 @@
                         ...address,
                         default_address: 0,
                     };
+                },
+
+                handleAddressChange() {
+                    if (this.currentStep != 'address') {
+                        this.isAddressUpdated = true;
+                    }
+
+                    this.$emit('processing', 'address');
                 },
 
                 moveToNextStep() {

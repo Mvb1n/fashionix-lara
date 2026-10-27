@@ -1,0 +1,338 @@
+<?php
+
+namespace Webkul\ImageCache\Http\Controllers;
+
+use Exception;
+use Illuminate\Http\Response;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
+use Webkul\Core\Helpers\InstalledPackages;
+use Webkul\ImageCache\TemplateRegistry;
+
+class ImageCacheController extends Controller
+{
+    /**
+     * The Bagisto logo URL.
+     */
+    protected const BAGISTO_LOGO = 'https://updates.bagisto.com/bagisto.png';
+
+    /**
+     * The image types the cache serves, so a stored file whose bytes read as anything else is never sent from the store.
+     */
+    protected const SERVABLE_MIME_TYPES = [
+        'image/avif', 'image/bmp', 'image/gif', 'image/jpeg', 'image/png', 'image/vnd.microsoft.icon', 'image/webp',
+        'image/x-icon', 'image/x-ms-bmp',
+    ];
+
+    /**
+     * The current cache template name.
+     */
+    protected string $template = '';
+
+    /**
+     * Create a new controller instance.
+     */
+    public function __construct(protected TemplateRegistry $templateRegistry) {}
+
+    /**
+     * Get the HTTP response for the requested image.
+     */
+    public function getResponse(string $template, string $filename): Response
+    {
+        $this->template = $template;
+
+        return match (strtolower($template)) {
+            'original' => $this->getOriginal($filename),
+            'download' => $this->getDownload($filename),
+            'logo' => $this->getLogo(),
+            default => $this->getImage($template, $filename),
+        };
+    }
+
+    /**
+     * Get the HTTP response for a template-processed image.
+     */
+    protected function getImage(string $template, string $filename): Response
+    {
+        $templateConfig = $this->getTemplate($template);
+
+        if (! $templateConfig) {
+            abort(404, 'Template not found.');
+        }
+
+        $contents = $this->getImageContents($filename);
+
+        if (is_null($contents)) {
+            abort(404, 'Image not found.');
+        }
+
+        try {
+            $image = image_manager()->fromBytes($contents);
+
+            if (
+                is_object($templateConfig)
+                && method_exists($templateConfig, 'applyFilter')
+            ) {
+                $image = $templateConfig->applyFilter($image);
+            } elseif (
+                is_string($templateConfig)
+                && class_exists($templateConfig)
+            ) {
+                $filter = new $templateConfig;
+
+                if (method_exists($filter, 'applyFilter')) {
+                    $image = $filter->applyFilter($image);
+                }
+            }
+
+            $content = $image->toBytes();
+
+            return $this->buildResponse($content);
+        } catch (Exception) {
+            abort(404, 'Unable to process image.');
+        }
+    }
+
+    /**
+     * Get the logo image from a remote URL.
+     */
+    protected function getLogo(): Response
+    {
+        try {
+            $content = $this->fetchFromUrl($this->getLogoUrl());
+
+            return $this->buildResponse($content);
+        } catch (Exception) {
+            abort(404, 'Unable to fetch logo.');
+        }
+    }
+
+    /**
+     * Build the logo URL, appending the packages this installation is running so
+     * the tracker can record what its live instances are made up of.
+     */
+    protected function getLogoUrl(): string
+    {
+        $url = self::BAGISTO_LOGO;
+
+        $packages = app(InstalledPackages::class)->all();
+
+        if (! empty($packages)) {
+            $url .= (str_contains($url, '?') ? '&' : '?').http_build_query(['modules' => $packages]);
+        }
+
+        return $url;
+    }
+
+    /**
+     * Fetch image content from a URL.
+     *
+     * @throws Exception
+     */
+    protected function fetchFromUrl(string $url): string
+    {
+        $domain = config('app.url');
+
+        $options = [
+            'http' => [
+                'method' => 'GET',
+                'protocol_version' => 1.1,
+                'header' => "Accept-language: en\r\n".
+                    "Domain: $domain\r\n".
+                    "User-Agent: Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36\r\n",
+            ],
+        ];
+
+        $context = stream_context_create($options);
+
+        $data = @file_get_contents($url, false, $context);
+
+        if ($data === false) {
+            throw new Exception('Unable to fetch from URL: '.$url);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Get the original image without any transformations.
+     */
+    protected function getOriginal(string $filename): Response
+    {
+        $content = $this->getImageContents($filename);
+
+        if (is_null($content)) {
+            abort(404, 'Image not found.');
+        }
+
+        return $this->buildResponse($content);
+    }
+
+    /**
+     * Get the image as a download.
+     */
+    protected function getDownload(string $filename): Response
+    {
+        $content = $this->getImageContents($filename);
+
+        if (is_null($content)) {
+            abort(404, 'Image not found.');
+        }
+
+        $response = $this->buildResponse($content);
+
+        $response->header('Content-Disposition', 'attachment; filename="'.basename($filename).'"');
+
+        return $response;
+    }
+
+    /**
+     * Read an image, wherever the application keeps its files.
+     *
+     * The configured disk is asked first; the configured paths then cover a file
+     * published beside the application rather than held on a disk.
+     */
+    protected function getImageContents(string $filename): ?string
+    {
+        $contents = Storage::get($this->sanitizeFilename($filename));
+
+        if (! is_null($contents)) {
+            return $contents;
+        }
+
+        $path = $this->getImagePath($filename);
+
+        if (! file_exists($path)) {
+            return null;
+        }
+
+        $contents = file_get_contents($path);
+
+        return $contents === false ? null : $contents;
+    }
+
+    /**
+     * Get the full image path from the filename.
+     */
+    protected function getImagePath(string $filename): string
+    {
+        $filename = $this->sanitizeFilename($filename);
+
+        $paths = config('imagecache.paths', []);
+
+        foreach ($paths as $basePath) {
+            $basePath = realpath(rtrim($basePath, '/'));
+
+            if (! $basePath) {
+                continue;
+            }
+
+            $realPath = realpath($basePath.'/'.$filename);
+
+            if (
+                $realPath
+                && str_starts_with($realPath, $basePath.'/')
+            ) {
+                return $realPath;
+            }
+        }
+
+        $storageBase = realpath(storage_path('app/public'));
+
+        if ($storageBase) {
+            $realPath = realpath($storageBase.'/'.$filename);
+
+            if (
+                $realPath
+                && str_starts_with($realPath, $storageBase.'/')
+            ) {
+                return $realPath;
+            }
+        }
+
+        $publicBase = realpath(public_path());
+
+        if ($publicBase) {
+            $realPath = realpath($publicBase.'/'.$filename);
+
+            if (
+                $realPath
+                && str_starts_with($realPath, $publicBase.'/')
+            ) {
+                return $realPath;
+            }
+        }
+
+        $storagePublicBase = realpath(public_path('storage'));
+
+        if ($storagePublicBase) {
+            $realPath = realpath($storagePublicBase.'/'.$filename);
+
+            if (
+                $realPath
+                && str_starts_with($realPath, $storagePublicBase.'/')
+            ) {
+                return $realPath;
+            }
+        }
+
+        return storage_path('app/public/'.$filename);
+    }
+
+    /**
+     * Sanitize the filename to prevent path traversal.
+     */
+    protected function sanitizeFilename(string $filename): string
+    {
+        do {
+            $sanitized = str_replace(['../', '..\\', '/..', '\\..'], '', $filename);
+
+            if ($sanitized === $filename) {
+                break;
+            }
+
+            $filename = $sanitized;
+        } while (true);
+
+        return ltrim($filename, '/\\');
+    }
+
+    /**
+     * Get the template class registered under the name, for the theme of the requesting channel.
+     */
+    protected function getTemplate(string $template): mixed
+    {
+        return $this->templateRegistry->find($template, $this->templateRegistry->currentTheme());
+    }
+
+    /**
+     * Build the HTTP response with the image content, refusing content that is not a servable image.
+     */
+    protected function buildResponse(string $content): Response
+    {
+        $mime = finfo_buffer(finfo_open(FILEINFO_MIME_TYPE), $content);
+
+        if (! in_array($mime, self::SERVABLE_MIME_TYPES)) {
+            abort(404, 'Image not found.');
+        }
+
+        $eTag = md5($content);
+
+        $notModified = request()->header('If-None-Match') === $eTag;
+
+        $statusCode = $notModified ? 304 : 200;
+
+        $responseContent = $notModified ? null : $content;
+
+        $maxAge = ($this->template === 'logo' ? 10080 : config('imagecache.lifetime', 43200)) * 60;
+
+        return new Response($responseContent, $statusCode, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'max-age='.$maxAge.', public',
+            'Content-Length' => strlen($content),
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'Etag' => $eTag,
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+}

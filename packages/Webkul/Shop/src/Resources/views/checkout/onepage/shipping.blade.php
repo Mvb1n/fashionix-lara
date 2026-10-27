@@ -24,7 +24,7 @@
 
             <template v-else>
                 <!-- Accordion Blade Component -->
-                <x-shop::accordion class="overflow-hidden !border-b-0 max-md:rounded-lg max-md:!border-none max-md:!bg-gray-100">
+                <x-shop::accordion class="overflow-hidden border-b-0! max-md:rounded-lg max-md:border-none! max-md:bg-gray-100!">
                     <!-- Accordion Blade Component Header -->
                     <x-slot:header class="px-0 py-4 max-md:p-3 max-md:text-sm max-md:font-medium max-sm:p-2">
                         <div class="flex items-center justify-between">
@@ -35,13 +35,13 @@
                     </x-slot>
 
                     <!-- Accordion Blade Component Content -->
-                    <x-slot:content class="mt-8 !p-0 max-md:mt-0 max-md:rounded-t-none max-md:border max-md:border-t-0 max-md:!p-4">
+                    <x-slot:content class="mt-8 p-0! max-md:mt-0 max-md:rounded-t-none max-md:border max-md:border-t-0 max-md:p-4!">
                         <div class="flex flex-wrap gap-8 max-md:gap-4 max-sm:gap-2.5">
                             <template v-for="method in methods">
                                 {!! view_render_event('bagisto.shop.checkout.onepage.shipping_method.before') !!}
 
                                 <div
-                                    class="relative max-w-[218px] select-none max-md:max-w-full max-md:flex-auto"
+                                    class="relative max-w-54.5 select-none max-md:max-w-full max-md:flex-auto"
                                     v-for="rate in method.rates"
                                 >
                                     <input 
@@ -49,18 +49,18 @@
                                         name="shipping_method"
                                         :id="rate.method"
                                         :value="rate.method"
-                                        class="peer hidden"
+                                        class="peer sr-only"
                                         @change="store(rate.method)"
                                     >
 
                                     <label 
-                                        class="icon-radio-unselect peer-checked:icon-radio-select absolute top-5 cursor-pointer text-2xl text-navyBlue ltr:right-5 rtl:left-5"
+                                        class="icon-radio-unselect peer-checked:icon-radio-select absolute top-5 cursor-pointer text-2xl text-navyBlue ltr:right-5 rtl:left-5 peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 rounded"
                                         :for="rate.method"
                                     >
                                     </label>
 
                                     <label 
-                                        class="block cursor-pointer rounded-xl border border-zinc-200 p-5 max-sm:flex max-sm:gap-4 max-sm:rounded-lg max-sm:px-4 max-sm:py-2.5"
+                                        class="block cursor-pointer rounded-xl border border-zinc-200 p-5 max-sm:flex max-sm:gap-4 max-sm:rounded-lg max-sm:px-4 max-sm:py-2.5 peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:border-navyBlue"
                                         :for="rate.method"
                                     >
                                         <span class="icon-flate-rate text-6xl text-navyBlue max-sm:text-5xl"></span>

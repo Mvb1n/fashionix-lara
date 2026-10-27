@@ -3,7 +3,10 @@
 namespace Webkul\Admin\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Settings\RolesDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\User\Repositories\AdminRepository;
@@ -24,7 +27,7 @@ class RoleController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -38,7 +41,7 @@ class RoleController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -48,20 +51,26 @@ class RoleController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
         $this->validate(request(), [
-            'name'            => 'required',
+            'name' => 'required',
             'permission_type' => 'required|in:all,custom',
-            'description'     => 'required',
+            'description' => 'required',
+            'permissions' => 'array',
+            'permissions.*' => 'string',
         ]);
 
         if (request('permission_type') == 'custom') {
             $this->validate(request(), [
                 'permissions' => 'required',
             ]);
+        }
+
+        if (! bouncer()->canGrantPermissions(request('permission_type'), (array) request('permissions'))) {
+            return $this->cannotGrantRedirectResponse();
         }
 
         Event::dispatch('user.role.create.before');
@@ -85,11 +94,15 @@ class RoleController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View|RedirectResponse
      */
     public function edit(int $id)
     {
         $role = $this->roleRepository->findOrFail($id);
+
+        if (! bouncer()->canGrantRole($role)) {
+            return $this->cannotGrantRedirectResponse();
+        }
 
         return view('admin::settings.roles.edit', compact('role'));
     }
@@ -97,20 +110,28 @@ class RoleController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(int $id)
     {
         $this->validate(request(), [
-            'name'            => 'required',
+            'name' => 'required',
             'permission_type' => 'required|in:all,custom',
-            'description'     => 'required',
+            'description' => 'required',
+            'permissions' => 'array',
+            'permissions.*' => 'string',
         ]);
 
-        /**
-         * Check for other admins if the role has been changed from all to custom.
-         */
-        $isChangedFromAll = request('permission_type') == 'custom' && $this->roleRepository->find($id)->permission_type == 'all';
+        $role = $this->roleRepository->findOrFail($id);
+
+        if (
+            ! bouncer()->canGrantRole($role)
+            || ! bouncer()->canGrantPermissions(request('permission_type'), (array) request('permissions'))
+        ) {
+            return $this->cannotGrantRedirectResponse();
+        }
+
+        $isChangedFromAll = request('permission_type') == 'custom' && $role->permission_type == 'all';
 
         if (
             $isChangedFromAll
@@ -147,9 +168,15 @@ class RoleController extends Controller
     {
         $role = $this->roleRepository->findOrFail($id);
 
+        if (! bouncer()->canGrantRole($role)) {
+            return new JsonResponse([
+                'message' => trans('admin::app.settings.roles.permissions-not-grantable'),
+            ], 403);
+        }
+
         if ($role->admins->count() >= 1) {
             return new JsonResponse(['message' => trans('admin::app.settings.roles.being-used', [
-                'name'   => 'admin::app.settings.roles.index.title',
+                'name' => 'admin::app.settings.roles.index.title',
                 'source' => 'admin::app.settings.roles.index.admin-user',
             ])], 400);
         }
@@ -178,5 +205,15 @@ class RoleController extends Controller
                 'admin::app.settings.roles.delete-failed'
             ),
         ], 500);
+    }
+
+    /**
+     * Redirect back to the roles with an error, when the admin would grant permissions they do not hold.
+     */
+    protected function cannotGrantRedirectResponse(): RedirectResponse
+    {
+        session()->flash('error', trans('admin::app.settings.roles.permissions-not-grantable'));
+
+        return redirect()->route('admin.settings.roles.index');
     }
 }

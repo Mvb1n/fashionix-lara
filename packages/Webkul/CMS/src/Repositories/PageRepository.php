@@ -3,21 +3,24 @@
 namespace Webkul\CMS\Repositories;
 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Webkul\CMS\Contracts\Page;
 use Webkul\CMS\Models\PageTranslationProxy;
 use Webkul\Core\Eloquent\Repository;
 
 class PageRepository extends Repository
 {
     /**
-     * Specify Model class name
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\CMS\Contracts\Page';
+        return Page::class;
     }
 
     /**
-     * @return \Webkul\CMS\Contracts\Page
+     * Create a cms page and attach it to the given channels.
+     *
+     * @return Page
      */
     public function create(array $data)
     {
@@ -41,8 +44,10 @@ class PageRepository extends Repository
     }
 
     /**
+     * Update a cms page and the channels it belongs to.
+     *
      * @param  int  $id
-     * @return \Webkul\CMS\Contracts\Page
+     * @return Page
      */
     public function update(array $data, $id)
     {
@@ -60,7 +65,7 @@ class PageRepository extends Repository
     }
 
     /**
-     * Checks slug is unique or not based on locale
+     * Checks slug is unique or not based on locale.
      *
      * @param  int  $id
      * @param  string  $urlKey
@@ -78,10 +83,10 @@ class PageRepository extends Repository
     }
 
     /**
-     * Retrieve category from slug
+     * Retrieve category from slug.
      *
      * @param  string  $urlKey
-     * @return \Webkul\CMS\Contracts\Page
+     * @return Page
      */
     public function findByUrlKey($urlKey)
     {
@@ -89,10 +94,10 @@ class PageRepository extends Repository
     }
 
     /**
-     * Retrieve category from slug
+     * Retrieve category from slug.
      *
      * @param  string  $urlKey
-     * @return \Webkul\CMS\Contracts\Page|\Exception
+     * @return Page|\Exception
      */
     public function findByUrlKeyOrFail($urlKey)
     {

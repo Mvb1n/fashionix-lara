@@ -7,16 +7,21 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Webkul\Core\Contracts\CoreConfig;
 use Webkul\Core\Eloquent\Repository;
+use Webkul\Core\SystemConfig\DependsCondition;
+use Webkul\Core\Traits\Sanitizer;
 
 class CoreConfigRepository extends Repository
 {
+    use Sanitizer;
+
     /**
      * Specify model class name.
      */
     public function model(): string
     {
-        return 'Webkul\Core\Contracts\CoreConfig';
+        return CoreConfig::class;
     }
 
     /**
@@ -26,22 +31,23 @@ class CoreConfigRepository extends Repository
     {
         Event::dispatch('core.configuration.save.before');
 
-        if (
-            $data['locale']
-            || $data['channel']
-        ) {
-            $locale = $data['locale'];
-            $channel = $data['channel'];
+        $locale = Arr::pull($data, 'locale') ?: core()->getRequestedLocaleCode();
 
-            unset($data['locale']);
-            unset($data['channel']);
-        }
+        $channel = Arr::pull($data, 'channel') ?: core()->getRequestedChannelCode();
 
-        foreach ($data as $method => $fieldData) {
-            $recursiveData = $this->recursiveArray($fieldData, $method);
+        foreach ($data as $group => $fieldData) {
+            $configValues = $this->flattenToConfigValues($fieldData, $group);
 
-            foreach ($recursiveData as $fieldName => $value) {
+            foreach ($configValues as $fieldName => $value) {
                 $field = core()->getConfigField($fieldName);
+
+                $condition = new DependsCondition($field['depends'] ?? null);
+
+                $sibling = Str::beforeLast($fieldName, '.').'.'.$condition->fieldName();
+
+                if (! $condition->permits(array_key_exists($sibling, $configValues), $configValues[$sibling] ?? null)) {
+                    continue;
+                }
 
                 $channelBased = ! empty($field['channel_based']);
 
@@ -81,14 +87,18 @@ class CoreConfigRepository extends Repository
                 }
 
                 if (request()->hasFile($fieldName)) {
-                    $value = request()->file($fieldName)->store('configuration');
+                    $file = request()->file($fieldName);
+
+                    $value = $file->store('configurations');
+
+                    $this->sanitizeSVG($value, $file->getMimeType());
                 }
 
                 if (! count($coreConfigValue)) {
                     parent::create([
-                        'code'         => $fieldName,
-                        'value'        => $value,
-                        'locale_code'  => $localeBased ? $locale : null,
+                        'code' => $fieldName,
+                        'value' => $value,
+                        'locale_code' => $localeBased ? $locale : null,
                         'channel_code' => $channelBased ? $channel : null,
                     ]);
                 } else {
@@ -98,12 +108,16 @@ class CoreConfigRepository extends Repository
                         }
 
                         if (isset($value['delete'])) {
+                            if (in_array($field['type'] ?? '', ['image', 'file'])) {
+                                Storage::delete($coreConfig['value']);
+                            }
+
                             parent::delete($coreConfig['id']);
                         } else {
                             parent::update([
-                                'code'         => $fieldName,
-                                'value'        => $value,
-                                'locale_code'  => $localeBased ? $locale : null,
+                                'code' => $fieldName,
+                                'value' => $value,
+                                'locale_code' => $localeBased ? $locale : null,
                                 'channel_code' => $channelBased ? $channel : null,
                             ], $coreConfig->id);
                         }
@@ -113,6 +127,81 @@ class CoreConfigRepository extends Repository
         }
 
         Event::dispatch('core.configuration.save.after');
+    }
+
+    /**
+     * Search configuration.
+     */
+    public function search(Collection $items, string $searchTerm, array $path = []): array
+    {
+        $results = [];
+
+        foreach ($items as $configuration) {
+            $title = $this->getTranslatedTitle($configuration);
+
+            if (
+                stripos($title, $searchTerm) !== false
+                && count($path)
+            ) {
+                $queryParam = $path[1]['key'] ?? $configuration->getKey();
+
+                $results[] = [
+                    'title' => implode(' > ', [...Arr::pluck($path, 'title'), $title]),
+                    'url' => route('admin.configuration.index', Str::replace('.', '/', $queryParam)),
+                ];
+            }
+
+            $this->getChildrenAndFields($configuration, $searchTerm, $path, $results);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Flatten the nested array a configuration form submits into the value each setting is saved
+     * under, keyed by its dotted configuration code.
+     */
+    public function flattenToConfigValues(array $formData, string $prefix, array &$sections = [], array &$values = []): array
+    {
+        foreach ($formData as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            $code = $prefix.'.'.$key;
+
+            $depth = $this->depthOf($value);
+
+            if ($depth > 1) {
+                $this->flattenToConfigValues($value, $code, $sections, $values);
+            } elseif ($depth === 1) {
+                $sections[$code] = $value;
+            }
+        }
+
+        foreach ($sections as $code => $fields) {
+            if (core()->getConfigField($code)) {
+                $values[$code] = $fields;
+
+                continue;
+            }
+
+            foreach ($fields as $name => $value) {
+                $values[$code.'.'.$name] = $value;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * How many levels of array the given array nests, counting itself as the first.
+     */
+    public function depthOf(array $array): int
+    {
+        return is_array(reset($array))
+            ? $this->depthOf(reset($array)) + 1
+            : 1;
     }
 
     /**
@@ -151,99 +240,11 @@ class CoreConfigRepository extends Repository
                 : $configuration->getFields();
 
             $tempPath = array_merge($path, [[
-                'key'   => $configuration->getKey() ?? null,
+                'key' => $configuration->getKey() ?? null,
                 'title' => $this->getTranslatedTitle($configuration),
             ]]);
 
             $results = array_merge($results, $this->search($children, $searchTerm, $tempPath));
         }
-    }
-
-    /**
-     * Search configuration.
-     *
-     * @param  array  $items
-     */
-    public function search(Collection $items, string $searchTerm, array $path = []): array
-    {
-        $results = [];
-
-        foreach ($items as $configuration) {
-            $title = $this->getTranslatedTitle($configuration);
-
-            if (
-                stripos($title, $searchTerm) !== false
-                && count($path)
-            ) {
-                $queryParam = $path[1]['key'] ?? $configuration->getKey();
-
-                $results[] = [
-                    'title' => implode(' > ', [...Arr::pluck($path, 'title'), $title]),
-                    'url'   => route('admin.configuration.index', Str::replace('.', '/', $queryParam)),
-                ];
-            }
-
-            $this->getChildrenAndFields($configuration, $searchTerm, $path, $results);
-        }
-
-        return $results;
-    }
-
-    /**
-     * Recursive array.
-     *
-     * @param  string  $method
-     * @return array
-     */
-    public function recursiveArray(array $formData, $method)
-    {
-        static $data = [];
-
-        static $recursiveArrayData = [];
-
-        foreach ($formData as $form => $formValue) {
-            $value = $method.'.'.$form;
-
-            if (is_array($formValue)) {
-                $dim = $this->countDim($formValue);
-
-                if ($dim > 1) {
-                    $this->recursiveArray($formValue, $value);
-                } elseif ($dim == 1) {
-                    $data[$value] = $formValue;
-                }
-            }
-        }
-
-        foreach ($data as $key => $value) {
-            $field = core()->getConfigField($key);
-
-            if ($field) {
-                $recursiveArrayData[$key] = $value;
-            } else {
-                foreach ($value as $key1 => $val) {
-                    $recursiveArrayData[$key.'.'.$key1] = $val;
-                }
-            }
-        }
-
-        return $recursiveArrayData;
-    }
-
-    /**
-     * Return dimension of the array.
-     *
-     * @param  array  $array
-     * @return int
-     */
-    public function countDim($array)
-    {
-        if (is_array(reset($array))) {
-            $return = $this->countDim(reset($array)) + 1;
-        } else {
-            $return = 1;
-        }
-
-        return $return;
     }
 }

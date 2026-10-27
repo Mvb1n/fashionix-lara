@@ -5,8 +5,8 @@
     </x-slot>
 
     <!-- Error page Information -->
-	<div class="flex h-[100vh] items-center justify-center bg-white dark:bg-gray-900">
-        <div class="flex max-w-[745px] items-center gap-5">
+	<div class="flex h-screen items-center justify-center bg-white dark:bg-gray-900">
+        <div class="flex max-w-186.25 items-center gap-5">
             <div class="w-full">
                 @php
                     $logoUrl = core()->getConfigData('general.design.admin_logo.logo_image') 
@@ -55,8 +55,8 @@
 
                 <p class="text-sm text-gray-800">
                     @lang('admin::app.errors.support', [
-                        'link'  => 'mailto:support@example.com',
-                        'email' => 'support@example.com',
+                        'link'  => 'mailto:' . (core()->getAdminEmailDetails()['email'] ?? 'support@example.com'),
+                        'email' => core()->getAdminEmailDetails()['email'] ?? 'support@example.com',
                         'class' => 'font-semibold text-blue-600 transition-all hover:underline',
                     ])
                 </p>

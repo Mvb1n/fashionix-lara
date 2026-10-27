@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\Http\Controllers;
 
+use Illuminate\View\View;
 use Webkul\Notification\Repositories\NotificationRepository;
 
 class NotificationController extends Controller
@@ -16,10 +17,12 @@ class NotificationController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
+        abort_unless($this->readsOrderNotifications(), 401);
+
         return view('admin::notifications.index');
     }
 
@@ -30,6 +33,14 @@ class NotificationController extends Controller
      */
     public function getNotifications()
     {
+        if (! $this->readsOrderNotifications()) {
+            return [
+                'search_results' => [],
+                'status_count' => '',
+                'total_unread' => 0,
+            ];
+        }
+
         $params = request()->except('page');
 
         $searchResults = count($params)
@@ -42,8 +53,8 @@ class NotificationController extends Controller
 
         return [
             'search_results' => $results,
-            'status_count'   => $statusCount,
-            'total_unread'   => $this->notificationRepository->where('read', 0)->count(),
+            'status_count' => $statusCount,
+            'total_unread' => $this->notificationRepository->where('read', 0)->count(),
         ];
     }
 
@@ -51,10 +62,12 @@ class NotificationController extends Controller
      * Update the notification is reade or not.
      *
      * @param  int  $orderId
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function viewedNotifications($orderId)
     {
+        abort_unless($this->readsOrderNotifications(), 401);
+
         if ($notification = $this->notificationRepository->where('order_id', $orderId)->first()) {
             $notification->read = 1;
 
@@ -73,17 +86,27 @@ class NotificationController extends Controller
      */
     public function readAllNotifications()
     {
+        abort_unless($this->readsOrderNotifications(), 401);
+
         $this->notificationRepository->where('read', 0)->update(['read' => 1]);
 
         $searchResults = $this->notificationRepository->getParamsData([
             'limit' => 5,
-            'read'  => 0,
+            'read' => 0,
         ]);
 
         return [
-            'search_results'  => $searchResults,
-            'total_unread'    => $this->notificationRepository->where('read', 0)->count(),
+            'search_results' => $searchResults,
+            'total_unread' => $this->notificationRepository->where('read', 0)->count(),
             'success_message' => trans('admin::app.notifications.marked-success'),
         ];
+    }
+
+    /**
+     * Whether the signed in admin may read the orders every notification is raised about.
+     */
+    protected function readsOrderNotifications(): bool
+    {
+        return bouncer()->hasPermission('sales.orders');
     }
 }

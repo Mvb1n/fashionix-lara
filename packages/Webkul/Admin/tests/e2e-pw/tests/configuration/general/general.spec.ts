@@ -1,45 +1,45 @@
-import { test, expect } from "../../../setup";
+import { test } from "../../../setup";
+import {
+    GeneralConfigurationPage,
+    type GeneralSettings,
+} from "../../../pages/admin/configuration/general/GeneralConfigurationPage";
+
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
+}
 
 test.describe("general configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let configPage: GeneralConfigurationPage;
+    let original: GeneralSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/general/general");
+        configPage = new GeneralConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    test("should update weight unit", async ({ adminPage }) => {
-        await adminPage.selectOption(
-            'select[name="general[general][locale_options][weight_unit]"]',
-            "lbs"
-        );
-        const weightUnitSelect = adminPage.locator(
-            'select[name="general[general][locale_options][weight_unit]"]'
-        );
-        await expect(weightUnitSelect).toHaveValue("lbs");
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
     });
 
-    test("should update breadcrumbs status", async ({ adminPage }) => {
-        await adminPage.click(
-            'label[for="general[general][breadcrumbs][shop]"]'
-        );
+    test("should persist the weight unit after reload", async () => {
+        const changed = { weightUnit: other(original.weightUnit, "kgs", "lbs") };
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        await configPage.applySettings(changed);
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+        await configPage.expectSettings(changed);
+    });
+
+    test("should show storefront breadcrumbs only while they are enabled", async () => {
+        await configPage.applySettings({ breadcrumbs: true });
+
+        await configPage.expectSettings({ breadcrumbs: true });
+        await configPage.expectBreadcrumbsOnStorefront(true);
+
+        await configPage.applySettings({ breadcrumbs: false });
+
+        await configPage.expectSettings({ breadcrumbs: false });
+        await configPage.expectBreadcrumbsOnStorefront(false);
     });
 });

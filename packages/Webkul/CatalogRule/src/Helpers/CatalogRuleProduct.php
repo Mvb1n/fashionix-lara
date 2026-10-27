@@ -3,8 +3,12 @@
 namespace Webkul\CatalogRule\Helpers;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\CatalogRule\Contracts\CatalogRule;
 use Webkul\CatalogRule\Repositories\CatalogRuleProductRepository;
+use Webkul\Product\Contracts\Product;
 use Webkul\Product\Repositories\ProductRepository;
 use Webkul\Rule\Helpers\Validator;
 
@@ -23,10 +27,11 @@ class CatalogRuleProduct
     ) {}
 
     /**
-     * Collect discount on cart
+     * Index the products a rule applies to, one row per channel and customer group, inserted in batches.
      *
-     * @param  \Webkul\CatalogRule\Contracts\CatalogRule  $rule
+     * @param  CatalogRule  $rule
      * @param  int  $batchCount
+     * @param  Product|null  $product
      * @return void
      */
     public function insertRuleProduct($rule, $batchCount = 1000, $product = null)
@@ -51,16 +56,16 @@ class CatalogRuleProduct
             foreach ($channelIds as $channelId) {
                 foreach ($customerGroupIds as $customerGroupId) {
                     $rows[] = [
-                        'starts_from'       => $startsFrom,
-                        'ends_till'         => $endsTill,
-                        'catalog_rule_id'   => $rule->id,
-                        'channel_id'        => $channelId,
+                        'starts_from' => $startsFrom,
+                        'ends_till' => $endsTill,
+                        'catalog_rule_id' => $rule->id,
+                        'channel_id' => $channelId,
                         'customer_group_id' => $customerGroupId,
-                        'product_id'        => $productId,
-                        'discount_amount'   => $rule->discount_amount,
-                        'action_type'       => $rule->action_type,
-                        'end_other_rules'   => $rule->end_other_rules,
-                        'sort_order'        => $rule->sort_order,
+                        'product_id' => $productId,
+                        'discount_amount' => $rule->discount_amount,
+                        'action_type' => $rule->action_type,
+                        'end_other_rules' => $rule->end_other_rules,
+                        'sort_order' => $rule->sort_order,
                     ];
 
                     if (count($rows) == $batchCount) {
@@ -78,9 +83,9 @@ class CatalogRuleProduct
     }
 
     /**
-     * Clean catalog rule product indices
+     * Delete the product indices of a rule.
      *
-     * @param  \Webkul\CatalogRule\Contracts\CatalogRule  $rule
+     * @param  CatalogRule  $rule
      * @return void
      */
     public function cleanRuleIndices($rule)
@@ -89,7 +94,7 @@ class CatalogRuleProduct
     }
 
     /**
-     * Clean products indices
+     * Delete the rule indices of the given products, or of every product when none are given.
      *
      * @param  array  $productIds
      * @return void
@@ -100,25 +105,29 @@ class CatalogRuleProduct
             $this->catalogRuleProductRepository->whereIn('product_id', $productIds)->delete();
         } else {
             $this->catalogRuleProductRepository->deleteWhere([
-                ['product_id', 'like', '%%'],
+                ['product_id', db_grammar()->caseInsensitiveLike(), '%%'],
             ]);
         }
     }
 
     /**
-     * Get array of product ids which are matched by rule
+     * Get the ids of the products a rule applies to, judging each variant of a configurable product on its own
+     * with the categories and values it inherits from it.
      *
-     * @param  \Webkul\CatalogRule\Contracts\CatalogRule  $rule
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  CatalogRule  $rule
+     * @param  Product|null  $product
      * @return array
      */
     public function getMatchingProductIds($rule, $product = null)
     {
-        $products = $this->productRepository->scopeQuery(function ($query) use ($rule, $product) {
+        $products = $this->productRepository->with('parent')->scopeQuery(function ($query) use ($rule, $product) {
             $query = $query->addSelect('products.*');
 
             if ($product) {
-                $query->where('products.id', $product->id);
+                $query->where(function ($query) use ($product) {
+                    $query->where('products.id', $product->id)
+                        ->orWhere('products.parent_id', $product->id);
+                });
             }
 
             if (! $rule->conditions) {
@@ -130,7 +139,8 @@ class CatalogRuleProduct
             foreach ($rule->conditions as $condition) {
                 if (
                     ! $condition['attribute']
-                    || empty($condition['value'])
+                    || ! isset($condition['value'])
+                    || is_null($condition['value'])
                     || in_array($condition['attribute'], $appliedAttributes)
                 ) {
                     continue;
@@ -149,27 +159,26 @@ class CatalogRuleProduct
         $validatedProductIds = [];
 
         foreach ($products as $product) {
-            if (! $product->getTypeInstance()->priceRuleCanBeApplied()) {
+            if (
+                ! $product->getTypeInstance()->priceRuleCanBeApplied()
+                || $product->getTypeInstance()->isComposite()
+            ) {
                 continue;
             }
 
             if ($this->validator->validate($rule, $product)) {
-                if ($product->getTypeInstance()->isComposite()) {
-                    $validatedProductIds = array_merge($validatedProductIds, $product->getTypeInstance()->getChildrenIds());
-                } else {
-                    $validatedProductIds[] = $product->id;
-                }
+                $validatedProductIds[] = $product->id;
             }
         }
 
-        return array_unique($validatedProductIds);
+        return $validatedProductIds;
     }
 
     /**
-     * Returns catalog rule products
+     * Get the rule product indices with each product's price, for one product or for every product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
-     * @return \Illuminate\Support\Collection
+     * @param  Product|null  $product
+     * @return Collection
      */
     public function getCatalogRuleProducts($product = null)
     {
@@ -206,11 +215,11 @@ class CatalogRuleProduct
     }
 
     /**
-     * Add product attribute condition to query
+     * Join an attribute's values to the query and select them under the attribute's code.
      *
      * @param  string  $attributeCode
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function addAttributeToSelect($attributeCode, $query)
     {

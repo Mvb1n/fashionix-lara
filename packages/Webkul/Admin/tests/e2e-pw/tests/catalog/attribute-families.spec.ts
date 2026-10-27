@@ -1,119 +1,97 @@
-import { test, expect } from "../../setup";
-import { generateName, generateSlug } from "../../utils/faker";
+import { test } from "../../setup";
+import {
+    AttributeFamilyPage,
+    type AttributeFamilyData,
+} from "../../pages/admin/catalog/attribute-families/AttributeFamilyPage";
+import { generateName, generateSlug, uniqueStamp } from "../../utils/faker";
+
+function buildFamily(
+    overrides: Partial<AttributeFamilyData> = {},
+): AttributeFamilyData {
+    return {
+        code: generateSlug("_"),
+        name: `${generateName()} ${uniqueStamp()}`,
+        ...overrides,
+    };
+}
 
 test.describe("attribute family management", () => {
-    test("should be able to create attribute family", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("div.primary-button", {
-            state: "visible",
-        });
+    let familyPage: AttributeFamilyPage;
+    let created: string[];
 
-        await adminPage.click("div.primary-button:visible");
-        await adminPage
-            .waitForSelector("div#not_avaliable", { timeout: 1000 })
-            .catch(() => null);
-
-        await adminPage.fill('input[name="name"]', generateName());
-        await adminPage.fill('input[name="code"]', generateSlug("_"));
-
-        const attributes = await adminPage.$$("i.icon-drag");
-        const targets = await adminPage.$$(
-            'div[class="flex [&>*]:flex-1 gap-5 justify-between px-4"] > div > div[class="h-[calc(100vh-285px)] overflow-auto border-gray-200 pb-4 ltr:border-r rtl:border-l"]'
-        );
-
-        for (const attribute of attributes) {
-            const randomTargetIndex = Math.floor(
-                Math.random() * targets.length
-            );
-            const target = targets[randomTargetIndex];
-
-            const attributeBox = await attribute.boundingBox();
-            const targetBox = await target.boundingBox();
-
-            if (attributeBox && targetBox) {
-                const randomX = targetBox.x + Math.random() * targetBox.width;
-                const randomY = targetBox.y + Math.random() * targetBox.height;
-
-                await adminPage.mouse.move(
-                    attributeBox.x + attributeBox.width / 2,
-                    attributeBox.y + attributeBox.height / 2
-                );
-                await adminPage.mouse.down();
-                await adminPage.mouse.move(randomX, randomY);
-                await adminPage.mouse.up();
-            }
-        }
-
-        await adminPage.click(".primary-button:visible");
-        await expect(
-            adminPage.getByText("Family created successfully.")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        familyPage = new AttributeFamilyPage(adminPage);
+        created = [];
     });
 
-    test("should be able to edit attribute family", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("div.primary-button", {
-            state: "visible",
-        });
-
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        await adminPage.waitForSelector('input[name="name"]');
-        await adminPage.fill('input[name="name"]', generateName());
-
-        const attributes = await adminPage.$$("i.icon-drag");
-        const targets = await adminPage.$$(
-            'div[class="flex [&>*]:flex-1 gap-5 justify-between px-4"] > div > div[class="h-[calc(100vh-285px)] overflow-auto border-gray-200 pb-4 ltr:border-r rtl:border-l"]'
-        );
-
-        for (const attribute of attributes) {
-            const randomTargetIndex = Math.floor(
-                Math.random() * targets.length
-            );
-            const target = targets[randomTargetIndex];
-
-            const attributeBox = await attribute.boundingBox();
-            const targetBox = await target.boundingBox();
-
-            if (attributeBox && targetBox) {
-                const randomX = targetBox.x + Math.random() * targetBox.width;
-                const randomY = targetBox.y + Math.random() * targetBox.height;
-
-                await adminPage.mouse.move(
-                    attributeBox.x + attributeBox.width / 2,
-                    attributeBox.y + attributeBox.height / 2
-                );
-                await adminPage.mouse.down();
-                await adminPage.mouse.move(randomX, randomY);
-                await adminPage.mouse.up();
-            }
-        }
-
-        await adminPage.click(".primary-button:visible");
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
+    test.afterEach(async () => {
+        await familyPage.deleteFamiliesIfPresent(created);
     });
 
-    test("should be able to delete attribute family", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("div.primary-button", {
-            state: "visible",
-        });
+    test("should create an attribute family and list it with its code", async () => {
+        const family = buildFamily();
+        created.push(family.name);
 
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
-        );
-        await iconDelete[0].click();
+        await familyPage.createFamily(family);
 
-        await adminPage.click(
-            "button.transparent-button + button.primary-button:visible"
+        await familyPage.expectFamilyListed(family);
+    });
+
+    test("should reject an attribute family without a code and name", async () => {
+        await familyPage.submitEmptyCreateForm();
+
+        await familyPage.expectValidationError("The Code field is required");
+        await familyPage.expectValidationError("The Name field is required");
+        await familyPage.expectStillOnCreateForm();
+    });
+
+    test("should reject an attribute family whose code is already used", async () => {
+        const existing = buildFamily();
+        const duplicate = buildFamily({ code: existing.code });
+        created.push(existing.name, duplicate.name);
+
+        await familyPage.createFamily(existing);
+        await familyPage.attemptCreateFamily(duplicate);
+
+        await familyPage.expectValidationError(
+            "The code has already been taken.",
         );
-        await expect(
-            adminPage.getByText("Family deleted successfully.")
-        ).toBeVisible({ timeout: 5000 });
+        await familyPage.expectFamilyAbsent(duplicate.name);
+        await familyPage.expectFamilyCodeListedOnce(existing.code);
+    });
+
+    test("should rename an attribute family and keep the new name after reload", async () => {
+        const family = buildFamily();
+        const newName = `${generateName()} ${uniqueStamp()}`;
+        created.push(family.name, newName);
+
+        await familyPage.createFamily(family);
+        await familyPage.renameFamily(family.name, newName);
+
+        await familyPage.expectFamilyListed({ ...family, name: newName });
+        await familyPage.expectFamilyAbsent(family.name);
+        await familyPage.expectNameInEditForm(newName);
+    });
+
+    test("should delete an attribute family and remove it from the grid", async () => {
+        const family = buildFamily();
+        const untouched = buildFamily();
+        created.push(family.name, untouched.name);
+
+        await familyPage.createFamily(family);
+        await familyPage.createFamily(untouched);
+        await familyPage.deleteFamily(family.name);
+
+        await familyPage.expectFamilyAbsent(family.name);
+        await familyPage.expectFamilyListed(untouched);
+    });
+
+    test("should refuse to delete the default attribute family", async () => {
+        await familyPage.attemptDeleteFamily("default");
+
+        await familyPage.expectErrorMessage(
+            "The default attribute family can not be deleted.",
+        );
+        await familyPage.expectDefaultFamilyListed();
     });
 });

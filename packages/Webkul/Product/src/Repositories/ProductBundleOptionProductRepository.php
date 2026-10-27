@@ -4,20 +4,24 @@ namespace Webkul\Product\Repositories;
 
 use Illuminate\Support\Str;
 use Webkul\Core\Eloquent\Repository;
+use Webkul\Product\Contracts\ProductBundleOption;
+use Webkul\Product\Contracts\ProductBundleOptionProduct;
 
 class ProductBundleOptionProductRepository extends Repository
 {
     /**
-     * Specify Model class name
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\Product\Contracts\ProductBundleOptionProduct';
+        return ProductBundleOptionProduct::class;
     }
 
     /**
+     * Save the products of a bundle option, removing the ones left out.
+     *
      * @param  array  $data
-     * @param  \Webkul\Product\Contracts\ProductBundleOption  $productBundleOption
+     * @param  ProductBundleOption  $productBundleOption
      * @return void
      */
     public function saveBundleOptionProducts($data, $productBundleOption)
@@ -37,7 +41,7 @@ class ProductBundleOptionProductRepository extends Repository
                      * existing option product otherwise we will create a new option product.
                      */
                     $bundleOptionProduct = $this->firstWhere([
-                        'product_id'               => $bundleOptionProductInputs['product_id'],
+                        'product_id' => $bundleOptionProductInputs['product_id'],
                         'product_bundle_option_id' => $productBundleOption->id,
                     ]);
 
@@ -81,6 +85,8 @@ class ProductBundleOptionProductRepository extends Repository
     }
 
     /**
+     * Mark the first product of a required bundle option as the default one when none is.
+     *
      * @param  array  $data
      * @return void|null
      */

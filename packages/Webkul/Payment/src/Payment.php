@@ -3,6 +3,7 @@
 namespace Webkul\Payment;
 
 use Illuminate\Support\Facades\Config;
+use Webkul\Checkout\Contracts\Cart;
 
 class Payment
 {
@@ -14,7 +15,7 @@ class Payment
     public function getSupportedPaymentMethods()
     {
         return [
-            'payment_methods'  => $this->getPaymentMethods(),
+            'payment_methods' => $this->getPaymentMethods(),
         ];
     }
 
@@ -32,11 +33,11 @@ class Payment
 
             if ($paymentMethod->isAvailable()) {
                 $paymentMethods[] = [
-                    'method'       => $paymentMethod->getCode(),
+                    'method' => $paymentMethod->getCode(),
                     'method_title' => $paymentMethod->getTitle(),
-                    'description'  => $paymentMethod->getDescription(),
-                    'sort'         => $paymentMethod->getSortOrder(),
-                    'image'        => $paymentMethod->getImage(),
+                    'description' => $paymentMethod->getDescription(),
+                    'sort' => $paymentMethod->getSortOrder(),
+                    'image' => $paymentMethod->getImage(),
                 ];
             }
         }
@@ -55,7 +56,7 @@ class Payment
     /**
      * Returns payment redirect url if have any
      *
-     * @param  \Webkul\Checkout\Contracts\Cart  $cart
+     * @param  Cart  $cart
      * @return string
      */
     public function getRedirectUrl($cart)

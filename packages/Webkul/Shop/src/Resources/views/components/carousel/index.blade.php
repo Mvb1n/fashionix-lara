@@ -1,8 +1,83 @@
 @props(['options'])
 
-<v-carousel :images="{{ json_encode($options['images'] ?? []) }}">
+@php
+    $carouselImages = collect($options['images'] ?? [])
+        ->map(function ($image) {
+            $resolved = bagisto_theme_storage()->imageUrls($image['image'] ?? null);
+
+            if (is_null($resolved)) {
+                return null;
+            }
+
+            return array_merge($image, [
+                'link'   => filled($image['link'] ?? null) ? url($image['link']) : null,
+                'url'    => $resolved['url'],
+                'srcset' => $resolved['url'].' 1920w, '
+                    .$resolved['srcset']['large'].' 1280w, '
+                    .$resolved['srcset']['medium'].' 1024w, '
+                    .$resolved['srcset']['small'].' 768w',
+                'preload' => $resolved['srcset']['small'],
+            ]);
+        })
+        ->filter()
+        ->values()
+        ->all();
+
+    $firstImage = data_get($carouselImages, '0.url');
+
+    $firstImageSrcset = data_get($carouselImages, '0.srcset');
+
+    $firstImagePreload = data_get($carouselImages, '0.preload');
+
+    $firstImageTitle = data_get($carouselImages, '0.title');
+@endphp
+
+@if ($firstImage)
+    {{--
+        Preload the LCP image in <head> so the browser starts fetching it
+        before HTML parse reaches the <img> tag. Directly targets the LCP
+        "resource load delay" subpart Lighthouse reports as the biggest
+        contributor on this page.
+    --}}
+    @push('meta')
+        <link
+            rel="preload"
+            as="image"
+            href="{{ $firstImagePreload }}"
+            imagesrcset="{{ $firstImageSrcset }}"
+            imagesizes="100vw"
+            fetchpriority="high"
+        >
+    @endpush
+@endif
+
+<v-carousel :images="{{ json_encode($carouselImages) }}">
     <div class="overflow-hidden">
-        <div class="shimmer aspect-[2.743/1] max-h-screen w-screen"></div>
+        @if ($firstImage)
+            {{--
+                Server-rendered first slide so the browser can discover and
+                fetch the LCP image immediately, before Vue mounts the
+                carousel. `sizes="100vw"` declares the actual rendered width
+                (the img has `w-screen`) so the browser picks the smallest
+                srcset variant that satisfies viewport_px × DPR — mobile
+                412 × 1.75 ≈ 721 → 768w small variant. The inline `style`
+                supplies width/aspect-ratio so the LCP element can paint
+                before the Tailwind CSS bundle finishes parsing on slow
+                mobile CPU.
+            --}}
+            <img
+                src="{{ $firstImage }}"
+                srcset="{{ $firstImageSrcset }}"
+                sizes="100vw"
+                class="aspect-[2.743/1] max-h-screen w-screen select-none object-cover"
+                style="width:100vw;aspect-ratio:2.743/1;max-height:100vh;object-fit:cover;display:block"
+                alt="{{ $firstImageTitle ?? trans('shop::app.home.index.image-carousel') }}"
+                fetchpriority="high"
+                decoding="sync"
+            >
+        @else
+            <div class="shimmer aspect-[2.743/1] max-h-screen w-screen"></div>
+        @endif
     </div>
 </v-carousel>
 
@@ -27,14 +102,9 @@
                     <x-shop::media.images.lazy
                         class="aspect-[2.743/1] max-h-full w-full max-w-full select-none transition-transform duration-300 ease-in-out will-change-transform"
                         ::lazy="index === 0 ? false : true"
-                        ::src="image.image"
-                        ::srcset="image.image + ' 1920w, ' + image.image.replace('storage', 'cache/large') + ' 1280w,' + image.image.replace('storage', 'cache/medium') + ' 1024w, ' + image.image.replace('storage', 'cache/small') + ' 525w'"
-                        ::sizes="
-                            '(max-width: 525px) 525px, ' +
-                            '(max-width: 1024px) 1024px, ' +
-                            '(max-width: 1600px) 1280px, ' +
-                            '1920px'
-                        "
+                        ::src="image.url"
+                        ::srcset="image.srcset"
+                        sizes="100vw"
                         ::alt="image?.title || 'Carousel Image ' + (index + 1)"
                         tabindex="0"
                         ::fetchpriority="index === 0 ? 'high' : 'low'"
@@ -44,50 +114,44 @@
             </div>
 
             <!-- Navigation -->
-            <span
-                class="icon-arrow-left absolute left-2.5 top-1/2 -mt-[22px] hidden w-auto rounded-full bg-black/80 p-3 text-2xl font-bold text-white opacity-30 transition-all md:inline-block"
+            <button
+                type="button"
+                class="icon-arrow-left absolute left-2.5 top-1/2 -mt-5.5 hidden w-auto rounded-full bg-black/80 p-3 text-2xl font-bold text-white opacity-30 transition-all md:inline-block"
                 :class="{
                     'cursor-not-allowed': direction == 'ltr' && currentIndex == 0,
                     'cursor-pointer hover:opacity-100': direction == 'ltr' ? currentIndex > 0 : currentIndex <= 0
                 }"
-                role="button"
-                aria-label="@lang('shop::components.carousel.previous')"
-                tabindex="0"
+                aria-label="@lang('shop::app.components.carousel.previous')"
                 v-if="images?.length >= 2"
                 @click="navigate('prev')"
             >
-            </span>
+            </button>
 
-            <span
-                class="icon-arrow-right absolute right-2.5 top-1/2 -mt-[22px] hidden w-auto rounded-full bg-black/80 p-3 text-2xl font-bold text-white opacity-30 transition-all md:inline-block"
+            <button
+                type="button"
+                class="icon-arrow-right absolute right-2.5 top-1/2 -mt-5.5 hidden w-auto rounded-full bg-black/80 p-3 text-2xl font-bold text-white opacity-30 transition-all md:inline-block"
                 :class="{
                     'cursor-not-allowed': direction == 'rtl' && currentIndex == 0,
                     'cursor-pointer hover:opacity-100': direction == 'rtl' ? currentIndex < 0 : currentIndex >= 0
                 }"
-                role="button"
-                aria-label="@lang('shop::components.carousel.next')"
-                tabindex="0"
+                aria-label="@lang('shop::app.components.carousel.next')"
                 v-if="images?.length >= 2"
                 @click="navigate('next')"
             >
-            </span>
+            </button>
 
             <!-- Pagination -->
             <div class="absolute bottom-5 left-0 flex w-full justify-center max-md:bottom-3.5 max-sm:bottom-2.5">
-                <div
+                <button
+                    type="button"
                     v-for="(image, index) in images"
                     :key="index"
-                    class="sm:p-2.5 mx-1 h-3 w-3 cursor-pointer rounded-full max-md:h-2 max-md:w-2 max-sm:h-1.5 max-sm:w-1.5
-                    p-2 focus:outline-none"
+                    class="sm:p-2.5 mx-1 h-3 w-3 cursor-pointer rounded-full max-md:h-2 max-md:w-2 max-sm:h-1.5 max-sm:w-1.5 p-2 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:ring-offset-2 focus-visible:outline-hidden"
                     :class="{ 'bg-navyBlue': index === Math.abs(currentIndex), 'opacity-30 bg-gray-500': index !== Math.abs(currentIndex) }"
-                    role="button"
-                    tabindex="0"
                     :aria-label="'Go to slide ' + (index + 1)"
                     @click="navigateByPagination(index)"
-                    @keydown.enter="navigateByPagination(index)"
-                    @keydown.space.prevent="navigateByPagination(index)"
                 >
-                </div>
+                </button>
             </div>
         </div>
     </script>

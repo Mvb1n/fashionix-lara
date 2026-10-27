@@ -6,10 +6,13 @@ use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Webkul\Core\Traits\Sanitizer;
 use Webkul\DataGrid\DataGrid;
 
 class DataGridExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapping
 {
+    use Sanitizer;
+
     /**
      * Create a new instance.
      *
@@ -43,7 +46,7 @@ class DataGridExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMap
     {
         return collect($this->datagrid->getColumns())
             ->filter(fn ($column) => $column->getExportable())
-            ->map(fn ($column) => $record->{$column->getIndex()})
+            ->map(fn ($column) => $this->sanitizeSpreadsheetValue($record->{$column->getIndex()}))
             ->toArray();
     }
 }

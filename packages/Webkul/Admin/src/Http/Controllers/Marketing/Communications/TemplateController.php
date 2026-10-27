@@ -3,7 +3,9 @@
 namespace Webkul\Admin\Http\Controllers\Marketing\Communications;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Marketing\Communications\EmailTemplateDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Marketing\Repositories\TemplateRepository;
@@ -20,7 +22,7 @@ class TemplateController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -34,7 +36,7 @@ class TemplateController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -44,23 +46,27 @@ class TemplateController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
         $this->validate(request(), [
-            'name'    => 'required',
-            'status'  => 'required|in:active,inactive,draft',
+            'name' => 'required',
+            'status' => 'required|in:active,inactive,draft',
             'content' => 'required',
         ]);
 
         Event::dispatch('marketing.templates.create.before');
 
-        $template = $this->templateRepository->create(request()->only([
+        $data = request()->only([
             'name',
             'status',
             'content',
-        ]));
+        ]);
+
+        $data['content'] = clean_content($data['content']);
+
+        $template = $this->templateRepository->create($data);
 
         Event::dispatch('marketing.templates.create.after', $template);
 
@@ -72,7 +78,7 @@ class TemplateController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function edit(int $id)
     {
@@ -84,23 +90,27 @@ class TemplateController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(int $id)
     {
         $this->validate(request(), [
-            'name'    => 'required',
-            'status'  => 'required|in:active,inactive,draft',
+            'name' => 'required',
+            'status' => 'required|in:active,inactive,draft',
             'content' => 'required',
         ]);
 
         Event::dispatch('marketing.templates.update.before', $id);
 
-        $template = $this->templateRepository->update(request()->only([
+        $data = request()->only([
             'name',
             'status',
             'content',
-        ]), $id);
+        ]);
+
+        $data['content'] = clean_content($data['content']);
+
+        $template = $this->templateRepository->update($data, $id);
 
         Event::dispatch('marketing.templates.update.after', $template);
 
@@ -114,6 +124,14 @@ class TemplateController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
+        $template = $this->templateRepository->findOrFail($id);
+
+        if ($template->campaigns()->count()) {
+            return new JsonResponse([
+                'message' => trans('admin::app.marketing.communications.templates.campaign-associate'),
+            ], 400);
+        }
+
         try {
             Event::dispatch('marketing.templates.delete.before', $id);
 

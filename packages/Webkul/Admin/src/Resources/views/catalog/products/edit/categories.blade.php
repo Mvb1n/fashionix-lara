@@ -1,13 +1,37 @@
 {!! view_render_event('bagisto.admin.catalog.product.edit.form.categories.before', ['product' => $product]) !!}
 
+@php
+    /**
+     * Categories visible under the current channel's root. When channels use
+     * different root categories the tree renders only these; any product
+     * category outside this set must be preserved on submit so sync() does
+     * not silently drop categories belonging to other channels' trees.
+     */
+    $visibleCategoryIds = app(\Webkul\Category\Repositories\CategoryRepository::class)
+        ->getVisibleCategoryIds($currentChannel->root_category_id);
+
+    $preservedCategoryIds = array_values(array_diff(
+        $product->categories->pluck('id')->all(),
+        $visibleCategoryIds
+    ));
+@endphp
+
 <!-- Panel -->
-<div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+<div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
     <!-- Panel Header -->
     <p class="mb-4 flex justify-between text-base font-semibold text-gray-800 dark:text-white">
         @lang('admin::app.catalog.products.edit.categories.title')
     </p>
 
     {!! view_render_event('bagisto.admin.catalog.product.edit.form.categories.controls.before', ['product' => $product]) !!}
+
+    @foreach ($preservedCategoryIds as $categoryId)
+        <input
+            type="hidden"
+            name="categories[]"
+            value="{{ $categoryId }}"
+        />
+    @endforeach
 
     <!-- Panel Content -->
     <div class="mb-5 text-sm text-gray-600 dark:text-gray-300">
@@ -40,6 +64,8 @@
                     name-field="categories"
                     id-field="id"
                     value-field="id"
+                    searchable="true"
+                    search-placeholder="{{ trans('admin::app.catalog.products.edit.categories.search') }}"
                     ::items="categories"
                     :value="json_encode($product->categories->pluck('id'))"
                     :fallback-locale="config('app.fallback_locale')"

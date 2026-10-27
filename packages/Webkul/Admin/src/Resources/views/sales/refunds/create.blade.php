@@ -53,10 +53,21 @@
                                             @lang('admin::app.sales.refunds.create.update-totals-btn')
                                         </div>
 
+										@foreach ($order->items as $item)
+                                            @php
+                                                $canRefundAfterRMA = app('\Webkul\RMA\Helpers\Helper')->canRefundAfterRMA($item->id);
+                                            @endphp
+
+                                            @if (! $canRefundAfterRMA)
+                                                @break
+                                            @endif
+                                        @endforeach
+
                                         <!-- Refund Submit Button -->
                                         <button
                                             type="submit"
                                             class="primary-button ltr:mr-11 rtl:ml-11"
+                                            @if ($canRefundAfterRMA) disabled @endif
                                         >
                                             @lang('admin::app.sales.refunds.create.refund-btn')
                                         </button>
@@ -67,8 +78,8 @@
                     </x-slot>
 
                     <!-- Drawer Content -->
-                    <x-slot:content class="!p-0">
-                        <div class="grid p-4 !pt-0">
+                    <x-slot:content class="p-0!">
+                        <div class="grid p-4 pt-0!">
                             <div class="grid">
                                 <!-- Item Listing -->
                                 @foreach ($order->items as $item)
@@ -77,11 +88,11 @@
                                             <div class="flex gap-2.5">
                                                 @if ($item->product?->base_image_url)
                                                     <img
-                                                        class="relative h-[60px] max-h-[60px] w-full max-w-[60px] rounded"
+                                                        class="relative h-15 max-h-15 w-full max-w-15 rounded-sm"
                                                         src="{{ $item->product->base_image_url }}"
                                                     >
                                                 @else
-                                                    <div class="relative h-[60px] max-h-[60px] w-full max-w-[60px] rounded border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert">
+                                                    <div class="relative h-15 max-h-15 w-full max-w-15 rounded-sm border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert">
                                                         <img src="{{ bagisto_asset('images/product-placeholders/front.svg') }}">
 
                                                         <p class="absolute bottom-1.5 w-full text-center text-[6px] font-semibold text-gray-400">
@@ -92,7 +103,10 @@
 
                                                 <div class="grid place-content-start gap-1.5">
                                                     <!-- Item Additional Attributes -->
-                                                    <p class="break-all text-base font-semibold text-gray-800 dark:text-white">
+                                                    <p 
+                                                        class="break-all text-base font-semibold text-gray-800 dark:text-white"
+                                                        v-pre
+                                                    >
                                                         {{ $item->name }}
                                                     </p>
 
@@ -107,7 +121,10 @@
                                                         <!-- Item Additional Attributes -->
                                                         @if (isset($item->additional['attributes']))
                                                             @foreach ($item->additional['attributes'] as $attribute)
-                                                                <p class="text-gray-600 dark:text-gray-300">
+                                                                <p
+                                                                    class="text-gray-600 dark:text-gray-300"
+                                                                    v-pre
+                                                                >
                                                                     @if (
                                                                         ! isset($attribute['attribute_type'])
                                                                         || $attribute['attribute_type'] !== 'file'
@@ -130,7 +147,7 @@
 
                                                         <!-- Item SKU -->
                                                         <p class="text-gray-600 dark:text-gray-300">
-                                                            @lang('admin::app.sales.refunds.create.sku', ['sku' => Webkul\Product\Helpers\ProductType::hasVariants($item->type) ? $item->child->sku : $item->sku])
+                                                            @lang('admin::app.sales.refunds.create.sku', ['sku' => $item->getTypeInstance()->getOrderedItem($item)->sku])
                                                         </p>
 
                                                         <!-- Item Status -->
@@ -159,7 +176,7 @@
                                                         @lang('admin::app.sales.refunds.create.qty-to-refund')
                                                     </x-admin::form.control-group.label>
 
-                                                    <x-admin::form.control-group class="!mb-0">
+                                                    <x-admin::form.control-group class="mb-0!">
                                                         <x-admin::form.control-group.control
                                                             type="text"
                                                             id="refund[items][{{ $item->id }}]"

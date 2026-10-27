@@ -30,11 +30,11 @@ class Booking
      * @var array
      */
     protected $typeHelpers = [
-        'default'     => DefaultSlot::class,
+        'default' => DefaultSlot::class,
         'appointment' => AppointmentSlot::class,
-        'event'       => EventTicket::class,
-        'rental'      => RentalSlot::class,
-        'table'       => TableSlot::class,
+        'event' => EventTicket::class,
+        'rental' => RentalSlot::class,
+        'table' => TableSlot::class,
     ];
 
     /**
@@ -67,11 +67,11 @@ class Booking
         protected BookingProductTableSlotRepository $bookingProductTableSlotRepository,
     ) {
         $this->typeRepositories = [
-            'default'     => $this->bookingProductDefaultSlotRepository,
-            'event'       => $this->bookingProductEventTicketRepository,
+            'default' => $this->bookingProductDefaultSlotRepository,
+            'event' => $this->bookingProductEventTicketRepository,
             'appointment' => $this->bookingProductAppointmentSlotRepository,
-            'table'       => $this->bookingProductTableSlotRepository,
-            'rental'      => $this->bookingProductRentalSlotRepository,
+            'table' => $this->bookingProductTableSlotRepository,
+            'rental' => $this->bookingProductRentalSlotRepository,
         ];
     }
 
@@ -92,20 +92,46 @@ class Booking
     {
         $slotsByDays = [];
 
-        $bookingProductSlot = $this->typeRepositories[$bookingProduct->type]->findOneByField('booking_product_id', $bookingProduct->id);
+        $bookingProductSlot = $this->typeRepositories[$bookingProduct->type]
+            ->findOneByField('booking_product_id', $bookingProduct->id);
+
+        if (! $bookingProductSlot) {
+            return [];
+        }
 
         $availableDays = $this->getAvailableWeekDays($bookingProduct);
+
+        $slotRelation = $bookingProduct->appointment_slot ?? $bookingProduct->table_slot;
+
+        $minDuration = $slotRelation?->duration ?? 0;
 
         foreach ($this->daysOfWeek as $index => $isOpen) {
             $slots = [];
 
             if ($isOpen) {
-                $slots = $bookingProductSlot->same_slot_all_days ? ($bookingProductSlot->slots ?? []) : ($bookingProductSlot->slots[$index] ?? []);
+                $slots = $bookingProductSlot->same_slot_all_days
+                    ? ($bookingProductSlot->slots ?? [])
+                    : ($bookingProductSlot->slots[$index] ?? []);
             }
 
+            $convertedSlots = isset($availableDays[$index])
+                ? $this->convert24To12Hours($slots)
+                : [];
+
+            $filteredSlots = array_values(array_filter($convertedSlots, function ($slot) use ($minDuration) {
+                if (empty($slot['from']) || empty($slot['to'])) {
+                    return false;
+                }
+
+                $from = strtotime($slot['from']);
+                $to = strtotime($slot['to']);
+
+                return ($to - $from) >= ($minDuration * 60);
+            }));
+
             $slotsByDays[] = [
-                'name'  => trans($this->daysOfWeek[$index]),
-                'slots' => isset($availableDays[$index]) ? $this->convert24To12Hours($slots) : [],
+                'name' => trans($this->daysOfWeek[$index]),
+                'slots' => $filteredSlots,
             ];
         }
 
@@ -147,7 +173,7 @@ class Booking
     /**
      * Returns slots for a particular day.
      *
-     * @param  \Webkul\BookingProduct\Contracts\BookingProduct  $bookingProduct
+     * @param  BookingProduct  $bookingProduct
      */
     public function getSlotsByDate($bookingProduct, string $date): array
     {
@@ -236,6 +262,184 @@ class Booking
     }
 
     /**
+     * Returns whether booking cancellation is allowed for a given product.
+     */
+    public function isBookingCancellationAllowed(int $productId): bool
+    {
+        $bookingProduct = $this->bookingProductRepository->findOneByField('product_id', $productId);
+
+        if (! $bookingProduct) {
+            return true;
+        }
+
+        return (bool) ($bookingProduct->allow_cancellation ?? true);
+    }
+
+    /**
+     * Returns calendar availability metadata for the storefront date picker.
+     */
+    public function getCalendarAvailability(BookingProduct $bookingProduct): array
+    {
+        /**
+         * `default` and `event` types are always date-range-based — the admin
+         * form doesn't even expose an "Available Every Week" selector for
+         * them. Force the flag off here so a legacy or imported row with
+         * `available_every_week=1` doesn't make the storefront / admin date
+         * picker treat the availability window as open-ended.
+         */
+        $forceDateRange = in_array($bookingProduct->type, ['default', 'event'], true);
+
+        return [
+            'valid_weekdays' => $this->getValidWeekdays($bookingProduct),
+            'available_every_week' => $forceDateRange ? false : (bool) $bookingProduct->available_every_week,
+            'available_from' => $bookingProduct->available_from?->format('Y-m-d'),
+            'available_to' => $bookingProduct->available_to?->format('Y-m-d'),
+            'prevent_scheduling_before' => (int) ($bookingProduct->table_slot?->prevent_scheduling_before ?? 0),
+            'disabled_dates' => $this->getDisabledDates($bookingProduct),
+        ];
+    }
+
+    /**
+     * Returns specific dates that should be disabled in the date picker even though
+     * the weekday is otherwise valid. Primarily covers the "today with all slots
+     * already passed" case — e.g. a product with a single Monday morning slot should
+     * grey out Monday after the slot start time, instead of letting the customer
+     * click through to an empty slot list.
+     */
+    private function getDisabledDates(BookingProduct $bookingProduct): array
+    {
+        if (! in_array($bookingProduct->type, ['default', 'appointment', 'table', 'rental'], true)) {
+            return [];
+        }
+
+        /**
+         * Pure-daily rental doesn't have per-hour slots — today is always a valid
+         * start date if it falls inside the product's availability window.
+         */
+        if (
+            $bookingProduct->type === 'rental'
+            && ($bookingProduct->rental_slot?->renting_type ?? 'daily') === 'daily'
+        ) {
+            return [];
+        }
+
+        $typeHelper = app($this->getTypeHelper($bookingProduct->type));
+
+        $today = Carbon::now()->format('Y-m-d');
+
+        $slots = $typeHelper->getSlotsByDate($bookingProduct, $today);
+
+        return empty($slots) ? [$today] : [];
+    }
+
+    /**
+     * Returns the weekday indices (0=Sunday, 6=Saturday) that have bookable slots configured.
+     */
+    private function getValidWeekdays(BookingProduct $bookingProduct): array
+    {
+        $allDays = [0, 1, 2, 3, 4, 5, 6];
+
+        $slot = match ($bookingProduct->type) {
+            'default' => $bookingProduct->default_slot,
+            'appointment' => $bookingProduct->appointment_slot,
+            'table' => $bookingProduct->table_slot,
+            'rental' => $bookingProduct->rental_slot,
+            default => null,
+        };
+
+        if (! $slot) {
+            return $allDays;
+        }
+
+        if ($bookingProduct->type === 'default' && ($slot->booking_type ?? null) === 'one') {
+            $weekdays = [];
+
+            foreach ($slot->slots ?? [] as $entry) {
+                $weekdays[] = (int) ($entry['from_day'] ?? 0);
+            }
+
+            return array_values(array_unique($weekdays));
+        }
+
+        /**
+         * Pure-daily rental doesn't use weekday slot config — available every day
+         * within the product's overall availability window.
+         */
+        if ($bookingProduct->type === 'rental' && ($slot->renting_type ?? null) === 'daily') {
+            return $allDays;
+        }
+
+        /**
+         * Rental hourly / daily_hourly: a weekday is only truly bookable if at
+         * least one configured slot window is wide enough to produce a usable
+         * 1-hour sub-slot. Without this, admins who saved short windows (e.g.
+         * 9:00-9:30) would leave the frontend with a selectable date whose
+         * slot list comes back empty.
+         */
+        $isRentalHourly = $bookingProduct->type === 'rental'
+            && in_array($slot->renting_type ?? null, ['hourly', 'daily_hourly'], true);
+
+        if (
+            ! empty($slot->same_slot_all_days)
+            && ! empty($slot->slots)
+        ) {
+            if (
+                ! $isRentalHourly
+                || $this->hasUsableRentalSlotEntry($slot->slots)
+            ) {
+                return $allDays;
+            }
+
+            return [];
+        }
+
+        $weekdays = [];
+        $slots = $slot->slots ?? [];
+
+        foreach ($allDays as $i) {
+            if (empty($slots[$i])) {
+                continue;
+            }
+
+            if (
+                $isRentalHourly
+                && ! $this->hasUsableRentalSlotEntry($slots[$i])
+            ) {
+                continue;
+            }
+
+            $weekdays[] = $i;
+        }
+
+        return $weekdays;
+    }
+
+    /**
+     * Checks whether any slot entry in the given list is at least one hour wide —
+     * the minimum window `slotsCalculation` needs to emit a bookable sub-slot for
+     * rental hourly products.
+     */
+    private function hasUsableRentalSlotEntry(array $entries): bool
+    {
+        foreach ($entries as $entry) {
+            if (! isset($entry['from'], $entry['to'])) {
+                continue;
+            }
+
+            [$fromHours, $fromMinutes] = array_pad(array_map('intval', explode(':', $entry['from'])), 2, 0);
+            [$toHours, $toMinutes] = array_pad(array_map('intval', explode(':', $entry['to'])), 2, 0);
+
+            $durationMinutes = (($toHours * 60) + $toMinutes) - (($fromHours * 60) + $fromMinutes);
+
+            if ($durationMinutes >= 60) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Returns additional cart item information.
      */
     public function getCartItemOptions(array $data): array
@@ -262,10 +466,10 @@ class Booking
                 return $this->getRentalAttributes($bookingProduct, $data);
 
             case 'table':
-                return $this->getTableAttributes($data);
+                return $this->getTableAttributes($bookingProduct, $data);
 
             default:
-                return $this->getDefaultAttributes($data);
+                return $this->getDefaultAttributes($bookingProduct, $data);
         }
     }
 
@@ -274,29 +478,7 @@ class Booking
      */
     private function getAvailableWeekDays(BookingProduct $bookingProduct)
     {
-        if ($bookingProduct->available_every_week ?? true) {
-            return $this->daysOfWeek;
-        }
-
-        $availableFrom = $bookingProduct->available_from
-            ? Carbon::createFromTimeString($bookingProduct->available_from)
-            : Carbon::now()->startOfDay();
-
-        $availableTo = $bookingProduct->available_to
-            ? Carbon::createFromTimeString($bookingProduct->available_to)
-            : Carbon::createFromTimeString('2080-01-01 00:00:00');
-
-        $days = collect(range(0, 6))
-            ->map(function ($i) use ($availableFrom, $availableTo) {
-                $date = Carbon::now()->addDays($i);
-
-                return ($date >= $availableFrom && $date <= $availableTo) ? $date->format('l') : null;
-            })
-            ->filter()
-            ->values()
-            ->toArray();
-
-        return $this->sortDaysOfWeek($days);
+        return $this->daysOfWeek;
     }
 
     /**
@@ -328,7 +510,7 @@ class Booking
     /**
      * Returns true if the cart item is inactive.
      *
-     * @param  \Webkul\Checkout\Contracts\CartItem|array  $cartItem
+     * @param  \Webkul\Checkout\Contracts\CartItem|array  $item
      */
     public function isCartItemInactive($item): bool
     {
@@ -386,10 +568,10 @@ class Booking
                         && Carbon::now() <= $currentTime
                     ) {
                         $slots[] = [
-                            'from'      => $currentTime->format('h:i A'),
-                            'to'        => $to->format('h:i A'),
+                            'from' => $currentTime->format('h:i A'),
+                            'to' => $to->format('h:i A'),
                             'timestamp' => $currentTime->getTimestamp().'-'.$to->getTimestamp(),
-                            'qty'       => $timeDuration['qty'] ?? 1,
+                            'qty' => $timeDuration['qty'] ?? 1,
                         ];
                     }
 
@@ -451,37 +633,42 @@ class Booking
                     && $endDayTime >= $to
                     && $to >= $startDayTime
                 ) {
-                    if (
-                        $qty = $timeDuration['qty'] ?? 1
-                        && Carbon::now() <= $from
-                    ) {
+                    $qty = $timeDuration['qty'] ?? 1;
+
+                    if ($qty && Carbon::now() <= $from) {
                         if ($bookingProduct->type == 'rental') {
                             if (! isset($slots[$index])) {
                                 $slots[$index]['time'] = $startDayTime->format('h:i A').' - '.$endDayTime->format('h:i A');
                             }
 
                             $slots[$index]['slots'][] = [
-                                'from'           => $from->format('h:i A'),
-                                'to'             => $to->format('h:i A'),
+                                'from' => $from->format('h:i A'),
+                                'to' => $to->format('h:i A'),
                                 'from_timestamp' => $from->getTimestamp(),
-                                'to_timestamp'   => $to->getTimestamp(),
-                                'qty'            => $qty,
+                                'to_timestamp' => $to->getTimestamp(),
+                                'qty' => $qty,
                             ];
                         } else {
-                            $slots[] = [
-                                'from'      => $from->format('h:i A'),
-                                'to'        => $to->format('h:i A'),
-                                'timestamp' => $from->getTimestamp().'-'.$to->getTimestamp(),
-                                'qty'       => $qty,
-                            ];
+                            $timestamp = $from->getTimestamp().'-'.$to->getTimestamp();
 
-                            usort($slots, fn ($first, $second) => strtotime($first['from']) <=> strtotime($second['from']));
+                            if (! collect($slots)->contains('timestamp', $timestamp)) {
+                                $slots[] = [
+                                    'from' => $from->format('h:i A'),
+                                    'to' => $to->format('h:i A'),
+                                    'timestamp' => $timestamp,
+                                    'qty' => $qty,
+                                ];
+                            }
                         }
                     }
                 } else {
                     break;
                 }
             }
+        }
+
+        if (! empty($slots) && $bookingProduct->type != 'rental') {
+            usort($slots, fn ($first, $second) => strtotime($first['from']) <=> strtotime($second['from']));
         }
 
         return $slots;
@@ -495,7 +682,7 @@ class Booking
         return array_map(function ($slot) {
             return [
                 'from' => Carbon::createFromTimeString($slot['from'])->format('h:i a'),
-                'to'   => Carbon::createFromTimeString($slot['to'])->format('h:i a'),
+                'to' => Carbon::createFromTimeString($slot['to'])->format('h:i a'),
             ];
         }, $slots);
     }
@@ -524,11 +711,11 @@ class Booking
     private function getDefaultSlotDetails($bookingProduct, $bookingProductSlot, $requestedDate): array
     {
         $availableFrom = $bookingProductSlot->available_from
-            ? Carbon::createFromTimeString($bookingProductSlot->available_from)
+            ? Carbon::parse($bookingProductSlot->available_from)->startOfDay()
             : Carbon::now()->startOfDay();
 
         $availableTo = $bookingProductSlot->available_to
-            ? Carbon::createFromTimeString($bookingProductSlot->available_to)
+            ? Carbon::parse($bookingProductSlot->available_to)->endOfDay()
             : Carbon::createFromTimeString('2080-01-01 00:00:00');
 
         $timeDurations = $bookingProductSlot->same_slot_all_days
@@ -548,11 +735,11 @@ class Booking
         }
 
         $availableFrom = ! $bookingProduct->available_every_week && $bookingProduct->available_from
-            ? Carbon::createFromTimeString($bookingProduct->available_from)
+            ? Carbon::parse($bookingProduct->available_from)->startOfDay()
             : Carbon::now()->copy()->startOfDay();
 
-        $availableTo = ! $bookingProduct->available_every_week && $bookingProduct->available_from
-            ? Carbon::createFromTimeString($bookingProduct->available_to)
+        $availableTo = ! $bookingProduct->available_every_week && $bookingProduct->available_to
+            ? Carbon::parse($bookingProduct->available_to)->endOfDay()
             : Carbon::createFromTimeString('2080-01-01 00:00:00');
 
         $timeDurations = $bookingProductSlot->same_slot_all_days
@@ -569,21 +756,37 @@ class Booking
     {
         $ticket = $bookingProduct->event_tickets()->find($data['booking']['ticket_id']);
 
-        return [
+        $attributes = [
             [
-                'attribute_name' => trans('shop::app.products.booking.cart.event-ticket'),
-                'option_id'      => 0,
-                'option_label'   => $ticket->name,
-            ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.event-from'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimeString($bookingProduct->available_from)->format('d F, Y'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimeString($bookingProduct->available_from)
+                    ->timezone(config('app.timezone'))
+                    ->format('d F, Y h:i A'),
             ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.event-till'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimeString($bookingProduct->available_to)->format('d F, Y'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimeString($bookingProduct->available_to)
+                    ->timezone(config('app.timezone'))
+                    ->format('d F, Y h:i A'),
             ],
         ];
+
+        if (! empty($bookingProduct->location)) {
+            $attributes[] = [
+                'attribute_name' => trans('shop::app.products.booking.cart.booking-location'),
+                'option_id' => 0,
+                'option_label' => $bookingProduct->location,
+            ];
+        }
+
+        $attributes[] = [
+            'attribute_name' => trans('shop::app.products.booking.cart.event-ticket'),
+            'option_id' => 0,
+            'option_label' => $ticket?->name ?? '',
+        ];
+
+        return $attributes;
     }
 
     /**
@@ -598,52 +801,99 @@ class Booking
 
             $to = Carbon::createFromTimeString($data['booking']['date_to'].' 23:59:59')->format('d F, Y');
         } else {
-            $from = Carbon::createFromTimestamp($data['booking']['slot']['from'])->format('d F, Y h:i A');
+            $from = Carbon::createFromTimestamp((int) $data['booking']['slot']['from'])
+                ->timezone(config('app.timezone'))
+                ->format('d F, Y h:i A');
 
-            $to = Carbon::createFromTimestamp($data['booking']['slot']['to'])->format('d F, Y h:i A');
+            $to = Carbon::createFromTimestamp((int) $data['booking']['slot']['to'])
+                ->timezone(config('app.timezone'))
+                ->format('d F, Y h:i A');
         }
 
-        return [
+        $attributes = [
             [
-                'attribute_name' => trans('shop::app.products.booking.cart.rent-type'),
-                'option_id'      => 0,
-                'option_label'   => trans('shop::app.products.booking.cart.'.$rentingType),
-            ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.rent-from'),
-                'option_id'      => 0,
-                'option_label'   => $from,
+                'option_id' => 0,
+                'option_label' => $from,
             ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.rent-till'),
-                'option_id'      => 0,
-                'option_label'   => $to,
+                'option_id' => 0,
+                'option_label' => $to,
             ],
         ];
+
+        if (! empty($bookingProduct->location)) {
+            $attributes[] = [
+                'attribute_name' => trans('shop::app.products.booking.cart.booking-location'),
+                'option_id' => 0,
+                'option_label' => $bookingProduct->location,
+            ];
+        }
+
+        $attributes[] = [
+            'attribute_name' => trans('shop::app.products.booking.cart.rent-type'),
+            'option_id' => 0,
+            'option_label' => trans('shop::app.products.booking.cart.'.$rentingType),
+        ];
+
+        return $attributes;
     }
 
     /**
      * Get table booking attributes.
      */
-    private function getTableAttributes($data): array
+    private function getTableAttributes($bookingProduct, $data): array
     {
         $timestamps = explode('-', $data['booking']['slot']);
+        $tableSlot = $bookingProduct->table_slot;
 
         $attributes = [
             [
                 'attribute_name' => trans('shop::app.products.booking.cart.booking-from'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimestamp($timestamps[0])->isoFormat('Do MMM, YYYY h:mm A'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimestamp((int) $timestamps[0])
+                    ->timezone(config('app.timezone'))
+                    ->isoFormat('Do MMM, YYYY h:mm A'),
             ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.booking-till'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimestamp($timestamps[1])->isoFormat('Do MMM, YYYY h:mm A'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimestamp((int) $timestamps[1])
+                    ->timezone(config('app.timezone'))
+                    ->isoFormat('Do MMM, YYYY h:mm A'),
             ],
         ];
 
-        if ($data['booking']['note'] !== '') {
+        if (! empty($bookingProduct->location)) {
+            $attributes[] = [
+                'attribute_name' => trans('shop::app.products.booking.cart.booking-location'),
+                'option_id' => 0,
+                'option_label' => $bookingProduct->location,
+            ];
+        }
+
+        if ($tableSlot) {
+            $attributes[] = [
+                'attribute_name' => trans('shop::app.products.booking.cart.charged-per'),
+                'option_id' => 0,
+                'option_label' => $tableSlot->price_type == 'table'
+                    ? trans('shop::app.products.booking.cart.per-table')
+                    : trans('shop::app.products.booking.cart.per-guest'),
+            ];
+
+            if ($tableSlot->price_type == 'table' && $tableSlot->guest_limit) {
+                $attributes[] = [
+                    'attribute_name' => trans('shop::app.products.booking.cart.guest-limit'),
+                    'option_id' => 0,
+                    'option_label' => $tableSlot->guest_limit,
+                ];
+            }
+        }
+
+        if (! empty($data['booking']['note'])) {
             $attributes[] = [
                 'attribute_name' => trans('shop::app.products.booking.cart.special-note'),
-                'option_id'      => 0,
-                'option_label'   => $data['booking']['note'],
+                'option_id' => 0,
+                'option_label' => $data['booking']['note'],
             ];
         }
 
@@ -651,22 +901,36 @@ class Booking
     }
 
     /**
-     * Get default booking attributes.
+     * Get default booking attributes (used for default and appointment types).
      */
-    private function getDefaultAttributes($data): array
+    private function getDefaultAttributes($bookingProduct, $data): array
     {
         $timestamps = explode('-', $data['booking']['slot']);
 
-        return [
+        $attributes = [
             [
                 'attribute_name' => trans('shop::app.products.booking.cart.booking-from'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimestamp($timestamps[0])->format('d F, Y h:i A'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimestamp((int) $timestamps[0])
+                    ->timezone(config('app.timezone'))
+                    ->format('d F, Y h:i A'),
             ], [
                 'attribute_name' => trans('shop::app.products.booking.cart.booking-till'),
-                'option_id'      => 0,
-                'option_label'   => Carbon::createFromTimestamp($timestamps[1])->format('d F, Y h:i A'),
+                'option_id' => 0,
+                'option_label' => Carbon::createFromTimestamp((int) $timestamps[1])
+                    ->timezone(config('app.timezone'))
+                    ->format('d F, Y h:i A'),
             ],
         ];
+
+        if (! empty($bookingProduct?->location)) {
+            $attributes[] = [
+                'attribute_name' => trans('shop::app.products.booking.cart.booking-location'),
+                'option_id' => 0,
+                'option_label' => $bookingProduct->location,
+            ];
+        }
+
+        return $attributes;
     }
 }

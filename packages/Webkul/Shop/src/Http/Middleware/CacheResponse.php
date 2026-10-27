@@ -44,14 +44,18 @@ class CacheResponse extends BaseCacheResponseMiddleware
                 return $next($request);
             }
 
-            $searchTerm = app(SearchTermRepository::class)->findOneWhere([
-                'term'       => request()->query('query'),
-                'channel_id' => core()->getCurrentChannel()->id,
-                'locale'     => app()->getLocale(),
-            ]);
+            $query = $request->query('query');
 
-            if ($searchTerm?->redirect_url) {
-                return redirect()->to($searchTerm->redirect_url);
+            if (is_string($query)) {
+                $searchTerm = app(SearchTermRepository::class)->findOneWhere([
+                    'term' => $query,
+                    'channel_id' => core()->getCurrentChannel()->id,
+                    'locale' => app()->getLocale(),
+                ]);
+
+                if ($searchTerm?->redirect_url) {
+                    return redirect()->to($searchTerm->redirect_url);
+                }
             }
         }
 
@@ -62,9 +66,9 @@ class CacheResponse extends BaseCacheResponseMiddleware
             $slugOrPath = urldecode(trim($request->getPathInfo(), '/'));
 
             $categoryURLRewrite = app(URLRewriteRepository::class)->findOneWhere([
-                'entity_type'  => 'category',
+                'entity_type' => 'category',
                 'request_path' => $slugOrPath,
-                'locale'       => app()->getLocale(),
+                'locale' => app()->getLocale(),
             ]);
 
             if ($categoryURLRewrite) {
@@ -72,7 +76,7 @@ class CacheResponse extends BaseCacheResponseMiddleware
             }
 
             $productURLRewrite = app(URLRewriteRepository::class)->findOneWhere([
-                'entity_type'  => 'product',
+                'entity_type' => 'product',
                 'request_path' => $slugOrPath,
             ]);
 
@@ -88,9 +92,9 @@ class CacheResponse extends BaseCacheResponseMiddleware
             $slug = last(explode('/', $request->getPathInfo()));
 
             $pageURLRewrite = app(URLRewriteRepository::class)->findOneWhere([
-                'entity_type'  => 'cms_page',
+                'entity_type' => 'cms_page',
                 'request_path' => $slug,
-                'locale'       => app()->getLocale(),
+                'locale' => app()->getLocale(),
             ]);
 
             if ($pageURLRewrite) {

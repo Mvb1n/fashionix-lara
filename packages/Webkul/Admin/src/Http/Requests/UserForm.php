@@ -3,6 +3,8 @@
 namespace Webkul\Admin\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Webkul\User\Repositories\RoleRepository;
 
 class UserForm extends FormRequest
 {
@@ -24,14 +26,24 @@ class UserForm extends FormRequest
     public function rules()
     {
         return [
-            'name'                  => 'required',
-            'email'                 => 'required|email|unique:admins,email,'.$this->id,
-            'password'              => 'nullable|min:6|confirmed',
+            'name' => 'required',
+            'email' => ['required', 'email', Rule::unique('admins', 'email')->ignore($this->id)],
+            'password' => 'nullable|min:6|confirmed',
             'password_confirmation' => 'nullable|required_with:password|same:password',
-            'status'                => 'sometimes',
-            'role_id'               => 'required',
-            'image'                 => 'array',
-            'image.*'               => 'mimes:jpeg,jpg,png,gif|max:10000',
+            'status' => 'sometimes',
+            'role_id' => [
+                'bail',
+                'required',
+                'integer',
+                'exists:roles,id',
+                function ($attribute, $value, $fail) {
+                    if (! bouncer()->canGrantRole(app(RoleRepository::class)->find($value))) {
+                        $fail(trans('admin::app.settings.users.role-not-grantable'));
+                    }
+                },
+            ],
+            'image' => 'array',
+            'image.*' => 'mimes:jpeg,jpg,png,gif|max:10000',
         ];
     }
 }

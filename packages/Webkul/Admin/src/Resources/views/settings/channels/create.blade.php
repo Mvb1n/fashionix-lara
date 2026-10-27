@@ -28,8 +28,8 @@
                 </a>
 
                 <!-- Save Button -->
-                <button 
-                    type="submit" 
+                <button
+                    type="submit"
                     class="primary-button"
                 >
                     @lang('admin::app.settings.channels.create.save-btn')
@@ -37,7 +37,7 @@
             </div>
         </div>
 
-        <!-- body content -->
+        <!-- Body Content -->
         <div class="mt-3.5 flex gap-2.5 max-xl:flex-wrap">
             <!-- Left sub-component -->
             <div class="flex flex-1 flex-col gap-2 max-xl:flex-auto">
@@ -45,7 +45,7 @@
                 {!! view_render_event('bagisto.admin.settings.channels.create.card.general.before') !!}
 
                 <!-- General Information -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.settings.channels.create.general')
                     </p>
@@ -112,8 +112,8 @@
                             @lang('admin::app.settings.channels.create.inventory-sources')
                         </x-admin::form.control-group.label>
 
-                        @foreach (app('Webkul\Inventory\Repositories\InventorySourceRepository')->findWhere(['status' => 1]) as $inventorySource)
-                            <x-admin::form.control-group class="!mb-2 flex items-center gap-2.5">
+                        @foreach (app(\Webkul\Inventory\Repositories\InventorySourceRepository::class)->findWhere(['status' => 1]) as $inventorySource)
+                            <x-admin::form.control-group class="mb-2! flex items-center gap-2.5">
                                 <x-admin::form.control-group.control
                                     type="checkbox"
                                     :id="'inventory_sources_' . $inventorySource->id"
@@ -123,16 +123,17 @@
                                     :for="'inventory_sources_' . $inventorySource->id"
                                     :label="trans('admin::app.settings.channels.create.inventory-sources')"
                                 />
-                                    
+
                                 <label
                                     class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
                                     for="inventory_sources_{{ $inventorySource->id }}"
+                                    v-pre
                                 >
                                     {{ $inventorySource->name }}
                                 </label>
 
                             </x-admin::form.control-group>
-                        @endforeach 
+                        @endforeach
 
                         <x-admin::form.control-group.error control-name="inventory_sources[]" />
                     </div>
@@ -156,8 +157,12 @@
                                 @lang('admin::app.settings.channels.create.select-root-category')
                             </option>
 
-                            @foreach (app('Webkul\Category\Repositories\CategoryRepository')->getRootCategories() as $category)
-                                <option value="{{ $category->id }}" {{ old('root_category_id') == $category->id ? 'selected' : '' }}>
+                            @foreach (app(\Webkul\Category\Repositories\CategoryRepository::class)->getRootCategories() as $category)
+                                <option
+                                    value="{{ $category->id }}"
+                                    {{ old('root_category_id') == $category->id ? 'selected' : '' }}
+                                    v-pre
+                                >
                                     {{ $category->name }}
                                 </option>
                             @endforeach
@@ -167,7 +172,7 @@
                     </x-admin::form.control-group>
 
                     <!-- Host Name -->
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label>
                             @lang('admin::app.settings.channels.create.hostname')
                         </x-admin::form.control-group.label>
@@ -190,7 +195,7 @@
                 {!! view_render_event('bagisto.admin.settings.channels.create.card.design.before') !!}
 
                 <!-- Logo and Design -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.settings.channels.create.design')
                     </p>
@@ -209,7 +214,11 @@
                             :label="trans('admin::app.settings.channels.create.theme')"
                         >
                             @foreach (config('themes.shop') as $themeCode => $theme)
-                                <option value="{{ $themeCode }}" {{ old('theme') == $themeCode ? 'selected' : '' }}>
+                                <option
+                                    value="{{ $themeCode }}"
+                                    {{ old('theme') == $themeCode ? 'selected' : '' }}
+                                    v-pre
+                                >
                                     {{ $theme['name'] }}
                                 </option>
                             @endforeach
@@ -228,6 +237,8 @@
 
                                 <x-admin::media.images
                                     name="logo"
+                                    meta-name="logo_meta"
+                                    enable-seo="true"
                                     width="110px"
                                     height="110px"
                                 />
@@ -248,6 +259,8 @@
 
                                 <x-admin::media.images
                                     name="favicon"
+                                    meta-name="favicon_meta"
+                                    enable-seo="true"
                                     width="110px"
                                     height="110px"
                                 />
@@ -265,13 +278,18 @@
                 {!! view_render_event('bagisto.admin.settings.channels.create.card.seo.before') !!}
 
                 <!-- Home Page SEO -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.settings.channels.create.seo')
                     </p>
 
                     <!-- SEO Title & Description Blade Component -->
-                    <x-admin::seo/>
+                    <x-admin::seo
+                        meta-title-field="meta_title"
+                        url-key-field="hostname"
+                        meta-description-field="meta_description"
+                        url-type="host"
+                    />
 
                     <!-- SEO Title -->
                     <x-admin::form.control-group>
@@ -282,7 +300,7 @@
                         <x-admin::form.control-group.control
                             type="text"
                             id="meta_title"
-                            name="seo_title" 
+                            name="seo_title"
                             rules="required"
                             :value="old('seo_title')"
                             :label="trans('admin::app.settings.channels.create.seo-title')"
@@ -312,7 +330,7 @@
                     </x-admin::form.control-group>
 
                     <!-- SEO Description -->
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label class="required">
                             @lang('admin::app.settings.channels.create.seo-description')
                         </x-admin::form.control-group.label>
@@ -336,7 +354,7 @@
             </div>
 
             <!-- Right sub-component -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+            <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
 
                 {!! view_render_event('bagisto.admin.settings.channels.create.card.accordion.currencies_and_locales.before') !!}
 
@@ -347,16 +365,16 @@
                             @lang('admin::app.settings.channels.create.currencies-and-locales')
                         </p>
                     </x-slot>
-            
+
                     <x-slot:content>
                         <!-- Locale Checkboxes  -->
                         <div class="mb-4">
                             <x-admin::form.control-group.label class="required">
                                 @lang('admin::app.settings.channels.create.locales')
                             </x-admin::form.control-group.label>
-                        
+
                             @foreach (core()->getAllLocales() as $locale)
-                                <x-admin::form.control-group class="!mb-2 flex items-center gap-2.5">
+                                <x-admin::form.control-group class="mb-2! flex items-center gap-2.5">
                                     <x-admin::form.control-group.control
                                         type="checkbox"
                                         :id="'locales_' . $locale->id"
@@ -370,8 +388,9 @@
                                     <label
                                         class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
                                         for="locales_{{ $locale->id }}"
+                                        v-pre
                                     >
-                                        {{ $locale->name }} 
+                                        {{ $locale->name }}
                                     </label>
                                 </x-admin::form.control-group>
                             @endforeach
@@ -399,7 +418,11 @@
                                 </option>
 
                                 @foreach (core()->getAllLocales() as $locale)
-                                    <option value="{{ $locale->id }}" {{ old('default_locale_id') == $locale->id ? 'selected' : '' }}>
+                                    <option
+                                        value="{{ $locale->id }}"
+                                        {{ old('default_locale_id') == $locale->id ? 'selected' : '' }}
+                                        v-pre
+                                    >
                                         {{ $locale->name }}
                                     </option>
                                 @endforeach
@@ -413,13 +436,13 @@
                             <x-admin::form.control-group.label class="required">
                                 @lang('admin::app.settings.channels.create.currencies')
                             </x-admin::form.control-group.label>
-                        
+
                             @foreach (core()->getAllCurrencies() as $currency)
-                                <x-admin::form.control-group class="!mb-2 flex items-center gap-2.5">
+                                <x-admin::form.control-group class="mb-2! flex items-center gap-2.5">
                                     <x-admin::form.control-group.control
                                         type="checkbox"
                                         :id="'currencies_' . $currency->id"
-                                        name="currencies[]" 
+                                        name="currencies[]"
                                         rules="required"
                                         :value="$currency->id"
                                         :for="'currencies_' . $currency->id"
@@ -429,17 +452,18 @@
                                     <label
                                         class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
                                         for="currencies_{{ $currency->id }}"
+                                        v-pre
                                     >
-                                        {{ $currency->name }} 
+                                        {{ $currency->name }}
                                     </label>
                                 </x-admin::form.control-group>
-                            @endforeach 
-                            
+                            @endforeach
+
                             <x-admin::form.control-group.error control-name="currencies[]" />
                         </div>
 
                         <!-- Default Currency Selector -->
-                        <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label class="required">
                                 @lang('admin::app.settings.channels.create.default-currency')
                             </x-admin::form.control-group.label>
@@ -458,7 +482,11 @@
                                 </option>
 
                                 @foreach (core()->getAllCurrencies() as $currency)
-                                    <option value="{{ $currency->id }}" {{ old('base_currency_id') == $currency->id ? 'selected' : '' }}>
+                                    <option
+                                        value="{{ $currency->id }}"
+                                        {{ old('base_currency_id') == $currency->id ? 'selected' : '' }}
+                                        v-pre
+                                    >
                                         {{ $currency->name }}
                                     </option>
                                 @endforeach
@@ -482,14 +510,14 @@
                             </p>
                         </div>
                     </x-slot>
-            
+
                     <x-slot:content>
                         <!-- Maintenance Mode Text  -->
                         <x-admin::form.control-group>
                             <x-admin::form.control-group.label>
                                 @lang('admin::app.settings.channels.create.maintenance-mode-text')
                             </x-admin::form.control-group.label>
-                            
+
                             <x-admin::form.control-group.control
                                 type="text"
                                 id="maintenance-mode-text"
@@ -498,16 +526,16 @@
                                 :label="trans('admin::app.settings.channels.create.maintenance-mode-text')"
                                 :placeholder="trans('admin::app.settings.channels.create.maintenance-mode-text')"
                             />
-                        
+
                             <x-admin::form.control-group.error control-name="maintenance_mode_text" />
                         </x-admin::form.control-group>
 
                         <!-- Allowed API's  -->
                         <x-admin::form.control-group>
-                            <x-admin::form.control-group.label class="!text-gray-800 dark:!text-white">
+                            <x-admin::form.control-group.label class="text-gray-800! dark:text-white!">
                                 @lang('admin::app.settings.channels.create.allowed-ips')
                             </x-admin::form.control-group.label>
-                            
+
                             <x-admin::form.control-group.control
                                 type="text"
                                 id="allowed-ips"
@@ -516,12 +544,12 @@
                                 :label="trans('admin::app.settings.channels.create.allowed-ips')"
                                 :placeholder="trans('admin::app.settings.channels.create.allowed-ips')"
                             />
-                            
+
                             <x-admin::form.control-group.error control-name="allowed_ips" />
                         </x-admin::form.control-group>
 
                         <!-- Maintenance Mode Switcher -->
-                        <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label>
                                 @lang('admin::app.settings.channels.create.status')
                             </x-admin::form.control-group.label>
@@ -545,7 +573,7 @@
 
         {!! view_render_event('admin.settings.channels.create.create_form_controls.after') !!}
 
-    </x-admin::form> 
+    </x-admin::form>
 
     {!! view_render_event('bagisto.admin.settings.channels.create.after') !!}
 </x-admin::layouts>

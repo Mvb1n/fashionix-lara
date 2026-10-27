@@ -4,8 +4,10 @@ namespace Webkul\Admin\Http\Controllers\Marketing\Promotions;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Marketing\Promotions\CartRuleDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\CartRuleRequest;
@@ -23,7 +25,7 @@ class CartRuleController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -37,7 +39,7 @@ class CartRuleController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -48,25 +50,25 @@ class CartRuleController extends Controller
      * Copy a given Cart Rule id. Always make the copy is inactive so the
      * user is able to configure it before setting it live.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function copy(int $cartRuleId)
     {
-        $cartRule = $this->cartRuleRepository->with(['channels', 'customer_groups'])->findOrFail($cartRuleId);
+        $cartRule = $this->cartRuleRepository->with(['cart_rule_channels', 'cart_rule_customer_groups'])->findOrFail($cartRuleId);
 
         $copiedCartRule = $cartRule->replicate()->fill([
             'status' => 0,
-            'name'   => trans('admin::app.marketing.promotions.cart-rules.index.datagrid.copy-of', ['value' => $cartRule->name]),
+            'name' => trans('admin::app.marketing.promotions.cart-rules.index.datagrid.copy-of', ['value' => $cartRule->name]),
         ]);
 
         $copiedCartRule->save();
 
-        foreach ($copiedCartRule->channels as $channel) {
-            $copiedCartRule->channels()->save($channel);
+        foreach ($copiedCartRule->cart_rule_channels as $channel) {
+            $copiedCartRule->cart_rule_channels()->save($channel);
         }
 
-        foreach ($copiedCartRule->customer_groups as $group) {
-            $copiedCartRule->customer_groups()->save($group);
+        foreach ($copiedCartRule->cart_rule_customer_groups as $group) {
+            $copiedCartRule->cart_rule_customer_groups()->save($group);
         }
 
         return view('admin::marketing.promotions.cart-rules.edit', [
@@ -77,7 +79,7 @@ class CartRuleController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store(CartRuleRequest $cartRuleRequest)
     {
@@ -103,7 +105,7 @@ class CartRuleController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function edit(int $id)
     {
@@ -115,7 +117,7 @@ class CartRuleController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(CartRuleRequest $cartRuleRequest, int $id)
     {
@@ -123,15 +125,11 @@ class CartRuleController extends Controller
             $cartRule = $this->cartRuleRepository->findOrFail($id);
 
             if ($cartRule->coupon_type) {
-                if ($cartRule->cart_rule_coupon) {
-                    $this->validate(request(), [
-                        'coupon_code' => 'required_if:use_auto_generation,==,0|unique:cart_rule_coupons,code,'.$cartRule->cart_rule_coupon->id,
-                    ]);
-                } else {
-                    $this->validate(request(), [
-                        'coupon_code' => 'required_if:use_auto_generation,==,0|unique:cart_rule_coupons,code',
-                    ]);
-                }
+                $primaryCoupon = $cartRule->cart_rule_coupon()->where('is_primary', 1)->first();
+
+                $this->validate(request(), [
+                    'coupon_code' => 'required_if:use_auto_generation,==,0|unique:cart_rule_coupons,code,'.($primaryCoupon?->id ?? 'NULL'),
+                ]);
             }
 
             Event::dispatch('promotions.cart_rule.update.before', $id);

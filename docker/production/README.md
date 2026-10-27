@@ -1,0 +1,1086 @@
+# Bagisto Production Docker Image
+
+A **single-container**, ready-to-boot production Docker image for [Bagisto](https://github.com/bagisto/bagisto) — the open-source Laravel e-commerce platform.
+
+One `docker run` gives you a fully installed, migrated, and seeded Bagisto store. No docker-compose, no external database, no first-run setup.
+
+The image is published across two independent choices — the **web server** and the **bundled database** — giving nine combinations. They are otherwise identical: same PHP, same build-time install, same behaviour.
+
+| Web server | PHP SAPI | Tag fragment |
+|---|---|---|
+| **nginx** (default) | PHP 8.4 FPM | `-nginx` |
+| **apache** | PHP 8.4 `mod_php` | `-apache` |
+| **litespeed** | lsphp 8.4 (LSAPI) | `-litespeed` |
+
+| Database | Version | Tag fragment |
+|---|---|---|
+| **mysql** (default) | MySQL 8.0 | `-mysql` |
+| **mariadb** | MariaDB 10.11 | `-mariadb` |
+| **postgres** | PostgreSQL 16 | `-postgres` |
+
+The full name carries both, e.g. `webkul/bagisto:2.5.0-nginx-postgres`. Because MySQL on nginx is the conventional pick, it also answers to the shorter names that existed before the multi-database images did — `:2.5.0-nginx`, `:2.5.0` and `:latest` all resolve to it, so nothing that already pulls Bagisto has to change.
+
+---
+
+## Table of Contents
+
+1. [What's Inside](#1-whats-inside)
+2. [Repository Layout](#2-repository-layout)
+3. [Quick Start](#3-quick-start)
+4. [Building the Image](#4-building-the-image)
+5. [Tagging Strategy](#5-tagging-strategy)
+6. [Pushing to Docker Hub](#6-pushing-to-docker-hub)
+7. [Full Release Workflow](#7-full-release-workflow)
+8. [Running the Container](#8-running-the-container)
+9. [Access & Default Credentials](#9-access--default-credentials)
+10. [Persistence](#10-persistence)
+11. [External Database Mode](#11-external-database-mode)
+12. [Environment Variables](#12-environment-variables)
+13. [First-Boot Behavior](#13-first-boot-behavior)
+14. [Common Commands](#14-common-commands)
+15. [Upgrading Bagisto Version](#15-upgrading-bagisto-version)
+16. [Troubleshooting](#16-troubleshooting)
+17. [FAQ](#17-faq)
+18. [Notes & Limitations](#18-notes--limitations)
+19. [Support](#19-support)
+
+---
+
+## 1. What's Inside
+
+| Component | Details |
+|---|---|
+| **Base OS** | Ubuntu 24.04 |
+| **Web Server** | One of **Nginx** (default), **Apache 2**, or **OpenLiteSpeed** — listening on port 80 (see the variant table above) |
+| **PHP** | 8.4. The nginx and apache images install bcmath, calendar, curl, exif, gd, gmp, intl, mbstring, mysql, pgsql, pdo, soap, sockets, xml, zip and imagick; the litespeed image installs lsphp with common, curl, imagick, intl, mysql, pgsql and opcache. Served via PHP-FPM (nginx), `mod_php` (apache), or lsphp/LSAPI (litespeed). |
+| **Database** | MySQL 8.0, MariaDB 10.11 or PostgreSQL 16, bundled and pre-installed with Bagisto migrations + seed data already applied |
+| **Process Manager** | Supervisor (manages the database, the PHP runner where applicable, and the web server) |
+| **Application** | Bagisto — fully installed at build time |
+
+### Two database modes
+
+Whichever engine the image bundles, it can be used in place or ignored in favour of a server you already run.
+
+| Mode | When it activates | Behaviour |
+|---|---|---|
+| **Bundled** (default) | `DB_HOST` is unset, `127.0.0.1`, or `localhost` | The database inside the container is started and used. It is already populated from the build. |
+| **External** | `DB_HOST` is set to anything else | The bundled server stays stopped and the container connects to yours instead. |
+
+An image can only be pointed at an external server of its own family. A `-mysql` or `-mariadb` image checks the external server with a MySQL connection and a `-postgres` image with a PostgreSQL one, so a `-mysql` image works against an external MySQL or MariaDB server, but pointed at PostgreSQL it fails the reachability check and exits. Use a `-postgres` image for an external PostgreSQL server.
+
+---
+
+## 2. Repository Layout
+
+All files live under **`docker/production/`** inside the Bagisto repository:
+
+The layout follows a **shared assets + per-runtime** structure. The build context for every variant is `docker/production/`; each variant's `Dockerfile` pulls the common pieces from `shared/` and its own web-server config from `<variant>/config/`.
+
+```
+bagisto/
+├── .github/workflows/
+│   └── docker-publish.yml       # Matrix-builds & pushes every server x database combination on a `v*` tag
+└── docker/production/
+    ├── shared/                  # Assets common to every image
+    │   ├── build-install.sh     # Build time: installs Bagisto, seeds the DB, bakes its data into the layer
+    │   ├── entrypoint.sh         # Container start: applies env overrides, waits for an external DB, hands off to Supervisor
+    │   ├── php.ini               # Production PHP settings (opcache, limits, error handling)
+    │   └── db/                   # Everything that differs between database engines
+    │       ├── mysql/
+    │       │   ├── engine.sh     # Driver: init, start, provision, stop, reachability
+    │       │   ├── init.sql      # Creates the `bagisto` database + user
+    │       │   └── supervisord.conf  # Supervisor program for mysqld
+    │       ├── mariadb/
+    │       │   ├── engine.sh     # Same contract, MariaDB implementation
+    │       │   ├── init.sql      # Creates the `bagisto` database + user
+    │       │   └── supervisord.conf  # Supervisor program for mariadbd
+    │       └── postgres/
+    │           ├── engine.sh     # Same contract, PostgreSQL implementation
+    │           ├── init.sql      # Creates the `bagisto` role + database + schema grants
+    │           ├── postgres-server.sh # Foreground launcher (resolves the cluster version)
+    │           └── supervisord.conf  # Supervisor program for postgres
+    ├── nginx/
+    │   ├── Dockerfile            # Nginx + PHP 8.4 FPM
+    │   └── config/
+    │       ├── nginx.conf        # Nginx server block (port 80 → /var/www/bagisto/public)
+    │       ├── php-fpm.conf      # PHP-FPM pool (www, unix socket, dynamic PM)
+    │       └── supervisord.conf  # Supervisor: php-fpm + nginx (the database is its own file)
+    ├── apache/
+    │   ├── Dockerfile            # Apache 2 + PHP 8.4 mod_php
+    │   └── config/
+    │       ├── vhost.conf        # Apache virtual host (rewrite + security headers)
+    │       └── supervisord.conf  # Supervisor: apache2 (the database is its own file)
+    ├── litespeed/
+    │   ├── Dockerfile            # OpenLiteSpeed + lsphp 8.4 (LSAPI)
+    │   └── config/
+    │       ├── httpd_config.conf # OLS server config (listener :80, lsphp external app)
+    │       ├── vhosts/
+    │       │   └── bagisto.conf  # OLS vhost (docRoot public/, Laravel rewrite)
+    │       └── supervisord.conf  # Supervisor: lsphp + openlitespeed (the database is its own file)
+    ├── .dockerignore             # Excludes unneeded files from the build context
+    └── README.md                 # This file
+```
+
+The database-specific pieces are kept behind a small contract — each `engine.sh` exposes the same handful of functions — so `build-install.sh` and `entrypoint.sh` never name a particular database. Adding another engine means adding a directory, not editing the shared scripts.
+
+**Releases are automated.** Pushing a `v*` Git tag to the Bagisto repo (e.g. `v2.5.0`) triggers the GitHub Actions workflow, which matrix-builds the multi-arch image for every server x database combination and pushes them to Docker Hub. See [§7 — Full Release Workflow](#7-full-release-workflow).
+
+For local builds, run `docker build` from `docker/production/`, selecting a variant's Dockerfile with `-f` (see [§4](#4-building-the-image)).
+
+---
+
+## 3. Quick Start
+
+### Pull from Docker Hub
+
+```bash
+docker pull webkul/bagisto:latest                       # nginx + MySQL
+# a different web server, still MySQL:
+docker pull webkul/bagisto:latest-apache
+docker pull webkul/bagisto:latest-litespeed
+# MariaDB or PostgreSQL instead of MySQL:
+docker pull webkul/bagisto:latest-nginx-mariadb
+docker pull webkul/bagisto:latest-nginx-postgres
+docker pull webkul/bagisto:latest-apache-postgres
+# or pin an exact version, server and database:
+docker pull webkul/bagisto:2.5.0-nginx-postgres
+```
+
+### Run on port 80
+
+```bash
+docker run -d --name bagisto -p 80:80 webkul/bagisto:latest
+```
+
+Open `http://localhost` — your store is live.
+
+### Run on a different host port
+
+```bash
+docker run -d --name bagisto -p 8080:80 webkul/bagisto:latest
+```
+
+Then visit `http://localhost:8080`.
+
+---
+
+## 4. Building the Image
+
+> **For releases, you do not need to build manually.** A GitHub Actions workflow (`.github/workflows/docker-publish.yml`) builds and pushes the multi-arch image to Docker Hub automatically when a `v*` tag is pushed. See [§7 — Full Release Workflow](#7-full-release-workflow).
+>
+> The instructions below cover **local development builds** — testing Dockerfile changes, debugging the install flow, or producing a single-arch image for a private registry.
+
+All commands below assume you are inside `docker/production/` (the shared build context for every variant):
+
+```bash
+cd docker/production
+```
+
+Select the variant with `-f <variant>/Dockerfile`. The trailing `.` is the build context and must stay `docker/production/`.
+
+### Build a specific variant
+
+Each Dockerfile clones the Git tag named by `BAGISTO_VERSION`. Its default is `v2.5.0`, so pass a different release if you want one and tag the image to match. A `-postgres` image needs a 2.5 release; the 2.4 line has no PostgreSQL support.
+
+```bash
+# nginx + MySQL
+docker build -f nginx/Dockerfile     -t bagisto:2.5.0-nginx-mysql     --build-arg BAGISTO_VERSION=v2.5.0 .
+
+# apache + MySQL
+docker build -f apache/Dockerfile    -t bagisto:2.5.0-apache-mysql    --build-arg BAGISTO_VERSION=v2.5.0 .
+
+# litespeed + MySQL
+docker build -f litespeed/Dockerfile -t bagisto:2.5.0-litespeed-mysql --build-arg BAGISTO_VERSION=v2.5.0 .
+```
+
+The database is chosen with `DB_ENGINE`, which defaults to `mysql`:
+
+```bash
+# nginx + MariaDB
+docker build -f nginx/Dockerfile -t bagisto:2.5.0-nginx-mariadb \
+    --build-arg BAGISTO_VERSION=v2.5.0 --build-arg DB_ENGINE=mariadb .
+
+# nginx + PostgreSQL
+docker build -f nginx/Dockerfile -t bagisto:2.5.0-nginx-postgres \
+    --build-arg BAGISTO_VERSION=v2.5.0 --build-arg DB_ENGINE=postgres .
+```
+
+Any tag from https://github.com/bagisto/bagisto/tags works as `BAGISTO_VERSION`, e.g. `--build-arg BAGISTO_VERSION=v2.4.12` for the latest 2.4 release on MySQL or MariaDB.
+
+### Build arguments
+
+| Build arg | Applies to | Default | Description |
+|---|---|---|---|
+| `BAGISTO_VERSION` | all images | `v2.5.0` | Git tag to clone from the Bagisto repository. A `-postgres` image needs a 2.5 tag. |
+| `DB_ENGINE` | all images | `mysql` | Database to bundle: `mysql`, `mariadb` or `postgres`. Selects everything under `shared/db/<engine>/`. |
+| `PHP_VERSION` | nginx, apache | `8.4` | PHP version to install. Only change if you know what you're doing. |
+| `LSPHP_VERSION` | litespeed | `84` | lsphp major version (`84` for PHP 8.4). |
+
+> **Note**: Bagisto is fully installed *during the build* (migrations, seeding, indexing). Expect build times of 5–10 minutes depending on your machine.
+
+> **Building for multiple architectures (amd64 + arm64) locally?** See [§6 — Multi-architecture builds](#multi-architecture-builds-amd64--arm64). `docker build` produces a single-arch image; multi-arch requires `docker buildx` and is published in one step with `--push`. The CI workflow handles this automatically for releases.
+
+---
+
+## 5. Tagging Strategy
+
+The CI workflow applies this scheme automatically. The details below explain what it produces and why, plus how to match it for any manual builds.
+
+### Per-combination tags
+
+Every release publishes all nine combinations. The canonical name carries both dimensions; shorter aliases point at the conventional choice so existing pulls keep working.
+
+| Server | Database | Version tag | Floating tag (stable, default branch) |
+|---|---|---|---|
+| nginx | mysql | `:<version>-nginx-mysql`, `:<version>-nginx`, `:<version>` | `:latest-nginx-mysql`, `:latest-nginx`, `:latest` |
+| nginx | mariadb | `:<version>-nginx-mariadb` | `:latest-nginx-mariadb` |
+| nginx | postgres | `:<version>-nginx-postgres` | `:latest-nginx-postgres` |
+| apache | mysql | `:<version>-apache-mysql`, `:<version>-apache` | `:latest-apache-mysql`, `:latest-apache` |
+| apache | mariadb | `:<version>-apache-mariadb` | `:latest-apache-mariadb` |
+| apache | postgres | `:<version>-apache-postgres` | `:latest-apache-postgres` |
+| litespeed | mysql | `:<version>-litespeed-mysql`, `:<version>-litespeed` | `:latest-litespeed-mysql`, `:latest-litespeed` |
+| litespeed | mariadb | `:<version>-litespeed-mariadb` | `:latest-litespeed-mariadb` |
+| litespeed | postgres | `:<version>-litespeed-postgres` | `:latest-litespeed-postgres` |
+
+The rule behind the aliases: a `-mysql` image also answers to the server-only name, and nginx + MySQL additionally answers to the bare version and `:latest`. MariaDB and PostgreSQL images are always named in full — there is no unqualified alias that silently means either one.
+
+So a stable `v2.5.0` release on the default branch produces:
+
+```
+webkul/bagisto:2.5.0
+webkul/bagisto:2.5.0-nginx
+webkul/bagisto:2.5.0-nginx-mysql
+webkul/bagisto:2.5.0-nginx-mariadb
+webkul/bagisto:2.5.0-nginx-postgres
+webkul/bagisto:2.5.0-apache
+webkul/bagisto:2.5.0-apache-mysql
+webkul/bagisto:2.5.0-apache-mariadb
+webkul/bagisto:2.5.0-apache-postgres
+webkul/bagisto:2.5.0-litespeed
+webkul/bagisto:2.5.0-litespeed-mysql
+webkul/bagisto:2.5.0-litespeed-mariadb
+webkul/bagisto:2.5.0-litespeed-postgres
+```
+
+plus the same set under `latest` (`webkul/bagisto:latest-nginx-mysql`, `webkul/bagisto:latest-nginx`, `webkul/bagisto:latest`, and so on).
+
+`docker pull webkul/bagisto:latest` (or `:2.5.0`) gives you the **nginx + MySQL** variant.
+
+### `v`-prefix convention
+
+| Where | Format | Example |
+|---|---|---|
+| Bagisto Git tag (used in `--build-arg`) | **with** `v` prefix | `v2.5.0` |
+| Docker image tag | **without** `v` prefix | `2.5.0` |
+
+The `v` prefix is a Git convention. Docker Hub tags are plain version numbers.
+
+### Tags published per release (automated)
+
+The CI workflow uses the **GitHub default branch** as the source of truth for which version line owns the `:latest` tag. Bagisto maintains multiple release lines in parallel (e.g. `2.4.x` on the `2.4` branch and `2.5.x` on `master`), so `:latest` is reserved for releases that come from commits on the default branch line. When a new major/minor line becomes the active one, simply change the default branch in GitHub repo settings — the workflow follows automatically.
+
+How the workflow decides:
+
+- For each tagged build, GitHub's compare API is queried for `<default-branch>...<build-commit>`.
+- If the compare status is `identical` or `behind`, the build commit is on the default branch line → `:latest` is updated (for stable tags).
+- If the status is `diverged` (the commit is on a side branch like `2.4` while the default is `master`), `:latest` is **not** touched.
+
+Each row below is published **for every server × database combination** (with its `-<server>-<database>` suffix and the aliases from the table above); the unsuffixed tags shown are the nginx + MySQL aliases.
+
+| Git tag pushed | Default branch is `master` (the 2.5 line) → Docker Hub tags published (per variant) |
+|---|---|
+| `v2.5.0` (commit on `master`, stable) | `:2.5.0-<variant>`, `:latest-<variant>` (+ nginx: `:2.5.0`, `:latest`) |
+| `v2.4.12` (commit on `2.4`, stable) | `:2.4.12-<variant>` only (does **not** touch any `:latest*`) |
+| `v2.5.1-rc1` (pre-release on `master`) | `:2.5.1-rc1-<variant>` only |
+| Later: default branch switched to `2.6`, then `v2.6.0` released | `:2.6.0-<variant>`, `:latest-<variant>` (+ nginx: `:2.6.0`, `:latest`) |
+| Later: default branch is `2.6`, then a patch `v2.5.1` is released on the 2.5 line | `:2.5.1-<variant>` only (does **not** touch any `:latest*`) |
+
+| Tag form | Mutability | Purpose |
+|---|---|---|
+| `:X.Y.Z` (e.g. `:2.5.0`) | Immutable once released; a manual re-run of the same version replaces it | Pins to one exact build. Use this for reproducible deployments. |
+| `:latest` | Floating | Latest stable release on the default branch line (controlled by GitHub's default-branch setting). |
+
+### Manual tagging (local builds)
+
+```bash
+# Tag an existing local image for Docker Hub
+docker tag bagisto:2.5.0-nginx-mysql <your-dockerhub-username>/bagisto:2.5.0
+docker tag bagisto:2.5.0-nginx-mysql <your-dockerhub-username>/bagisto:latest
+```
+
+Or build directly with the final name (skips the retag step):
+
+```bash
+docker build -f nginx/Dockerfile -t <your-dockerhub-username>/bagisto:2.5.0 --build-arg BAGISTO_VERSION=v2.5.0 .
+docker tag   <your-dockerhub-username>/bagisto:2.5.0 <your-dockerhub-username>/bagisto:latest
+```
+
+### Avoid these tag formats
+
+| Bad | Why |
+|---|---|
+| `bagisto:v2.5.0` | Inconsistent with Docker Hub convention (no `v` prefix). |
+| `bagisto:bagisto-2.5.0` | Redundant — the repository name already says `bagisto`. |
+| `bagisto:prod-2.5.0` | Unnecessary prefix — all images in this repo are production. |
+
+---
+
+## 6. Pushing to Docker Hub
+
+### Automated (the standard path)
+
+Pushes to Docker Hub happen automatically via GitHub Actions on every `v*` tag pushed to the Bagisto repo. You do not need to run `docker login` / `docker push` by hand.
+
+**One-time setup** (already done on `bagisto/bagisto`, repeat only if forking or self-hosting):
+
+GitHub repo → **Settings** → **Secrets and variables** → **Actions** → add two repository secrets:
+
+| Secret | Value |
+|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub user/org with push access to `webkul/bagisto` |
+| `DOCKERHUB_TOKEN` | Docker Hub access token with **Read & Write** scope (generate at https://hub.docker.com/settings/security) |
+
+That's it. The next `git push origin v<version>` builds and pushes the image.
+
+**Manual re-run / hotfix**: from the GitHub Actions UI, run the **"Build & Publish Docker Image"** workflow via `workflow_dispatch` and override `bagisto_version`. See [§7 — Manual re-run via workflow_dispatch](#manual-re-run-via-workflow_dispatch) for how `:latest` is decided on a manual run.
+
+### Manual fallback (local push)
+
+Use only if CI is unavailable or you're pushing to a private registry.
+
+#### Step 1 — Log in
+
+```bash
+docker login
+```
+
+Or, using an access token (recommended over password):
+
+```bash
+docker login -u <your-dockerhub-username>
+```
+
+Generate an access token at https://hub.docker.com/settings/security and paste it when prompted.
+
+#### Step 2 — Build with the Docker Hub name
+
+```bash
+docker build -f nginx/Dockerfile -t <your-dockerhub-username>/bagisto:2.5.0 \
+  --build-arg BAGISTO_VERSION=v2.5.0 .
+```
+
+#### Step 3 — Also tag as `latest`
+
+```bash
+docker tag <your-dockerhub-username>/bagisto:2.5.0 \
+           <your-dockerhub-username>/bagisto:latest
+```
+
+#### Step 4 — Push both tags
+
+```bash
+docker push <your-dockerhub-username>/bagisto:2.5.0
+docker push <your-dockerhub-username>/bagisto:latest
+```
+
+#### Step 5 — Verify
+
+```bash
+docker manifest inspect <your-dockerhub-username>/bagisto:2.5.0
+```
+
+Or visit `https://hub.docker.com/r/<your-dockerhub-username>/bagisto/tags` in your browser.
+
+### Multi-architecture builds (amd64 + arm64)
+
+The flow above publishes a **single-architecture** image — whichever arch the build host runs (typically `linux/amd64`). To publish a single tag that works on both Intel/AMD servers **and** Apple Silicon / ARM cloud instances, use `docker buildx`.
+
+The Dockerfiles need no changes — Ubuntu 24.04, its database packages, the `ondrej/php` PPA (nginx, apache), the LiteSpeed repository (litespeed) and the imagick packages all work cleanly on `arm64`.
+
+#### One-time setup
+
+```bash
+# Install QEMU emulators so one host can build other architectures
+docker run --privileged --rm tonistiigi/binfmt --install all
+
+# Create a buildx builder that supports multi-platform
+# (the default `docker` driver cannot — see Troubleshooting in §16)
+docker buildx create --name multiarch --driver docker-container --bootstrap
+docker buildx use multiarch
+
+# Verify — the asterisk should be on `multiarch`
+docker buildx ls
+```
+
+#### Build & push both archs in one command
+
+```bash
+docker login -u <your-dockerhub-username>
+
+docker buildx build \
+  -f nginx/Dockerfile \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg BAGISTO_VERSION=v2.5.0 \
+  -t <your-dockerhub-username>/bagisto:2.5.0 \
+  -t <your-dockerhub-username>/bagisto:latest \
+  --push .
+```
+
+`buildx` builds both architectures in parallel (the non-native one runs under QEMU) and pushes a single multi-arch manifest. `docker pull` then automatically selects the correct variant for whatever host runs the image.
+
+#### Verify the manifest
+
+```bash
+docker buildx imagetools inspect <your-dockerhub-username>/bagisto:2.5.0
+```
+
+You should see entries for both `linux/amd64` and `linux/arm64`.
+
+#### Notes
+
+- **Don't use `--load`** with two platforms — the local Docker daemon can only hold one arch at a time. `--push` writes straight to the registry, which is what you want.
+- **Build time roughly doubles** — closer to 3× for the arm64 leg under QEMU, since `composer install`, migrations, and seeding all run twice. Expect 20–40 minutes on a typical machine. For faster builds, use a native arm64 runner (M-series Mac or an arm64 cloud VM) and `buildx` will dispatch each platform to its native builder.
+- **No need to drop the single-arch flow** — `docker build` + `docker push` is still fine for amd64-only releases. Use `buildx` only when you want both archs under one tag.
+
+---
+
+## 7. Full Release Workflow
+
+### Automated flow (standard)
+
+Releasing a Bagisto version (e.g. `2.5.0`) is a single tag push:
+
+```bash
+# From the Bagisto repo root
+git tag v2.5.0
+git push origin v2.5.0
+```
+
+That's the entire release. The GitHub Actions workflow at `.github/workflows/docker-publish.yml` then runs three jobs:
+
+1. **Resolve** — validates the tag matches `vX.Y.Z` (or `vX.Y.Z-suffix` for pre-releases), derives the Docker tag, and decides whether the `:latest` aliases move by comparing the build commit against the default branch.
+2. **Build** — matrix-builds every server × database combination, each from its own `docker/production/<server>/Dockerfile` (`nginx`, `apache`, `litespeed`) with `DB_ENGINE` set to `mysql`, `mariadb` or `postgres` and `BAGISTO_VERSION=v2.5.0`, for `linux/amd64` and `linux/arm64`. Each combination is pushed untagged, by digest, and its buildx layers are cached in the GitHub Actions cache.
+3. **Publish** — creates every tag from those digests in a fixed order: the version tags first (e.g. `webkul/bagisto:2.5.0-nginx-mariadb`, and the bare `webkul/bagisto:2.5.0` for nginx + MySQL), then, since `master` **is** the GitHub default branch, the `:latest` aliases, ending with `webkul/bagisto:latest`.
+
+Track progress in the repo's **Actions** tab. Build duration is typically **30–60 minutes** because the arm64 leg runs under QEMU emulation and Bagisto is fully installed (migrations, seeders, indexers) during the build.
+
+After the run finishes:
+
+- Tags of earlier releases (for example `webkul/bagisto:2.4.12`) still exist and still work (tags are immutable once pushed).
+- `webkul/bagisto:2.5.0` points to the new build (both archs).
+- `webkul/bagisto:latest` now points to `2.5.0` (since `master` is the default branch line).
+
+### Pre-release / RC tags
+
+Tags with a suffix do **not** update `latest`:
+
+```bash
+git tag v2.5.1-rc1
+git push origin v2.5.1-rc1
+# → webkul/bagisto:2.5.1-rc1   (latest is untouched)
+```
+
+### Manual re-run via workflow_dispatch
+
+Need to rebuild a previously-released version without retagging? Go to **Actions → Build & Publish Docker Image → Run workflow** and fill in:
+
+| Input | Value |
+|---|---|
+| `bagisto_version` | e.g. `v2.5.0` |
+
+Whether `:latest` is updated is decided the same way as for a tag push, but against the commit the workflow runs on — the branch or tag you dispatch it from — not against `bagisto_version`. Dispatching from the default branch to rebuild an older version therefore moves `:latest` to that older build; dispatch from the release's own tag to avoid it. A re-run replaces the version tags it rebuilds.
+
+### Manual fallback (local machine)
+
+If CI is down or you're publishing to a private registry, follow [§6 — Manual fallback (local push)](#manual-fallback-local-push) for a single-arch image, or [§6 — Multi-architecture builds](#multi-architecture-builds-amd64--arm64) for both architectures under one tag.
+
+---
+
+## 8. Running the Container
+
+### Basic run
+
+```bash
+docker run -d --name bagisto -p 80:80 webkul/bagisto:latest
+```
+
+### Different host port
+
+```bash
+docker run -d --name bagisto -p 8080:80 webkul/bagisto:latest
+```
+
+### In the foreground (stream logs directly)
+
+```bash
+docker run --name bagisto -p 80:80 webkul/bagisto:latest
+```
+
+### With environment overrides
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  -e APP_URL=http://my-store.local \
+  -e APP_TIMEZONE=Asia/Kolkata \
+  -e APP_CURRENCY=INR \
+  webkul/bagisto:latest
+```
+
+### With persistent volumes (recommended)
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  -v bagisto-mysql:/var/lib/mysql \
+  -v bagisto-storage:/var/www/bagisto/storage \
+  webkul/bagisto:latest
+```
+
+---
+
+## 9. Access & Default Credentials
+
+### Storefront
+
+```
+http://localhost
+```
+
+(or `http://localhost:<port>` if you mapped a different host port)
+
+### Admin panel
+
+```
+http://localhost/admin/login
+```
+
+### Default admin credentials
+
+| Field | Value |
+|---|---|
+| Email | `admin@example.com` |
+| Password | `admin123` |
+
+> **Change the default admin password immediately after first login** in any real deployment.
+
+The admin path `/admin` is the Bagisto default. To change it, pass `-e APP_ADMIN_URL=backend` at runtime — the admin panel will then be served at `/backend/login`. Unlike the variables in [§12](#12-environment-variables) that the entrypoint writes into `.env`, this one is read straight from the container environment.
+
+---
+
+## 10. Persistence
+
+None of the Dockerfiles declare a `VOLUME` directive. Persistence is entirely opt-in at `docker run` time.
+
+### Named volumes (recommended for production)
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  -v bagisto-mysql:/var/lib/mysql \
+  -v bagisto-storage:/var/www/bagisto/storage \
+  webkul/bagisto:latest
+```
+
+| Volume | Container path | What it persists |
+|---|---|---|
+| `bagisto-mysql` | `/var/lib/mysql` | MySQL or MariaDB database files. Without this, all data is lost on `docker rm`. |
+| `bagisto-postgres` | `/var/lib/postgresql` | PostgreSQL database files, on a `-postgres` image, in place of `/var/lib/mysql`. |
+| `bagisto-storage` | `/var/www/bagisto/storage` | Uploaded files, product images, logs, sessions, cached views. |
+
+A new named volume is filled from the image on first use, so it starts with the database and storage baked in at build time.
+
+### Bind mounts (use host paths)
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  -v /path/on/host/mysql-data:/var/lib/mysql \
+  -v /path/on/host/bagisto-storage:/var/www/bagisto/storage \
+  webkul/bagisto:latest
+```
+
+> **Warning**: unlike a named volume, a bind mount is not filled from the image. An empty host directory hides the database and storage baked into the image, and nothing initialises them at runtime, so the store will not start. Copy the contents out of the image into the host directories first, or use named volumes.
+
+### No volumes
+
+```bash
+docker run -d --name bagisto -p 80:80 webkul/bagisto:latest
+```
+
+Everything lives inside the container's writable layer. Data survives `docker stop` + `docker start`, but is **lost on `docker rm`**. Suitable for demos, testing, and quick evaluations only.
+
+---
+
+## 11. External Database Mode
+
+To connect to an external database server instead of the bundled one — of the image's own family, as [§1](#two-database-modes) explains — for example a MySQL server on RDS:
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  -v bagisto-storage:/var/www/bagisto/storage \
+  -e DB_HOST=your-rds-host.amazonaws.com \
+  -e DB_PORT=3306 \
+  -e DB_DATABASE=bagisto \
+  -e DB_USERNAME=bagisto_user \
+  -e DB_PASSWORD=your_secure_password \
+  -e APP_URL=https://your-domain.com \
+  webkul/bagisto:latest
+```
+
+When `DB_HOST` is set to anything other than `127.0.0.1` or `localhost`:
+
+- The bundled database is **not started** (`DB_AUTOSTART=false`).
+- The entrypoint waits up to 60 seconds for the external server to be reachable.
+- No database volume is needed.
+
+> **Important**: For external database mode, you must **create the database and user yourself** before starting the container. The `init.sql` under `shared/db/<engine>/` only runs against the bundled server, during the build. On MySQL or MariaDB:
+
+```sql
+CREATE DATABASE bagisto CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'bagisto_user'@'%' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON bagisto.* TO 'bagisto_user'@'%';
+FLUSH PRIVILEGES;
+```
+
+You will also need to run Bagisto's migrations against the external database on first boot. Shell into the container and run:
+
+```bash
+docker exec -it bagisto php /var/www/bagisto/artisan migrate --force
+docker exec -it bagisto php /var/www/bagisto/artisan db:seed --force
+```
+
+---
+
+## 12. Environment Variables
+
+### Build arguments (`docker build --build-arg`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `BAGISTO_VERSION` | `v2.5.0` | Git tag cloned from the Bagisto repository. |
+| `DB_ENGINE` | `mysql` | Database to bundle: `mysql`, `mariadb` or `postgres`. |
+| `PHP_VERSION` | `8.4` | PHP version to install (nginx, apache). |
+| `LSPHP_VERSION` | `84` | lsphp major version (litespeed). |
+
+### Runtime environment (`docker run -e`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `DB_CONNECTION` | matches the bundled engine | Laravel driver: `mysql`, `mariadb` or `pgsql`. An external server must be of the image's own family — e.g. `mariadb` on a `-mysql` image — see [§1](#two-database-modes). |
+| `DB_HOST` | `127.0.0.1` | Database host. Anything other than `127.0.0.1` / `localhost` switches to external-DB mode. |
+| `DB_PORT` | `3306` (mysql, mariadb) / `5432` (postgres) | Database port. Defaults to the bundled engine's port. |
+| `DB_DATABASE` | `bagisto` | Database name. |
+| `DB_USERNAME` | `bagisto` | Database user. |
+| `DB_PASSWORD` | `bagisto` | Database password. |
+| `APP_URL` | `http://localhost` | Public-facing URL of the store. |
+| `APP_KEY` | baked at build | Laravel encryption key. Generated during build; override for fixed keys. |
+| `APP_LOCALE` | from `.env.example` | Application locale (e.g., `en`, `fr`, `de`). |
+| `APP_CURRENCY` | from `.env.example` | Default currency (e.g., `USD`, `INR`, `EUR`). |
+| `APP_TIMEZONE` | from `.env.example` | Timezone (e.g., `UTC`, `Asia/Kolkata`). |
+| `APP_ADMIN_URL` | `admin` | Admin panel URL path. Read from the container environment; the entrypoint does not write it into `.env`. |
+
+---
+
+## 13. First-Boot Behavior
+
+Because Bagisto is fully installed at **build time**, first boot is fast — there is no migration or seeding step at runtime.
+
+When the container starts, `entrypoint.sh` does this:
+
+| Step | What happens |
+|---|---|
+| 1 | Reads `DB_HOST` to determine bundled vs. external database mode. |
+| 2 | Sets `DB_AUTOSTART=true` or `false` so Supervisor knows whether to start the bundled database. |
+| 3 | Writes any runtime overrides (`DB_*`, `APP_URL`, `APP_KEY`, `APP_LOCALE`, `APP_CURRENCY`, `APP_TIMEZONE`) into `/var/www/bagisto/.env`. |
+| 4 | If `APP_URL` is set or an external database is used, runs `php artisan optimize:clear` + `optimize` to refresh caches. |
+| 5 | (External database mode only) Waits up to 60 seconds for the external server to accept connections. |
+| 6 | Hands off to Supervisor, which starts the bundled database (`mysql`, `mariadb` or `postgresql`, if internal) and the web server — `php-fpm` + `nginx`, `apache2`, or `lsphp` + `openlitespeed`. |
+
+### Why the build-time install?
+
+`build-install.sh` runs *during `docker build`* and does the full Bagisto installation inside the image:
+
+1. Initializes the bundled database's data directory.
+2. Starts the bundled database in the background.
+3. Creates the `bagisto` database and user from the engine's `init.sql`.
+4. Runs `php artisan key:generate`.
+5. Runs `php artisan bagisto:install` (migrations + core seeding).
+6. Runs the Bagisto product seeder for sample data.
+7. Runs `php artisan indexer:index --mode=full` for search indexing.
+8. Shuts the database down cleanly.
+
+The populated data directory (`/var/lib/mysql`, or `/var/lib/postgresql` on a `-postgres` image) is saved as part of the Docker image layer. So when you `docker run`, the database already has tables, admin user, products, and indexes.
+
+---
+
+## 14. Common Commands
+
+### View logs
+
+```bash
+docker logs bagisto              # entrypoint + Supervisor output — see §18 Logging for what goes to files
+docker logs -f bagisto           # follow in real time
+docker logs --tail 100 bagisto   # last 100 lines
+```
+
+### Shell into the container
+
+```bash
+docker exec -it bagisto bash
+```
+
+### Check Supervisor-managed services
+
+```bash
+docker exec bagisto supervisorctl status
+```
+
+Expected output (nginx + MySQL, bundled database mode):
+
+```
+mysql                            RUNNING   pid 45, uptime 0:05:23
+nginx                            RUNNING   pid 47, uptime 0:05:23
+php-fpm                          RUNNING   pid 46, uptime 0:05:23
+```
+
+A MariaDB image lists `mariadb` instead of `mysql`, and a PostgreSQL image `postgresql`; an apache image lists `apache2` in place of `nginx` and `php-fpm`, and a litespeed image `lsphp` and `openlitespeed`.
+
+### Restart individual services
+
+```bash
+docker exec bagisto supervisorctl restart nginx
+docker exec bagisto supervisorctl restart php-fpm
+docker exec bagisto supervisorctl restart mysql
+```
+
+### Restart the whole container
+
+```bash
+docker restart bagisto
+```
+
+### Stop and remove
+
+```bash
+docker stop bagisto
+docker rm bagisto
+```
+
+### Stop, remove, and wipe volumes
+
+```bash
+docker stop bagisto
+docker rm bagisto
+docker volume rm bagisto-mysql bagisto-storage    # bagisto-postgres on a -postgres image
+```
+
+### Run an artisan command
+
+```bash
+docker exec bagisto php /var/www/bagisto/artisan migrate:status
+docker exec bagisto php /var/www/bagisto/artisan cache:clear
+docker exec bagisto php /var/www/bagisto/artisan config:clear
+```
+
+### Check PHP version / extensions
+
+```bash
+docker exec bagisto php -v
+docker exec bagisto php -m
+```
+
+### Connect to the bundled database
+
+The bundled database listens on `127.0.0.1` inside the container, and the `bagisto` user exists only for local connections, so a published port cannot reach it. Open a client inside the container instead:
+
+```bash
+docker exec -it bagisto mysql -u bagisto -pbagisto bagisto
+```
+
+On a PostgreSQL image:
+
+```bash
+docker exec -it -e PGPASSWORD=bagisto bagisto psql -h 127.0.0.1 -U bagisto bagisto
+```
+
+---
+
+## 15. Upgrading Bagisto Version
+
+The Bagisto source is baked into the image at build time. New official versions are published to Docker Hub automatically when the corresponding `v*` Git tag is pushed to `bagisto/bagisto` — just `docker pull webkul/bagisto:2.5.0` (or `:latest`) to get the new image.
+
+For custom or local rebuilds:
+
+```bash
+cd docker/production
+docker build -f nginx/Dockerfile -t bagisto:2.5.0-nginx-mysql --build-arg BAGISTO_VERSION=v2.5.0 .
+```
+
+Then stop and replace the running container:
+
+```bash
+docker stop bagisto && docker rm bagisto
+
+docker run -d --name bagisto -p 80:80 \
+  -v bagisto-mysql:/var/lib/mysql \
+  -v bagisto-storage:/var/www/bagisto/storage \
+  bagisto:2.5.0-nginx-mysql
+```
+
+If the schema changed between versions, you may need to run Bagisto's migrations against the existing data:
+
+```bash
+docker exec bagisto php /var/www/bagisto/artisan migrate --force
+```
+
+> **Back up your database volume before upgrading production data** (`bagisto-postgres` on a `-postgres` image):
+> ```bash
+> docker run --rm -v bagisto-mysql:/data -v $(pwd):/backup alpine \
+>   tar czf /backup/mysql-backup.tar.gz /data
+> ```
+
+---
+
+## 16. Troubleshooting
+
+### Port 80 is already in use
+
+**Symptom**: `docker run` fails with `bind: address already in use`.
+
+**Fix** — map to a different host port:
+
+```bash
+docker run -d --name bagisto -p 8080:80 webkul/bagisto:latest
+```
+
+Or find what's holding port 80:
+
+```bash
+sudo lsof -i :80
+```
+
+### Bundled database not running
+
+**Symptom**: pages fail with a database connection error, and `docker exec bagisto supervisorctl status` shows `mysql` (or `mariadb`, `postgresql`) as `FATAL` or `BACKOFF`.
+
+A `docker build` that stops with `ERROR: MySQL did not start within 60 seconds.` (or `MariaDB`, `PostgreSQL`) is a different, build-time failure in `build-install.sh`; rerun the build on a host with enough memory and disk.
+
+**Fix** — the database data directory may be corrupted. Recreate the volume (`bagisto-postgres` at `/var/lib/postgresql` on a `-postgres` image):
+
+```bash
+docker stop bagisto && docker rm bagisto
+docker volume rm bagisto-mysql
+docker run -d --name bagisto -p 80:80 -v bagisto-mysql:/var/lib/mysql webkul/bagisto:latest
+```
+
+### Permissions errors on `storage/` or `bootstrap/cache/`
+
+```bash
+docker exec bagisto bash -c "chown -R www-data:www-data \
+  /var/www/bagisto/storage /var/www/bagisto/bootstrap/cache && \
+  chmod -R 775 /var/www/bagisto/storage /var/www/bagisto/bootstrap/cache"
+```
+
+### External database connection fails
+
+**Symptom**: `ERROR: cannot reach MySQL at <host>:<port> after 60s.` (or `MariaDB`, `PostgreSQL`).
+
+**Checks**:
+
+1. The external database is running and reachable from the Docker host.
+2. Credentials are correct.
+3. The database exists (see the SQL in section 11).
+4. If the database runs on the host machine, use `host.docker.internal` instead of `localhost`. On Linux, map that name with `--add-host`:
+
+```bash
+docker run -d --name bagisto -p 80:80 \
+  --add-host=host.docker.internal:host-gateway \
+  -e DB_HOST=host.docker.internal \
+  -e DB_DATABASE=bagisto \
+  -e DB_USERNAME=root \
+  -e DB_PASSWORD=root \
+  webkul/bagisto:latest
+```
+
+### Nginx / PHP-FPM / MySQL not running
+
+```bash
+docker exec bagisto supervisorctl status
+```
+
+If a service shows `FATAL` or `STOPPED`:
+
+```bash
+docker logs bagisto 2>&1 | grep -i error
+docker exec bagisto supervisorctl restart php-fpm
+docker exec bagisto supervisorctl restart nginx
+```
+
+### Container keeps restarting
+
+```bash
+docker inspect bagisto --format='{{.State.ExitCode}}'
+docker logs --tail 50 bagisto
+```
+
+Common causes: corrupted database volume, missing `.env`, port conflict.
+
+### Multi-platform build is not supported for the docker driver
+
+**Symptom**: `docker buildx build --platform linux/amd64,linux/arm64 ...` fails with:
+
+```
+ERROR: Multi-platform build is not supported for the docker driver.
+Switch to a different driver, or turn on the containerd image store, and try again.
+```
+
+**Cause**: `buildx` is using the default `docker` driver, which can only handle one architecture.
+
+**Fix** — create and switch to a `docker-container` builder:
+
+```bash
+docker buildx ls                                                      # check active driver
+docker buildx create --name multiarch --driver docker-container --bootstrap
+docker buildx use multiarch
+docker buildx ls                                                      # asterisk should now be on `multiarch`
+```
+
+Alternative (Docker Desktop only): Settings → General → check **"Use containerd for pulling and storing images"** → Apply & restart. The default `docker` driver can then handle multi-platform.
+
+### Docker Hub push errors
+
+| Error | Cause | Fix |
+|---|---|---|
+| `repository does not exist or may require 'docker login'` | Repo not pushed yet, typo in name, or not logged in. | Run `docker login`, verify image name with `docker images`. |
+| `denied: requested access to the resource is denied` | Not logged in, or pushing to a repo you don't own. | Run `docker login`; push only to `<your-username>/...`. |
+| `manifest for ...:tag not found` | That specific tag was never pushed. | Build and push the missing tag. |
+| `You have reached your pull rate limit` | Docker Hub free tier limit. | Wait, authenticate, or upgrade your plan. |
+| `No such image: ...:tag` | Image doesn't exist locally. | Build it first, or `docker tag` an existing image. |
+
+---
+
+## 17. FAQ
+
+### Why is the image ~2 GB?
+
+Because it contains a fully installed, ready-to-boot Bagisto application with MySQL, PHP, Nginx, and all runtime dependencies bundled in one container. Approximate size distribution (nginx + MySQL variant; other variants vary slightly):
+
+| Component | Size |
+|---|---|
+| Database server + pre-seeded Bagisto database | ~700–1000 MB |
+| PHP 8.4 + all required extensions | ~150–200 MB |
+| Bagisto source + Composer vendor | ~250–300 MB |
+| System libraries (ImageMagick, ICU, libpng, libwebp, libzip, etc.) | ~100–150 MB |
+| Ubuntu 24.04 base | ~77 MB |
+| Nginx + Supervisor | ~15–20 MB |
+
+The Dockerfiles clear the apt package lists after each install. Composer, git and the shallow clone's `.git` directory stay in the image, and packages are installed with their recommended dependencies, so the image could be trimmed further at the cost of the in-container tooling.
+
+### Why Ubuntu 24.04 and not Alpine?
+
+| Factor | Alpine | Ubuntu 24.04 |
+|---|---|---|
+| Base image size | ~5 MB | ~77 MB |
+| C library | musl libc | glibc |
+| MySQL availability | Not packaged — must use MariaDB | Native `mysql-server` |
+| PHP packages | Community packages | Ondrej PPA (the standard for production PHP) |
+| Imagick + intl | Known musl compilation issues | Compiles cleanly |
+
+Alpine would save ~72 MB on the base — about **2%** of the total image. That's not enough to justify losing native MySQL packages and debugging musl-related PHP extension bugs.
+
+### Why bundle MySQL inside the image?
+
+The goal is a Docker Hub-style "appliance" experience:
+
+```bash
+docker run -p 80:80 webkul/bagisto:latest
+# Open browser → Bagisto is running
+```
+
+No docker-compose, no external DB to provision, no knowledge of database administration required. This mirrors how the official WordPress image and similar "just run it" containers work.
+
+For production at scale, set `DB_HOST` to an external managed database (AWS RDS, Cloud SQL, DigitalOcean, etc.) and the bundled server is automatically skipped.
+
+### Why Supervisor?
+
+Docker containers are designed for a single process, but this image runs several — the bundled database and the web server processes (for example MySQL, PHP-FPM and Nginx). Supervisor is the standard solution: it starts services in the right order, restarts crashed processes, exposes `supervisorctl` for inspection, and pipes each program's console output to stdout/stderr so `docker logs` shows it.
+
+### Why is Bagisto installed at build time instead of runtime?
+
+Because runtime installation would:
+
+- Take 2–5 minutes on every first start.
+- Repeat the same install on every new container.
+- Make startup failures harder to debug.
+- Break image immutability.
+
+Build-time install means `docker run` is instant and the image is fully reproducible.
+
+### Why is `build-install.sh` a separate script?
+
+Docker's `RUN` executes via `/bin/sh -c "…"`, which doesn't cleanly handle shell backgrounding (`&`). Since the build needs to start MySQL in the background, run commands against it, then shut it down, a dedicated bash script is the cleanest way to do that.
+
+### Can I run Composer inside the running container?
+
+Yes — Composer is installed in the image at `/usr/local/bin/composer`:
+
+```bash
+docker exec -it bagisto composer <command>
+```
+
+### Is HTTPS supported directly?
+
+No. The container serves plain HTTP on port 80. For HTTPS, place a reverse proxy (Nginx, Traefik, Caddy, or a cloud load balancer) in front of the container and terminate SSL there.
+
+### Are the default database credentials safe?
+
+The bundled database's credentials (`bagisto`/`bagisto`) are safe **in the default mode** — the server only listens on `127.0.0.1` inside the container and the `bagisto` user exists only for local connections, so it cannot be reached from outside the container, even through a published port. For an external database, always use strong credentials via env vars.
+
+### Is Elasticsearch included?
+
+No. Bagisto works without it (falling back to database search). If you need Elasticsearch, run it as a separate container and point Bagisto at it. On a 2.5 image, set the host, credentials and index prefix at **Configuration → Search Engines**, where the connection can be tested; the `ELASTICSEARCH_*` env vars still work and are used for anything left empty there. A 2.4 image has no such section and reads the `ELASTICSEARCH_*` env vars only.
+
+---
+
+## 18. Notes & Limitations
+
+### Configurable at runtime
+
+- Database connection (host, port, database, user, password)
+- Application URL, locale, currency, timezone
+- Laravel encryption key
+- Admin panel URL path
+
+### NOT configurable at runtime (set at build time)
+
+- Bagisto version (via `--build-arg BAGISTO_VERSION`)
+- PHP version (via `--build-arg PHP_VERSION`, or `LSPHP_VERSION` on litespeed)
+- Web server / PHP / Supervisor config files (baked into the image). On the nginx image, override them by mounting replacements over `/etc/nginx/conf.d/bagisto.conf`, `/etc/php/8.4/fpm/conf.d/99-production.ini`, `/etc/supervisor/conf.d/bagisto.conf` and, for the bundled database's program, `/etc/supervisor/conf.d/database.conf`. The apache and litespeed images keep theirs under their own server's config directories.
+
+### Logging
+
+Supervisor pipes each program's console output — the bundled database, PHP-FPM or lsphp, and the web server — to stdout/stderr, so `docker logs bagisto` shows it together with the entrypoint's messages. Several logs go to files instead:
+
+- **PHP errors**: `/var/log/php-errors.log`, and on the nginx image the pool's `/var/log/php-fpm-error.log`.
+- **Web server access and error logs**: `/var/log/nginx/` (nginx) and `/var/log/apache2/` (apache). OpenLiteSpeed's server-level logs reach `docker logs`, but the Bagisto vhost logs to files under `/usr/local/lsws/logs/`.
+- **Laravel**: `storage/logs`.
+
+For structured log shipping, mount `/var/www/bagisto/storage/logs` (and `/var/log` if you need the server logs) as a volume, or forward them to a log aggregator.
+
+### Security checklist for real deployments
+
+- Change the default admin password (`admin@example.com` / `admin123`) after first login.
+- Set `APP_URL` to your real domain with HTTPS.
+- Use an external database with strong credentials for anything beyond a demo.
+- Put the container behind a reverse proxy that terminates SSL.
+- Never expose the database port (3306 or 5432) publicly.
+
+---
+
+## 19. Support
+
+- Email: **support@bagisto.com**
+- Support portal: [https://bagisto.uvdesk.com/](https://bagisto.uvdesk.com/en/)
+- Documentation: [https://devdocs.bagisto.com](https://devdocs.bagisto.com)
+- Bagisto source: [https://github.com/bagisto/bagisto](https://github.com/bagisto/bagisto)
+
+---
+
+Thank you for choosing Bagisto!

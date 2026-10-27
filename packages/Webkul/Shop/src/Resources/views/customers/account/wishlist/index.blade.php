@@ -55,13 +55,14 @@
 
                         {!! view_render_event('bagisto.shop.customers.account.wishlist.delete_all.before') !!}
 
-                        <div
-                            class="secondary-button border-zinc-200 px-5 py-3 font-normal max-md:rounded-lg max-md:py-2 max-sm:py-1.5 max-sm:text-sm"
+                        <button
+                            type="button"
+                            class="secondary-button border-zinc-200 px-5 py-3 font-normal max-md:rounded-lg max-md:py-2 max-sm:py-1.5 max-sm:text-sm focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:outline-hidden rounded-2xl"
                             @click="removeAll"
                             v-if="wishlistItems.length"
                         >
                             @lang('shop::app.customers.account.wishlist.delete-all')
-                        </div>
+                        </button>
 
                         {!! view_render_event('bagisto.shop.customers.account.wishlist.delete_all.after') !!}
                     </div>
@@ -82,7 +83,7 @@
                     <template v-else>
                         <div class="m-auto grid w-full place-content-center items-center justify-items-center py-32 text-center">
                             <img
-                                class="max-md:h-[100px] max-md:w-[100px]"
+                                class="max-md:h-25 max-md:w-25"
                                 src="{{ bagisto_asset('images/wishlist.png') }}"
                                 alt="Empty wishlist"
                             >
@@ -114,12 +115,12 @@
                                 <div>
                                     {!! view_render_event('bagisto.shop.customers.account.wishlist.image.before') !!}
 
-                                    <a :href="`{{ route('shop.product_or_category.index', '') }}/${wishlist.product.url_key}`">
+                                    <a :href="'{{ route('shop.product_or_category.index', ':slug') }}'.replace(':slug', wishlist.product.url_key)">
                                         <!-- Wishlist Item Image -->
                                         <img
                                             class="h-28 max-h-28 w-28 max-w-28 rounded-xl max-md:h-20 max-md:max-h-20 max-md:w-20 max-md:max-w-20"
                                             :src="wishlist.product.base_image.small_image_url"
-                                            alt="Product Image"
+                                            :alt="wishlist.product.base_image.alt"
                                         />
                                     </a>
 
@@ -132,10 +133,12 @@
                                             @{{ wishlist.product.name }}
                                         </p>
 
-                                        <span
+                                        <button
+                                            type="button"
                                             @click="remove"
-                                            class="icon-bin hidden text-2xl max-md:block"
-                                        ></span>
+                                            class="icon-bin hidden text-2xl max-md:block cursor-pointer focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:outline-hidden rounded bg-transparent border-0"
+                                            aria-label="@lang('shop::app.customers.account.wishlist.remove')"
+                                        ></button>
                                     </div>
 
                                     <!--Wishlist Item attributes -->
@@ -145,8 +148,9 @@
                                     >
                                         <div class="grid gap-2">
                                             <div>
-                                                <p
-                                                    class="flex cursor-pointer items-center gap-x-4 text-base"
+                                                <button
+                                                    type="button"
+                                                    class="flex cursor-pointer items-center gap-x-4 text-base focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:outline-hidden rounded text-left ltr:text-left rtl:text-right w-full bg-transparent border-0"
                                                     @click="wishlist.option_show = ! wishlist.option_show"
                                                 >
                                                     @lang('shop::app.customers.account.wishlist.see-details')
@@ -158,7 +162,7 @@
                                                             'icon-arrow-down': ! wishlist.option_show
                                                         }"
                                                     ></span>
-                                                </p>
+                                                </button>
                                             </div>
 
                                             <div
@@ -200,12 +204,13 @@
                                         {!! view_render_event('bagisto.shop.customers.account.wishlist.remove_button.before') !!}
 
                                         <!--Wishlist Item removed button-->
-                                        <a
-                                            class="flex cursor-pointer justify-end text-base text-blue-700 max-md:hidden"
+                                        <button
+                                            type="button"
+                                            class="flex cursor-pointer justify-end text-base text-blue-700 max-md:hidden focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-hidden rounded bg-transparent border-0"
                                             @click="remove"
                                         >
                                             @lang('shop::app.customers.account.wishlist.remove')
-                                        </a>
+                                        </button>
 
                                         {!! view_render_event('bagisto.shop.customers.account.wishlist.remove_button.after') !!}
                                     </div>
@@ -217,7 +222,9 @@
                                             name="quantity"
                                             ::value="wishlist.options.quantity ?? 1"
                                             class="flex max-h-10 items-center gap-x-2.5 rounded-[54px] border border-navyBlue px-3.5 py-1.5 max-md:gap-x-1 max-md:px-1.5 max-md:py-1"
+                                            :removable="true"
                                             @change="(qty) => wishlist.quantity = qty"
+                                            @remove="remove"
                                         />
 
                                         @if (core()->getConfigData('sales.checkout.shopping_cart.cart_page'))
@@ -243,12 +250,13 @@
                                 >
                                 </p>
 
-                                <a
-                                    class="flex cursor-pointer justify-end text-base text-blue-700"
+                                <button
+                                    type="button"
+                                    class="flex cursor-pointer justify-end text-base text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-hidden rounded bg-transparent border-0 ltr:ml-auto rtl:mr-auto"
                                     @click="remove"
                                 >
                                     @lang('shop::app.customers.account.wishlist.remove')
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -319,7 +327,7 @@
                         this.$emitter.emit('open-confirm-modal', {
                             agree: () => {
                                 this.$axios
-                                    .delete(`{{ route('shop.api.customers.account.wishlist.destroy', '') }}/${this.wishlist.id}`)
+                                    .delete('{{ route('shop.api.customers.account.wishlist.destroy', ':id') }}'.replace(':id', this.wishlist.id))
                                     .then(response => {
                                         this.$emit('wishlist-items', response.data.data);
 

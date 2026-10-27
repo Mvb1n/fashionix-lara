@@ -6,9 +6,19 @@
     colors="true"
 >
     <testsuites>
+        <!-- Testsuites that span the packages rather than belonging to one. -->
+        <testsuite name="Unit Test">
+            <directory suffix="Test.php">tests/Unit</directory>
+        </testsuite>
+
         <!-- Admin package testsuites. -->
         <testsuite name="Admin Feature Test">
             <directory suffix="Test.php">packages/Webkul/Admin/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Category package testsuites. -->
+        <testsuite name="Category Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Category/tests/Unit</directory>
         </testsuite>
 
         <!-- Core package testsuites. -->
@@ -16,14 +26,113 @@
             <directory suffix="Test.php">packages/Webkul/Core/tests/Unit</directory>
         </testsuite>
 
+        <!-- Customer package testsuites. -->
+        <testsuite name="Customer Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Customer/tests/Unit</directory>
+        </testsuite>
+
         <!-- DataGrid package testsuites. -->
         <testsuite name="DataGrid Unit Test">
             <directory suffix="Test.php">packages/Webkul/DataGrid/tests/Unit</directory>
         </testsuite>
 
+        <!-- EUWithdrawal package testsuites. -->
+        <testsuite name="EUWithdrawal Feature Test">
+            <directory suffix="Test.php">packages/Webkul/EUWithdrawal/tests/Feature</directory>
+        </testsuite>
+
+        <!-- FPC package testsuites. -->
+        <testsuite name="FPC Unit Test">
+            <directory suffix="Test.php">packages/Webkul/FPC/tests/Unit</directory>
+        </testsuite>
+
+        <testsuite name="FPC Feature Test">
+            <directory suffix="Test.php">packages/Webkul/FPC/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Installer package testsuites. -->
+        <testsuite name="Installer Feature Test">
+            <directory suffix="Test.php">packages/Webkul/Installer/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Omnibus package testsuites. -->
+        <testsuite name="Omnibus Feature Test">
+            <directory suffix="Test.php">packages/Webkul/Omnibus/tests/Feature</directory>
+        </testsuite>
+
+        <!-- PayGlocal package testsuites. -->
+        <testsuite name="PayGlocal Unit Test">
+            <directory suffix="Test.php">packages/Webkul/PayGlocal/tests/Unit</directory>
+        </testsuite>
+
+        <testsuite name="PayGlocal Feature Test">
+            <directory suffix="Test.php">packages/Webkul/PayGlocal/tests/Feature</directory>
+        </testsuite>
+
+        <!-- PayU package testsuites. -->
+        <testsuite name="PayU Unit Test">
+            <directory suffix="Test.php">packages/Webkul/PayU/tests/Unit</directory>
+        </testsuite>
+
+        <testsuite name="PayU Feature Test">
+            <directory suffix="Test.php">packages/Webkul/PayU/tests/Feature</directory>
+        </testsuite>
+
+        <testsuite name="Paypal Feature Test">
+            <directory suffix="Test.php">packages/Webkul/Paypal/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Product package testsuites. -->
+        <testsuite name="Product Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Product/tests/Unit</directory>
+        </testsuite>
+
+        <!-- Razorpay package testsuites. -->
+        <testsuite name="Razorpay Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Razorpay/tests/Unit</directory>
+        </testsuite>
+
+        <testsuite name="Razorpay Feature Test">
+            <directory suffix="Test.php">packages/Webkul/Razorpay/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Rule package testsuites. -->
+        <testsuite name="Rule Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Rule/tests/Unit</directory>
+        </testsuite>
+
+        <!-- Sales package testsuites. -->
+        <testsuite name="Sales Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Sales/tests/Unit</directory>
+        </testsuite>
+
+        <!-- Shipping package testsuites. -->
+        <testsuite name="Shipping Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Shipping/tests/Unit</directory>
+        </testsuite>
+
         <!-- Shop package testsuites. -->
         <testsuite name="Shop Feature Test">
             <directory suffix="Test.php">packages/Webkul/Shop/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Stripe package testsuites. -->
+        <testsuite name="Stripe Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Stripe/tests/Unit</directory>
+        </testsuite>
+
+        <testsuite name="Stripe Feature Test">
+            <directory suffix="Test.php">packages/Webkul/Stripe/tests/Feature</directory>
+        </testsuite>
+
+        <!-- Tax package testsuites. -->
+        <testsuite name="Tax Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Tax/tests/Unit</directory>
+        </testsuite>
+
+        <!-- Theme package testsuites. -->
+        <testsuite name="Theme Unit Test">
+            <directory suffix="Test.php">packages/Webkul/Theme/tests/Unit</directory>
         </testsuite>
     </testsuites>
 
@@ -43,6 +152,7 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="RESPONSE_CACHE_DRIVER" value="array"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

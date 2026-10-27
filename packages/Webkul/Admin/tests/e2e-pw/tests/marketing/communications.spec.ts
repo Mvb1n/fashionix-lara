@@ -1,396 +1,225 @@
-import { test, expect } from "../../setup";
-import { generateName, generateDescription, generateRandomDate } from "../../utils/faker";
+import { test } from "../../setup";
+import {
+    CampaignsPage,
+    type CampaignData,
+} from "../../pages/admin/marketing/communications/CampaignsPage";
+import {
+    EmailTemplatesPage,
+    type EmailTemplateData,
+} from "../../pages/admin/marketing/communications/EmailTemplatesPage";
+import {
+    EventsPage,
+    type EventData,
+} from "../../pages/admin/marketing/communications/EventsPage";
+import { generateDescription, generateName, uniqueStamp } from "../../utils/faker";
 
-async function createTemplate(adminPage) {
-    /**
-     * Reaching the create template page.
-     */
-    await adminPage.goto(`admin/marketing/communications/email-templates`);
-    await adminPage.click(
-        'div.primary-button:visible:has-text("Create Template")'
-    );
+function buildTemplate(): EmailTemplateData {
+    return {
+        name: `${generateName()} ${uniqueStamp()}`,
+        content: generateDescription(),
+    };
+}
 
-    const name = generateName();
-    const description = generateDescription();
-
-    /**
-     * General Section.
-     */
-    await adminPage.fill('input[name="name"]', name);
-    await adminPage.selectOption('select[name="status"]', "active");
-
-    /**
-     * Content Section.
-     */
-    await adminPage.fillInTinymce("#content_ifr", description);
-
-    await adminPage.click(
-        'button[type="submit"][class="primary-button"]:visible:has-text("Save Template")'
-    );
-
-    await expect(adminPage.locator('#app')).toContainText('Email template created successfully.');
+function buildEvent(): EventData {
+    return {
+        name: `${generateName()} ${uniqueStamp()}`,
+        description: generateDescription(),
+        date: "2030-01-15",
+    };
 }
 
 test.describe("communication management", () => {
-    test("should create a template", async ({ adminPage }) => {
-        await createTemplate(adminPage);
-    });
+    test.describe("email template management", () => {
+        let templatesPage: EmailTemplatesPage;
+        let created: string[];
 
-    test("should edit a template", async ({ adminPage }) => {
-        /**
-         * Creating a template to edit.
-         */
-        await createTemplate(adminPage);
-
-        await adminPage.goto(`admin/marketing/communications/email-templates`);
-
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit", {
-            state: "visible",
+        test.beforeEach(async ({ adminPage }) => {
+            templatesPage = new EmailTemplatesPage(adminPage);
+            created = [];
         });
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-        await adminPage.fill('input[name="name"]', generateName());
 
-        /**
-         * Save the edit template.
-         */
-        await adminPage.click(
-            'button[type="submit"][class="primary-button"]:visible'
-        );
-
-        await expect(adminPage.locator('#app')).toContainText('Updated successfully');
-    });
-
-    test("should delete a template", async ({ adminPage }) => {
-        /**
-         * Creating a template to delete.
-         */
-        await createTemplate(adminPage);
-
-        await adminPage.goto(`admin/marketing/communications/email-templates`);
-
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete", {
-            state: "visible",
+        test.afterEach(async () => {
+            await templatesPage.deleteTemplatesIfPresent(created);
         });
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
-        );
-        await iconDelete[0].click();
 
-        await adminPage.click(
-            "button.transparent-button + button.primary-button:visible"
-        );
+        test("should create an email template and list it as active", async () => {
+            const template = buildTemplate();
+            created.push(template.name);
 
-        await expect(
-            adminPage.getByText("Template Deleted successfully")
-        ).toBeVisible();
+            await templatesPage.createTemplate(template);
+
+            await templatesPage.expectTemplateListed(template.name);
+        });
+
+        test("should reject an email template without a name", async () => {
+            await templatesPage.submitEmptyCreateForm();
+
+            await templatesPage.expectValidationError("The Name field is required");
+            await templatesPage.expectStillOnCreateForm();
+        });
+
+        test("should rename an email template and keep the new name after reload", async () => {
+            const template = buildTemplate();
+            const newName = `${generateName()} ${uniqueStamp()}`;
+            created.push(template.name, newName);
+
+            await templatesPage.createTemplate(template);
+            await templatesPage.renameTemplate(template.name, newName);
+
+            await templatesPage.expectTemplateListed(newName);
+            await templatesPage.expectTemplateAbsent(template.name);
+            await templatesPage.expectNameInEditForm(newName);
+        });
+
+        test("should delete an email template and remove it from the grid", async () => {
+            const template = buildTemplate();
+            const untouched = buildTemplate();
+            created.push(template.name, untouched.name);
+
+            await templatesPage.createTemplate(template);
+            await templatesPage.createTemplate(untouched);
+            await templatesPage.deleteTemplate(template.name);
+
+            await templatesPage.expectTemplateAbsent(template.name);
+            await templatesPage.expectTemplateListed(untouched.name);
+        });
     });
 
-    test("create event", async ({ adminPage }) => {
-        await adminPage.goto(`admin/marketing/communications/events`);
+    test.describe("event management", () => {
+        let eventsPage: EventsPage;
+        let created: string[];
 
-        await adminPage.click("div.primary-button:visible");
+        test.beforeEach(async ({ adminPage }) => {
+            eventsPage = new EventsPage(adminPage);
+            created = [];
+        });
 
-        adminPage.hover('input[name="name"]');
+        test.afterEach(async () => {
+            await eventsPage.deleteEventsIfPresent(created);
+        });
 
-        const inputs = await adminPage.$$(
-            'textarea.rounded-md:visible, input[type="text"].rounded-md:visible'
-        );
+        test("should create an event and list it with its date", async () => {
+            const event = buildEvent();
+            created.push(event.name);
 
-        for (let input of inputs) {
-            await input.fill(generateName());
-        }
+            await eventsPage.createEvent(event);
 
-        const time = generateRandomDate();
+            await eventsPage.expectEventListed(event.name, event.date);
+        });
 
-        await adminPage.fill('input[name="date"]', time);
+        test("should reject an event without its required fields", async () => {
+            await eventsPage.submitEmptyCreateForm();
 
-        await adminPage.click('button[class="primary-button"]:visible');
+            await eventsPage.expectValidationError("The Name field is required");
+            await eventsPage.expectValidationError("The Date field is required");
+        });
 
-        await expect(
-            adminPage.getByText("Events Created Successfully")
-        ).toBeVisible();
+        test("should rename an event and keep the new name after reload", async () => {
+            const event = buildEvent();
+            const newName = `${generateName()} ${uniqueStamp()}`;
+            created.push(event.name, newName);
+
+            await eventsPage.createEvent(event);
+            await eventsPage.renameEvent(event.name, newName);
+
+            await eventsPage.expectEventListed(newName, event.date);
+            await eventsPage.expectEventAbsent(event.name);
+            await eventsPage.expectNameInEditForm(newName);
+        });
+
+        test("should delete an event and remove it from the grid", async () => {
+            const event = buildEvent();
+            const untouched = buildEvent();
+            created.push(event.name, untouched.name);
+
+            await eventsPage.createEvent(event);
+            await eventsPage.createEvent(untouched);
+            await eventsPage.deleteEvent(event.name);
+
+            await eventsPage.expectEventAbsent(event.name);
+            await eventsPage.expectEventListed(untouched.name, untouched.date);
+        });
     });
 
-    test("edit event", async ({ adminPage }) => {
-        await adminPage.goto(`admin/marketing/communications/events`);
+    test.describe("campaign management", () => {
+        let campaignsPage: CampaignsPage;
+        let templatesPage: EmailTemplatesPage;
+        let eventsPage: EventsPage;
+        let template: EmailTemplateData;
+        let event: EventData;
+        let created: string[];
 
-        await adminPage.waitForSelector(
-            'span[class="icon-edit cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-        );
+        test.beforeEach(async ({ adminPage }) => {
+            campaignsPage = new CampaignsPage(adminPage);
+            templatesPage = new EmailTemplatesPage(adminPage);
+            eventsPage = new EventsPage(adminPage);
+            template = buildTemplate();
+            event = buildEvent();
+            created = [];
 
-        const iconEdit = await adminPage.$$(
-            'span[class="icon-edit cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-        );
+            await templatesPage.createTemplate(template);
+            await eventsPage.createEvent(event);
+        });
 
-        await iconEdit[0].click();
-
-        const iconExists = await adminPage
-            .waitForSelector(
-                ".flex.items-center.break-all.text-sm > .icon-toast-done.rounded-full.bg-white.text-2xl",
-                { timeout: 3000 }
-            )
-            .catch(() => null);
-
-        if (iconExists) {
-            const messages = await adminPage.$$(
-                ".flex.items-center.break-all.text-sm > .icon-toast-done.rounded-full.bg-white.text-2xl"
-            );
-            const icons = await adminPage.$$(
-                ".flex.items-center.break-all.text-sm + .cursor-pointer.underline"
-            );
-
-            const message = await messages[0].evaluate(
-                (el) => el.parentNode.innerText
-            );
-            await icons[0].click();
-
-            throw new Error(message);
-        }
-
-        adminPage.hover('input[name="name"]');
-
-        const inputs = await adminPage.$$(
-            'textarea.rounded-md:visible, input[type="text"].rounded-md:visible'
-        );
-
-        for (let input of inputs) {
-            await input.fill(generateDescription(200));
-        }
-
-        const time = generateRandomDate();
-
-        await adminPage.fill('input[name="date"]', time);
-
-        await adminPage.click('button[class="primary-button"]:visible');
-
-        await expect(
-            adminPage.getByText("Events Updated Successfully")
-        ).toBeVisible();
-    });
-
-    test("delete event", async ({ adminPage }) => {
-        await adminPage.goto(`admin/marketing/communications/events`);
-
-        await adminPage.waitForSelector(
-            'span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-        );
-
-        const iconDelete = await adminPage.$$(
-            'span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-        );
-
-        await iconDelete[0].click();
-
-        await adminPage.click(
-            "button.transparent-button + button.primary-button:visible"
-        );
-
-        await expect(
-            adminPage.getByText("Events Deleted Successfully")
-        ).toBeVisible();
-    });
-
-    test("create campaign", async ({ adminPage }) => {
-        /**
-         * Creating a template to use in the campaign.
-         */
-        await createTemplate(adminPage);
-
-        await adminPage.goto(`admin/marketing/communications/events`);
-
-        await adminPage.click("div.primary-button:visible");
-
-        adminPage.hover('input[name="name"]');
-
-        const inputs = await adminPage.$$(
-            'textarea.rounded-md:visible, input[type="text"].rounded-md:visible'
-        );
-
-        for (let input of inputs) {
-            await input.fill(generateDescription(200));
-        }
-
-        const time = generateRandomDate();
-
-        await adminPage.fill('input[name="date"]', time);
-
-        await adminPage.click('button[class="primary-button"]:visible');
-
-        await expect(
-            adminPage.getByText("Events Created Successfully")
-        ).toBeVisible();
-
-        await adminPage.goto(`admin/marketing/communications/campaigns`);
-
-        await adminPage.click("div.primary-button:visible");
-
-        await adminPage.click('input[type="checkbox"] + label.peer');
-
-        const newInputs = await adminPage.$$(
-            'textarea.rounded-md:visible, input[type="text"].rounded-md:visible'
-        );
-
-        for (let input of newInputs) {
-            await input.fill(generateDescription(200));
-        }
-
-        const selects = await adminPage.$$("select.custom-select");
-
-        for (let select of selects) {
-            const options = await select.$$eval("option", (options) => {
-                return options.map((option) => option.value);
-            });
-
-            if (options.length > 1) {
-                const randomIndex =
-                    Math.floor(Math.random() * (options.length - 1)) + 1;
-
-                await select.selectOption(options[randomIndex]);
-            } else {
-                await select.selectOption(options[0]);
+        test.afterEach(async () => {
+            try {
+                await campaignsPage.deleteCampaignsIfPresent(created);
+            } finally {
+                try {
+                    await templatesPage.deleteTemplatesIfPresent([template.name]);
+                } finally {
+                    await eventsPage.deleteEventsIfPresent([event.name]);
+                }
             }
+        });
+
+        function buildCampaign(): CampaignData {
+            return {
+                name: `${generateName()} ${uniqueStamp()}`,
+                subject: `Subject ${uniqueStamp()}`,
+                eventName: event.name,
+                templateName: template.name,
+            };
         }
 
-        let i = Math.floor(Math.random() * 10) + 1;
+        test("should create a campaign for an event and template and list it", async () => {
+            const campaign = buildCampaign();
+            created.push(campaign.name);
 
-        if (i % 2 == 1) {
-            await adminPage.click('input[type="checkbox"] + label.peer');
-        }
+            await campaignsPage.createCampaign(campaign);
 
-        await adminPage.click('button[class="primary-button"]:visible');
+            await campaignsPage.expectCampaignListed(campaign.name, campaign.subject);
+        });
 
-        await expect(
-            adminPage.getByText("Campaign created successfully.")
-        ).toBeVisible();
+        test("should reject a campaign without its required fields", async () => {
+            await campaignsPage.submitEmptyCreateForm();
+
+            await campaignsPage.expectValidationError("The Name field is required");
+            await campaignsPage.expectValidationError("The Subject field is required");
+            await campaignsPage.expectStillOnCreateForm();
+        });
+
+        test("should rename a campaign and keep the new name after reload", async () => {
+            const campaign = buildCampaign();
+            const newName = `${generateName()} ${uniqueStamp()}`;
+            created.push(campaign.name, newName);
+
+            await campaignsPage.createCampaign(campaign);
+            await campaignsPage.renameCampaign(campaign.name, newName);
+
+            await campaignsPage.expectCampaignListed(newName, campaign.subject);
+            await campaignsPage.expectCampaignAbsent(campaign.name);
+            await campaignsPage.expectNameInEditForm(newName);
+        });
+
+        test("should delete a campaign and remove it from the grid", async () => {
+            const campaign = buildCampaign();
+            created.push(campaign.name);
+
+            await campaignsPage.createCampaign(campaign);
+            await campaignsPage.deleteCampaign(campaign.name);
+
+            await campaignsPage.expectCampaignAbsent(campaign.name);
+        });
     });
-
-    test("edit campaign", async ({ adminPage }) => {
-        await adminPage.goto(`admin/marketing/communications/campaigns`);
-
-        await adminPage.waitForSelector(
-            'span[class="cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center icon-edit"]'
-        );
-
-        const iconEdit = await adminPage.$$(
-            'span[class="cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center icon-edit"]'
-        );
-
-        await iconEdit[0].click();
-
-        await adminPage.click('input[type="checkbox"] + label.peer');
-
-        const inputs = await adminPage.$$(
-            'textarea.rounded-md:visible, input[type="text"].rounded-md:visible'
-        );
-
-        for (let input of inputs) {
-            await input.fill(generateDescription(200));
-        }
-
-        const selects = await adminPage.$$("select.custom-select");
-
-        for (let select of selects) {
-            const options = await select.$$eval("option", (options) => {
-                return options.map((option) => option.value);
-            });
-
-            if (options.length > 1) {
-                const randomIndex =
-                    Math.floor(Math.random() * (options.length - 1)) + 1;
-
-                await select.selectOption(options[randomIndex]);
-            } else {
-                await select.selectOption(options[0]);
-            }
-        }
-
-        let i = Math.floor(Math.random() * 10) + 1;
-
-        if (i % 2 == 1) {
-            await adminPage.click('input[type="checkbox"] + label.peer');
-        }
-
-        await adminPage.click('button[class="primary-button"]:visible');
-
-        await expect(
-            adminPage.getByText("Campaign updated successfully.")
-        ).toBeVisible();
-    });
-
-    test("delete campaign", async ({ adminPage }) => {
-        await adminPage.goto(`admin/marketing/communications/campaigns`);
-
-        await adminPage.waitForSelector(
-            'span[class="cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center icon-delete"]'
-        );
-
-        const iconDelete = await adminPage.$$(
-            'span[class="cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center icon-delete"]'
-        );
-
-        await iconDelete[0].click();
-
-        await adminPage.click(
-            "button.transparent-button + button.primary-button:visible"
-        );
-
-        await expect(
-            adminPage.getByText("Campaign deleted successfully")
-        ).toBeVisible();
-    });
-
-    // test("edit newsletter subscriber", async ({ adminPage }) => {
-    //     await adminPage.goto(
-    //         `admin/marketing/communications/subscribers`
-    //     );
-
-    //     const iconEdit = await adminPage.$$(
-    //         'span[class="icon-edit cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-    //     );
-
-    //     await iconEdit[
-    //         Math.floor(Math.random() * (iconEdit.length - 1 - 0 + 1)) + 0
-    //     ].click();
-
-    //     await adminPage.waitForSelector('select[name="is_subscribed"]');
-
-    //     const select = await adminPage.$('select[name="is_subscribed"]');
-
-    //     const option = Math.random() > 0.5 ? "1" : "0";
-
-    //     await select.selectOption({ value: option });
-
-    //     let i = Math.floor(Math.random() * 10) + 1;
-
-    //     await adminPage.click('button[class="primary-button"]:visible');
-
-    //     await expect(
-    //         adminPage.getByText("Newsletter Subscription Updated Successfully")
-    //     ).toBeVisible();
-    // });
-
-    // test("delete newsletter subscriber", async ({ adminPage }) => {
-    //     await adminPage.goto(
-    //         `admin/marketing/communications/subscribers`
-    //     );
-
-    //     await adminPage.waitForSelector(
-    //         'span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-    //     );
-
-    //     const iconDelete = await adminPage.$$(
-    //         'span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]'
-    //     );
-
-    //     await iconDelete[0].click();
-
-    //     await adminPage.click(
-    //         "button.transparent-button + button.primary-button:visible"
-    //     );
-
-    //     await expect(
-    //         adminPage.getByText("Subscriber Deleted Successfully")
-    //     ).toBeVisible();
-    // });
 });

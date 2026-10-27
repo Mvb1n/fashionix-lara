@@ -25,7 +25,7 @@
                 <span class="icon-arrow-left rtl:icon-arrow-right text-2xl"></span>
             </a>
 
-            <h2 class="text-2xl font-medium max-sm:text-base ltr:ml-2.5 md:ltr:ml-0 rtl:mr-2.5 md:rtl:mr-0">
+            <h2 class="text-2xl font-medium ltr:ml-2.5 rtl:mr-2.5 max-sm:text-base md:ltr:ml-0 md:rtl:mr-0">
                 @lang('shop::app.customers.account.orders.title')
             </h2>
         </div>
@@ -34,7 +34,10 @@
 
         <!-- For Desktop View -->
         <div class="max-md:hidden">
-            <x-shop::datagrid :src="route('shop.customers.account.orders.index')" />
+            <x-shop::datagrid
+                :src="route('shop.customers.account.orders.index')"
+                :shimmerColumns="5"
+            />
         </div>
 
         <!-- For Mobile View -->
@@ -61,7 +64,7 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-shop::shimmer.datagrid.table.body />
+                        <x-shop::shimmer.customers.account.orders />
                     </template>
     
                     <template v-else>
@@ -70,7 +73,7 @@
                                 <a :href="record.actions[0].url">
                                     <div class="flex justify-between">
                                         <div class="text-sm font-semibold">
-                                            @lang('shop::app.customers.account.orders.order-id'): #@{{ record.id }}
+                                            @lang('shop::app.customers.account.orders.order-id'): #@{{ record.increment_id }}
     
                                             <p class="text-xs font-normal text-neutral-500">
                                                 @{{ record.created_at }}
@@ -96,6 +99,5 @@
         </div>
     
         {!! view_render_event('bagisto.shop.customers.account.orders.list.after') !!}
-
     </div>
 </x-shop::layouts.account>

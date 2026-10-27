@@ -65,7 +65,7 @@
                             },
 
                             createOrder: (data, actions) => {
-                                return this.$axios.get("{{ route('paypal.smart-button.create-order') }}")
+                                return this.$axios.get("{{ route('paypal.smart_button.create_order') }}")
                                     .then(response => response.data.result)
                                     .then(order => order.id)
                                     .catch(error => {
@@ -80,20 +80,20 @@
                             },
 
                             onApprove: (data, actions) => {
-                                this.$axios.post("{{ route('paypal.smart-button.capture-order') }}", {
+                                return this.$axios.post("{{ route('paypal.smart_button.capture_order') }}", {
                                     _token: "{{ csrf_token() }}",
                                     orderData: data
                                 })
-                                .then(response => {
-                                    if (response.data.success) {
-                                        if (response.data.redirect_url) {
-                                            window.location.href = response.data.redirect_url;
-                                        } else {
-                                            window.location.href = "{{ route('shop.checkout.onepage.success') }}";
+                                    .then(response => {
+                                        if (response.data.success) {
+                                            if (response.data.redirect_url) {
+                                                window.location.href = response.data.redirect_url;
+                                            } else {
+                                                window.location.href = "{{ route('shop.checkout.onepage.success') }}";
+                                            }
                                         }
-                                    }
-                                })
-                                .catch(error => window.location.href = "{{ route('shop.checkout.cart.index') }}");
+                                    })
+                                    .catch(error => window.location.href = "{{ route('shop.checkout.cart.index') }}");
                             },
 
                             onError: (error) => {

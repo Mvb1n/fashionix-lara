@@ -15,43 +15,22 @@ class CategoryFactory extends Factory
     protected $model = Category::class;
 
     /**
-     * @var string[]
-     */
-    protected $states = [
-        'inactive',
-        'rtl',
-    ];
-
-    /**
      * Define the model's default state.
      */
     public function definition(): array
     {
         return [
-            'status'    => 1,
-            'position'  => $this->faker->randomDigit(),
+            'status' => 1,
+            'position' => $this->faker->randomDigit(),
             'parent_id' => 1,
         ];
     }
 
-    public function inactive(): CategoryFactory
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'status' => 0,
-            ];
-        });
-    }
-
     /**
-     * Handle rtl state
+     * Mark the category as inactive.
      */
-    public function rtl(): CategoryFactory
+    public function inactive(): static
     {
-        return $this->state(function (array $attributes) {
-            return [
-                'direction' => 'rtl',
-            ];
-        });
+        return $this->state(fn () => ['status' => 0]);
     }
 }

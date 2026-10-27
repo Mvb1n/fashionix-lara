@@ -1,368 +1,96 @@
-import { test, expect } from "../../../setup";
-
+import { test } from "../../../setup";
 import {
-    generateDescription,
-    generateRandomNumericString,
-    getImageFile,
-} from "../../../utils/faker";
+    ProductConfigurationPage,
+    type ProductSettings,
+} from "../../../pages/admin/configuration/catalog/ProductConfigurationPage";
+import { uniqueStamp } from "../../../utils/faker";
+
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
+}
 
 test.describe("product configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let configPage: ProductConfigurationPage;
+    let original: ProductSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/catalog/products");
+        configPage = new ProductConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    test("should update the compare and image search", async ({
-        adminPage,
-    }) => {
-        await adminPage.click(
-            'label[for="catalog[products][settings][compare_option]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[products][settings][image_search]"]'
-        );
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
     });
 
-    test("should set up the search engine for product searches", async ({
-        adminPage,
-    }) => {
-        await adminPage.selectOption(
-            'select[name="catalog[products][search][engine]"]',
-            "elastic"
-        );
-        const searchEngine = adminPage.locator(
-            'select[name="catalog[products][search][engine]"]'
-        );
-        await expect(searchEngine).toHaveValue("elastic");
+    test("should persist the compare and image search settings after reload", async () => {
+        const changed = {
+            compare: !original.compare,
+            imageSearch: !original.imageSearch,
+        };
 
-        await adminPage.selectOption(
-            'select[name="catalog[products][search][admin_mode]"]',
-            "elastic"
-        );
-        const adminSearchMode = adminPage.locator(
-            'select[name="catalog[products][search][admin_mode]"]'
-        );
-        await expect(adminSearchMode).toHaveValue("elastic");
+        await configPage.applySettings(changed);
 
-        await adminPage.selectOption(
-            'select[name="catalog[products][search][storefront_mode]"]',
-            "elastic"
-        );
-        const storeFrontSearchMode = adminPage.locator(
-            'select[name="catalog[products][search][storefront_mode]"]'
-        );
-        await expect(storeFrontSearchMode).toHaveValue("elastic");
-
-        await adminPage
-            .locator(
-                'input[name="catalog[products][search][min_query_length]"]'
-            )
-            .fill(generateRandomNumericString(2));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][search][max_query_length]"]'
-            )
-            .fill(generateRandomNumericString(2));
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    /**
-     * Update the product view page configuration.
-     */
-    test("should update the product view page configuration", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][product_view_page][no_of_related_products]"]'
-            )
-            .fill(generateRandomNumericString(2));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][product_view_page][no_of_up_sells_products]"]'
-            )
-            .fill(generateRandomNumericString(2));
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test("should persist the product and cart view counts after reload", async () => {
+        const changed = {
+            relatedProducts: other(original.relatedProducts, "6", "7"),
+            upSells: other(original.upSells, "6", "7"),
+            crossSells: other(original.crossSells, "6", "7"),
+        };
 
-        /**
-         * Verify the change is saved.
-         */
-         await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 
-    test("should update the cart view page configuration", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cart_view_page][no_of_cross_sells_products]"]'
-            )
-            .fill(generateRandomNumericString(2));
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test("should persist the storefront listing settings after reload", async () => {
+        const changed = {
+            storefrontMode: other(original.storefrontMode, "grid", "list"),
+            productsPerPage: other(original.productsPerPage, "12", "24"),
+            sortBy: other(original.sortBy, "name-asc", "price-desc"),
+            buyNowButton: !original.buyNowButton,
+        };
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 
-    test("should update the store front configuration", async ({
-        adminPage,
-    }) => {
-        await adminPage.selectOption(
-            'select[name="catalog[products][storefront][mode]"]',
-            "grid"
-        );
-        const defaultListMode = adminPage.locator(
-            'select[name="catalog[products][storefront][mode]"]'
-        );
-        await expect(defaultListMode).toHaveValue("grid");
+    test("should persist the review settings after reload", async () => {
+        const changed = {
+            guestReview: !original.guestReview,
+            customerReview: !original.customerReview,
+            reviewSummary: other(original.reviewSummary, "star_counts", "average_rating"),
+        };
 
-        await adminPage
-            .locator(
-                'input[name="catalog[products][storefront][products_per_page]"]'
-            )
-            .fill(generateRandomNumericString(2));
+        await configPage.applySettings(changed);
 
-        await adminPage.selectOption(
-            'select[name="catalog[products][storefront][sort_by]"]',
-            "name-asc"
-        );
-        const sortBy = adminPage.locator(
-            'select[name="catalog[products][storefront][sort_by]"]'
-        );
-        await expect(sortBy).toHaveValue("name-asc");
-
-        await adminPage.click(
-            'label[for="catalog[products][storefront][buy_now_button_display]"]'
-        );
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    test("should update the small image size and placeholder", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_small_image][width]"]'
-            )
-            .fill(generateRandomNumericString(3));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_small_image][height]"]'
-            )
-            .fill(generateRandomNumericString(3));
+    test("should persist the attribute upload size limits after reload", async () => {
+        const changed = {
+            imageUploadSize: other(original.imageUploadSize, "2048", "4096"),
+            fileUploadSize: other(original.fileUploadSize, "2048", "4096"),
+        };
 
-        const [fileChooser] = await Promise.all([
-            adminPage.waitForEvent("filechooser"),
-            adminPage.click('label:has-text("Small Image Placeholder")'),
-        ]);
+        await configPage.applySettings(changed);
 
-        await fileChooser.setFiles(getImageFile());
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Delete the uploaded favicon.
-         */
-        await adminPage
-            .locator(
-                '[id="catalog\\[products\\]\\[cache_small_image\\]\\[url\\]\\[delete\\]"]'
-            )
-            .nth(1)
-            .click();
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    test("should update the medium image size and placeholder", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_medium_image][width]"]'
-            )
-            .fill(generateRandomNumericString(3));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_medium_image][height]"]'
-            )
-            .fill(generateRandomNumericString(3));
+    test("should persist the social share settings after reload", async () => {
+        const changed = {
+            socialShare: !original.socialShare,
+            shareMessage: `Share ${uniqueStamp()}`,
+        };
 
-        const [fileChooser] = await Promise.all([
-            adminPage.waitForEvent("filechooser"),
-            adminPage.click('label:has-text("Medium Image Placeholder")'),
-        ]);
+        await configPage.applySettings(changed);
 
-        await fileChooser.setFiles(getImageFile());
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Delete the uploaded favicon.
-         */
-        await adminPage
-            .locator(
-                '[id="catalog\\[products\\]\\[cache_medium_image\\]\\[url\\]\\[delete\\]"]'
-            )
-            .nth(1)
-            .click();
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
-    });
-
-    test("should update the large image size and placeholder", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_large_image][width]"]'
-            )
-            .fill(generateRandomNumericString(3));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][cache_large_image][height]"]'
-            )
-            .fill(generateRandomNumericString(3));
-
-        const [fileChooser] = await Promise.all([
-            adminPage.waitForEvent("filechooser"),
-            adminPage.click('label:has-text("Large Image Placeholder")'),
-        ]);
-
-        await fileChooser.setFiles(getImageFile());
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Delete the uploaded favicon.
-         */
-        await adminPage
-            .locator(
-                '[id="catalog\\[products\\]\\[cache_large_image\\]\\[url\\]\\[delete\\]"]'
-            )
-            .nth(1)
-            .click();
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
-    });
-
-    test("should update the review configuration", async ({ adminPage }) => {
-        await adminPage.click(
-            'label[for="catalog[products][review][guest_review]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][review][customer_review]"]'
-        );
-
-        await adminPage.selectOption(
-            'select[name="catalog[products][review][summary]"]',
-            "star_counts"
-        );
-        const searchEngine = adminPage.locator(
-            'select[name="catalog[products][review][summary]"]'
-        );
-        await expect(searchEngine).toHaveValue("star_counts");
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
-    });
-
-    test("should update the allowed image and file upload size", async ({
-        adminPage,
-    }) => {
-        await adminPage
-            .locator(
-                'input[name="catalog[products][attribute][image_attribute_upload_size]"]'
-            )
-            .fill(generateRandomNumericString(3));
-        await adminPage
-            .locator(
-                'input[name="catalog[products][attribute][file_attribute_upload_size]"]'
-            )
-            .fill(generateRandomNumericString(3));
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
-    });
-
-    test("should update social share configuration", async ({ adminPage }) => {
-        await adminPage.click(
-            'label[for="catalog[products][social_share][enabled]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][facebook]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][twitter]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][pinterest]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][whatsapp]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][linkedin]"]'
-        );
-
-        await adminPage.click(
-            'label[for="catalog[products][social_share][email]"]'
-        );
-
-        await adminPage
-            .locator(
-                'input[name="catalog[products][social_share][share_message]"]'
-            )
-            .fill(generateDescription());
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 });

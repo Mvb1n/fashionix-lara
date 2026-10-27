@@ -13,17 +13,23 @@
 
             @if (core()->getConfigData('general.gdpr.cookie.enabled'))
                 <div
-                    class="js-cookie-consent fixed z-[999] mx-4 box-border hidden min-h-5 overflow-hidden rounded bg-black/90 p-7"
+                    class="js-cookie-consent fixed z-999 mx-4 box-border hidden min-h-5 overflow-hidden rounded-sm bg-black/90 p-7"
                     :class="getPositionClasses(position)"
                 >
                     <div class="cookieTitle">
-                        <span class="mb-1.5 block font-sans text-xl leading-5 text-white">
+                        <span
+                            class="mb-1.5 block font-sans text-xl leading-5 text-white"
+                            v-pre
+                        >
                             {{ core()->getConfigData('general.gdpr.cookie.static_block_identifier') }}
                         </span>
                     </div>
 
                     <div class="cookieDesc cookie-consent__message">
-                        <p class="mt-2.5 block font-sans text-sm leading-5 text-white">
+                        <p
+                            class="mt-2.5 block font-sans text-sm leading-5 text-white"
+                            v-pre
+                        >
                             {{ core()->getConfigData('general.gdpr.cookie.description') }}
 
                             <a
@@ -38,14 +44,14 @@
                     <div class="cookieButton">
                         <div class="mt-2.5 flex gap-2">
                             <button
-                                class="box-border inline-block w-full cursor-pointer rounded bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
+                                class="box-border inline-block w-full cursor-pointer rounded-sm bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
                                 @click="createCookie()"
                             >
                                 @lang('shop::app.components.layouts.cookie.index.accept')
                             </button>
 
                             <button
-                                class="box-border inline-block w-full cursor-pointer rounded bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
+                                class="box-border inline-block w-full cursor-pointer rounded-sm bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
                                 @click="rejectCookie()"
                             >
                                 @lang('shop::app.components.layouts.cookie.index.reject')
@@ -53,8 +59,8 @@
                         </div>
 
                         <a
-                            class="mt-2.5 box-border inline-block w-full cursor-pointer rounded bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
-                            href="{{ route('shop.customers.gdpr.cookie-consent') }}"
+                            class="mt-2.5 box-border inline-block w-full cursor-pointer rounded-sm bg-blue-500 px-6 py-4 text-center font-sans text-sm font-bold text-white transition-colors duration-300 ease-in-out hover:bg-blue-400 hover:text-white"
+                            href="{{ route('shop.customers.gdpr.cookie_consent') }}"
                         >
                             @lang('shop::app.components.layouts.cookie.index.learn-more-and-customize')
                         </a>
@@ -75,7 +81,7 @@
             data() {
                 return {
                     cookieDomain: '{{ config('session.domain') ?? request()->getHost() }}',
-                    cookieIp: "{{ $_SERVER['REMOTE_ADDR'] }}",
+                    cookieIp: "{{ request()->ip() }}",
                     position: "{{ core()->getConfigData('general.gdpr.cookie.position') ?? 'center' }}"
                 };
             },

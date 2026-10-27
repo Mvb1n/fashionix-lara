@@ -5,6 +5,7 @@ namespace Webkul\Admin\Http\Controllers\Marketing\SearchSEO;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Marketing\SearchSEO\SearchTermDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
@@ -22,7 +23,7 @@ class SearchTermController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -39,10 +40,10 @@ class SearchTermController extends Controller
     public function store(): JsonResponse
     {
         $this->validate(request(), [
-            'term'         => 'required',
+            'term' => 'required',
             'redirect_url' => 'url:http,https',
-            'channel_id'   => 'required|exists:channels,id',
-            'locale'       => 'required|exists:locales,code',
+            'channel_id' => 'required|exists:channels,id',
+            'locale' => 'required|exists:locales,code',
         ]);
 
         Event::dispatch('marketing.search_seo.search_terms.create.before');
@@ -63,18 +64,16 @@ class SearchTermController extends Controller
 
     /**
      * Update the specified resource in storage.
-     *
-     * @param  int  $id
      */
     public function update(): JsonResponse
     {
         $id = request()->id;
 
         $this->validate(request(), [
-            'term'         => 'required',
+            'term' => 'required',
             'redirect_url' => 'url:http,https',
-            'channel_id'   => 'required|exists:channels,id',
-            'locale'       => 'required|exists:locales,code',
+            'channel_id' => 'required|exists:channels,id',
+            'locale' => 'required|exists:locales,code',
         ]);
 
         Event::dispatch('marketing.search_seo.search_terms.update.before', $id);

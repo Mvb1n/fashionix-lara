@@ -14,7 +14,7 @@
         type="text/x-template"
         id="v-booking-information-template"
     >
-        <div class="box-shadow relative rounded bg-white p-4 dark:bg-gray-900">
+        <div class="box-shadow relative rounded-sm bg-white p-4 dark:bg-gray-900">
             <!-- Booking Type -->
             <x-admin::form.control-group class="w-full">
                 <x-admin::form.control-group.label class="required">
@@ -128,14 +128,27 @@
                         $dateMin = \Carbon\Carbon::yesterday()->format('Y-m-d 23:59:59');
                     @endphp
 
-                    <x-admin::form.control-group.control
-                        type="datetime"
-                        name="booking[available_from]"
-                        :rules="'required|after:' . $dateMin"
-                        v-model="booking.available_from"
-                        :label="trans('admin::app.catalog.products.edit.types.booking.available-from')"
-                        :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-from')"
-                    />
+                    <template v-if="booking.type == 'event'">
+                        <x-admin::form.control-group.control
+                            type="datetime"
+                            name="booking[available_from]"
+                            :rules="'required|after:' . $dateMin"
+                            v-model="booking.available_from"
+                            :label="trans('admin::app.catalog.products.edit.types.booking.available-from')"
+                            :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-from')"
+                        />
+                    </template>
+
+                    <template v-else>
+                        <x-admin::form.control-group.control
+                            type="date"
+                            name="booking[available_from]"
+                            :rules="'required|after:' . $dateMin"
+                            v-model="booking.available_from"
+                            :label="trans('admin::app.catalog.products.edit.types.booking.available-from')"
+                            :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-from')"
+                        />
+                    </template>
 
                     <x-admin::form.control-group.error  control-name="booking[available_from]" />
                 </x-admin::form.control-group>
@@ -146,18 +159,53 @@
                         @lang('admin::app.catalog.products.edit.types.booking.available-to')
                     </x-admin::form.control-group.label>
 
-                    <x-admin::form.control-group.control
-                        type="datetime"
-                        name="booking[available_to]"
-                        ::rules="'required|after:' + booking.available_from"
-                        v-model="booking.available_to"
-                        :label="trans('admin::app.catalog.products.edit.types.booking.available-to')"
-                        :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-to')"
-                    />
+                    <template v-if="booking.type == 'event'">
+                        <x-admin::form.control-group.control
+                            type="datetime"
+                            name="booking[available_to]"
+                            ::rules="'required|after:' + booking.available_from"
+                            v-model="booking.available_to"
+                            :label="trans('admin::app.catalog.products.edit.types.booking.available-to')"
+                            :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-to')"
+                        />
+                    </template>
+
+                    <template v-else>
+                        <x-admin::form.control-group.control
+                            type="date"
+                            name="booking[available_to]"
+                            ::rules="'required|after_or_equal:' + booking.available_from"
+                            v-model="booking.available_to"
+                            :label="trans('admin::app.catalog.products.edit.types.booking.available-to')"
+                            :placeholder="trans('admin::app.catalog.products.edit.types.booking.available-to')"
+                        />
+                    </template>
 
                     <x-admin::form.control-group.error  control-name="booking[available_to]" />
                 </x-admin::form.control-group>
             </div>
+
+            <!-- Allow Cancellation -->
+            <x-admin::form.control-group class="w-full">
+                <x-admin::form.control-group.label>
+                    @lang('admin::app.catalog.products.edit.types.booking.allow-cancellation.title')
+                </x-admin::form.control-group.label>
+
+                <x-admin::form.control-group.control
+                    type="select"
+                    name="booking[allow_cancellation]"
+                    v-model="booking.allow_cancellation"
+                    :label="trans('admin::app.catalog.products.edit.types.booking.allow-cancellation.title')"
+                >
+                    <option value="1">
+                        @lang('admin::app.catalog.products.edit.types.booking.allow-cancellation.yes')
+                    </option>
+
+                    <option value="0">
+                        @lang('admin::app.catalog.products.edit.types.booking.allow-cancellation.no')
+                    </option>
+                </x-admin::form.control-group.control>
+            </x-admin::form.control-group>
 
             @php
                 $bookingTypes = [
@@ -200,6 +248,14 @@
             return new Date(value) > new Date(target);
         });
 
+        defineRule('after_or_equal', (value, [target]) => {
+            if (! value || ! target) {
+                return true;
+            }
+
+            return new Date(value) >= new Date(target);
+        });
+
         app.component('v-booking-information', {
             template: '#v-booking-information-template',
 
@@ -221,15 +277,38 @@
 
                         available_from: '',
 
-                        available_to: ''
+                        available_to: '',
+
+                        allow_cancellation: 1
                     }
                 }
             },
 
             created() {
-                this.booking.available_from = "{{ $bookingProduct && $bookingProduct->available_from ? $bookingProduct->available_from->format('Y-m-d H:i:s') : '' }}";
+                const fromRaw = "{{ $bookingProduct && $bookingProduct->available_from ? $bookingProduct->available_from->format('Y-m-d H:i:s') : '' }}";
+                const toRaw = "{{ $bookingProduct && $bookingProduct->available_to ? $bookingProduct->available_to->format('Y-m-d H:i:s') : '' }}";
 
-                this.booking.available_to = "{{ $bookingProduct && $bookingProduct->available_to ? $bookingProduct->available_to->format('Y-m-d H:i:s') : '' }}";
+                if (this.booking.type === 'event') {
+                    this.booking.available_from = fromRaw;
+                    this.booking.available_to = toRaw;
+                } else {
+                    this.booking.available_from = fromRaw ? fromRaw.substring(0, 10) : '';
+                    this.booking.available_to = toRaw ? toRaw.substring(0, 10) : '';
+                }
+            },
+
+            watch: {
+                'booking.type'(newType, oldType) {
+                    if (oldType === 'event' && newType !== 'event') {
+                        if (this.booking.available_from) {
+                            this.booking.available_from = String(this.booking.available_from).substring(0, 10);
+                        }
+
+                        if (this.booking.available_to) {
+                            this.booking.available_to = String(this.booking.available_to).substring(0, 10);
+                        }
+                    }
+                },
             }
         });
     </script>

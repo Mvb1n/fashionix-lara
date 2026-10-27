@@ -1,4 +1,4 @@
-<div class="container px-[60px] max-lg:px-8 max-sm:px-4">
+<div class="container px-15 max-lg:px-8 max-sm:px-4">
     <div class="flex items-start gap-10 max-lg:gap-5 md:mt-10">
         <!-- Desktop Filter Shimmer Effect -->
         <div class="max-md:hidden">

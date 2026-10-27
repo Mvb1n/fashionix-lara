@@ -1,23 +1,38 @@
-import { test, expect } from '../../../setup';
-import { generateName, generateEmail } from '../../../utils/faker';
+import { uniqueStamp } from "../../../utils/faker";
+import { test } from "../../../setup";
+import {
+    EmailConfigurationPage,
+    type EmailSettings,
+} from "../../../pages/admin/configuration/email/EmailConfigurationPage";
 
+test.describe("email settings configuration", () => {
+    test.describe.configure({ timeout: 120000 });
 
-test.describe('email settings configuration', () => {
-    test('should configure the email settings', async ({ adminPage }) => {
-        await adminPage.goto('admin/configuration/emails/configure');
+    let configPage: EmailConfigurationPage;
+    let original: EmailSettings;
 
-        await adminPage.locator('input[name="emails[configure][email_settings][sender_name]"]').fill(generateName());
-        await adminPage.locator('input[name="emails[configure][email_settings][shop_email_from]"]').fill(generateEmail());
-        await adminPage.locator('input[name="emails[configure][email_settings][admin_name]"]').fill(generateName());
-        await adminPage.locator('input[name="emails[configure][email_settings][admin_email]"]').fill(generateEmail());
-        await adminPage.locator('input[name="emails[configure][email_settings][contact_name]"]').fill(generateName());
-        await adminPage.locator('input[name="emails[configure][email_settings][contact_email]"]').fill(generateEmail());
+    test.beforeEach(async ({ adminPage }) => {
+        configPage = new EmailConfigurationPage(adminPage);
+        original = await configPage.readSettings();
+    });
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
+    });
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test("should persist the sender, admin and contact details after reload", async () => {
+        const stamp = uniqueStamp();
+        const changed = {
+            senderName: `Sender ${stamp}`,
+            senderEmail: `sender-${stamp}@example.com`,
+            adminName: `Admin ${stamp}`,
+            adminEmail: `admin-${stamp}@example.com`,
+            contactName: `Contact ${stamp}`,
+            contactEmail: `contact-${stamp}@example.com`,
+        };
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

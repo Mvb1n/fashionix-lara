@@ -52,6 +52,8 @@
             <x-admin::datagrid
                 :src="route('admin.marketing.search_seo.search_synonyms.index')"
                 ref="datagrid"
+                :shimmer-columns="5"
+                :shimmer-mass-action="true"
             >
                 <template #body="{
                     isLoading,
@@ -62,7 +64,10 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="5"
+                            :massAction="true"
+                        />
                     </template>
 
                     <template v-else>
@@ -99,7 +104,7 @@
 
                             <!-- Actions -->
                             <div class="flex justify-end">
-                                @if (bouncer()->hasPermission('marketing.search_synonyms.edit'))
+                                @if (bouncer()->hasPermission('marketing.search_seo.search_synonyms.edit'))
                                     <a @click="selectedSitemap=1; editModal(record)">
                                         <span
                                             :class="record.actions.find(action => action.index === 'edit')?.icon"
@@ -109,7 +114,7 @@
                                     </a>
                                 @endif
 
-                                @if (bouncer()->hasPermission('marketing.search_synonyms.delete'))
+                                @if (bouncer()->hasPermission('marketing.search_seo.search_synonyms.delete'))
                                     <a @click="performAction(record.actions.find(action => action.index === 'delete'))">
                                         <span
                                             :class="record.actions.find(action => action.index === 'delete')?.icon"

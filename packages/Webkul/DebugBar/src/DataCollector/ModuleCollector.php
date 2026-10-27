@@ -5,9 +5,10 @@ namespace Webkul\DebugBar\DataCollector;
 use DebugBar\DataCollector\AssetProvider;
 use DebugBar\DataCollector\DataCollector;
 use DebugBar\DataCollector\DataCollectorInterface;
-use DebugBar\DataCollector\PDO\PDOCollector;
 use DebugBar\DataCollector\Renderable;
+use DebugBar\DataFormatter\DataFormatter;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Str;
 use Konekt\Concord\Facades\Concord;
 
@@ -29,7 +30,7 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
      */
     public function __construct(
         Dispatcher $events,
-        PDOCollector $pdoCollector
+        DataFormatter $formatter
     ) {
         $events->listen('eloquent.*', function ($event, $models) {
             if (Str::contains($event, 'eloquent.retrieved')) {
@@ -48,19 +49,19 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
         });
 
         app()['db']->listen(
-            function ($query, $bindings = null, $time = null, $connectionName = null) use ($pdoCollector) {
+            function ($query, $bindings = null, $time = null, $connectionName = null) use ($formatter) {
                 $this->queries[] = [
-                    'sql'          => $this->addQueryBindings($query),
-                    'duration'     => $query->time,
-                    'duration_str' => $pdoCollector->formatDuration($query->time),
-                    'connection'   => $query->connection->getDatabaseName(),
+                    'sql' => $this->addQueryBindings($query),
+                    'duration' => $query->time,
+                    'duration_str' => $formatter->formatDuration($query->time),
+                    'connection' => $query->connection->getDatabaseName(),
                 ];
             }
         );
     }
 
     /**
-     * @param  \Illuminate\Database\Events\QueryExecuted  $query
+     * @param  QueryExecuted  $query
      * @return string
      */
     public function addQueryBindings($query)
@@ -126,7 +127,7 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
     /**
      * {@inheritdoc}
      */
-    public function collect()
+    public function collect(): array
     {
         $modules = [];
 
@@ -143,16 +144,16 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
                 || count($queries)
             ) {
                 $modules[] = [
-                    'name'    => $module->getNamespaceRoot(),
-                    'models'  => $models,
-                    'views'   => $views,
+                    'name' => $module->getNamespaceRoot(),
+                    'models' => $models,
+                    'views' => $views,
                     'queries' => $queries,
                 ];
             }
         }
 
         $data = [
-            'count'   => count($modules),
+            'count' => count($modules),
             'modules' => $modules,
         ];
 
@@ -246,7 +247,7 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
     /**
      * {@inheritDoc}
      */
-    public function getName()
+    public function getName(): string
     {
         return 'modules';
     }
@@ -254,33 +255,30 @@ class ModuleCollector extends DataCollector implements AssetProvider, DataCollec
     /**
      * {@inheritDoc}
      */
-    public function getWidgets()
+    public function getWidgets(): array
     {
         return [
-            'modules'       => [
-                'icon'    => 'cubes',
-                'widget'  => 'PhpDebugBar.Widgets.ModulesWidget',
-                'map'     => 'modules',
+            'modules' => [
+                'icon' => 'cubes',
+                'widget' => 'PhpDebugBar.Widgets.ModulesWidget',
+                'map' => 'modules',
                 'default' => '[]',
             ],
 
             'modules:badge' => [
-                'map'     => 'modules.count',
+                'map' => 'modules.count',
                 'default' => 0,
             ],
         ];
     }
 
-    /**
-     * @return array
-     */
-    public function getAssets()
+    public function getAssets(): array
     {
         return [
             'base_path' => __DIR__.'/../Resources/',
-            'base_url'  => __DIR__.'/../Resources/',
-            'css'       => 'widgets/modules/widget.css',
-            'js'        => 'widgets/modules/widget.js',
+            'base_url' => __DIR__.'/../Resources/',
+            'css' => 'widgets/modules/widget.css',
+            'js' => 'widgets/modules/widget.js',
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Customers;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -35,7 +36,7 @@ class GDPRDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -45,7 +46,7 @@ class GDPRDataGrid extends DataGrid
             ->leftJoin('customers', 'gdpr.customer_id', '=', 'customers.id')
             ->addSelect(
                 'gdpr.id',
-                DB::raw("CONCAT({$tablePrefix}customers.first_name, ' ', {$tablePrefix}customers.last_name) as customer_name"),
+                DB::raw(db_grammar()->concat($tablePrefix.'customers.first_name', "' '", $tablePrefix.'customers.last_name').' as customer_name'),
                 'gdpr.customer_id',
                 'gdpr.status',
                 'gdpr.type',
@@ -57,7 +58,7 @@ class GDPRDataGrid extends DataGrid
         $this->addFilter('type', 'gdpr.type');
         $this->addFilter('created_at', 'gdpr.created_at');
         $this->addFilter('status', 'gdpr.status');
-        $this->addFilter('customer_name', DB::raw("CONCAT({$tablePrefix}customers.first_name, ' ', {$tablePrefix}customers.last_name)"));
+        $this->addFilter('customer_name', DB::raw(db_grammar()->concat($tablePrefix.'customers.first_name', "' '", $tablePrefix.'customers.last_name')));
 
         return $queryBuilder;
     }
@@ -70,31 +71,31 @@ class GDPRDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'id',
-            'label'      => trans('admin::app.customers.gdpr.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'id',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.id'),
+            'type' => 'integer',
             'searchable' => true,
-            'sortable'   => true,
+            'sortable' => true,
             'filterable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'customer_name',
-            'label'      => trans('admin::app.customers.gdpr.index.datagrid.customer-name'),
-            'type'       => 'string',
+            'index' => 'customer_name',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.customer-name'),
+            'type' => 'string',
             'searchable' => true,
-            'sortable'   => true,
+            'sortable' => true,
             'filterable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'status',
-            'label'              => trans('admin::app.customers.gdpr.index.datagrid.status'),
-            'type'               => 'string',
-            'searchable'         => true,
-            'sortable'           => false,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'status',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.status'),
+            'type' => 'string',
+            'searchable' => true,
+            'sortable' => false,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => [
                 [
                     'label' => trans('admin::app.customers.gdpr.index.datagrid.pending'),
@@ -117,7 +118,7 @@ class GDPRDataGrid extends DataGrid
                     'value' => self::STATUS_REVOKED,
                 ],
             ],
-            'closure'    => function ($row) {
+            'closure' => function ($row) {
                 switch ($row->status) {
                     case self::STATUS_COMPLETED:
                         return '<p class="label-active">'.trans('admin::app.customers.gdpr.index.datagrid.completed').'</p>';
@@ -138,13 +139,13 @@ class GDPRDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'              => 'type',
-            'label'              => trans('admin::app.customers.gdpr.index.datagrid.type'),
-            'type'               => 'string',
-            'sortable'           => false,
-            'searchable'         => true,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'type',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.type'),
+            'type' => 'string',
+            'sortable' => false,
+            'searchable' => true,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => [
                 [
                     'label' => trans('admin::app.customers.gdpr.index.datagrid.delete'),
@@ -155,7 +156,7 @@ class GDPRDataGrid extends DataGrid
                     'value' => 'update',
                 ],
             ],
-            'closure'    => function ($row) {
+            'closure' => function ($row) {
                 switch ($row->type) {
                     case 'delete':
                         return trans('admin::app.customers.gdpr.index.datagrid.delete');
@@ -167,21 +168,21 @@ class GDPRDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'      => 'message',
-            'label'      => trans('admin::app.customers.gdpr.index.datagrid.message'),
-            'type'       => 'string',
-            'sortable'   => false,
+            'index' => 'message',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.message'),
+            'type' => 'string',
+            'sortable' => false,
             'searchable' => true,
             'filterable' => false,
         ]);
 
         $this->addColumn([
-            'index'           => 'created_at',
-            'label'           => trans('admin::app.customers.gdpr.index.datagrid.created-at'),
-            'type'            => 'date',
-            'filterable'      => true,
+            'index' => 'created_at',
+            'label' => trans('admin::app.customers.gdpr.index.datagrid.created-at'),
+            'type' => 'date',
+            'filterable' => true,
             'filterable_type' => 'date_range',
-            'sortable'        => true,
+            'sortable' => true,
         ]);
     }
 
@@ -194,11 +195,11 @@ class GDPRDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('customers.gdpr_requests.edit')) {
             $this->addAction([
-                'index'  => 'edit',
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.customers.gdpr.index.datagrid.edit'),
+                'index' => 'edit',
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.customers.gdpr.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.customers.gdpr.edit', $row->id);
                 },
             ]);
@@ -206,11 +207,11 @@ class GDPRDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('customers.gdpr_requests.delete')) {
             $this->addAction([
-                'index'  => 'delete',
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.customers.gdpr.index.datagrid.delete'),
+                'index' => 'delete',
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.customers.gdpr.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.customers.gdpr.delete', $row->id);
                 },
             ]);

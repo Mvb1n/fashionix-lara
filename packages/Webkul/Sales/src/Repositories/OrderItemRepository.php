@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Webkul\Core\Eloquent\Repository;
 use Webkul\Sales\Contracts\OrderItem;
+use Webkul\Sales\Exceptions\InsufficientInventoryException;
 
 class OrderItemRepository extends Repository
 {
@@ -102,8 +103,17 @@ class OrderItemRepository extends Repository
             }
 
             if ($item->product->inventories->count()) {
+                $channel = $orderItem->order->channel;
+
+                $available = $item->product->inventories()
+                    ->whereIn('inventory_source_id', $channel->inventory_sources->where('status', 1)->pluck('id'))
+                    ->lockForUpdate()
+                    ->pluck('qty')
+                    ->sum();
+
                 $orderedInventory = $item->product->ordered_inventories()
-                    ->where('channel_id', $orderItem->order->channel_id)
+                    ->where('channel_id', $channel->id)
+                    ->lockForUpdate()
                     ->first();
 
                 if (isset($item->qty_ordered)) {
@@ -112,13 +122,20 @@ class OrderItemRepository extends Repository
                     $qty = $item?->parent?->qty_ordered ?? 1;
                 }
 
+                if (
+                    $available - ($orderedInventory->qty ?? 0) < $qty
+                    && ! core()->getConfigData('catalog.inventory.stock_options.back_orders')
+                ) {
+                    throw new InsufficientInventoryException(
+                        trans('shop::app.checkout.cart.inventory-warning')
+                    );
+                }
+
                 if ($orderedInventory) {
-                    $orderedInventory->update([
-                        'qty' => $orderedInventory->qty + $qty,
-                    ]);
+                    $orderedInventory->increment('qty', $qty);
                 } else {
                     $item->product->ordered_inventories()->create([
-                        'qty'        => $qty,
+                        'qty' => $qty,
                         'product_id' => $item->product_id,
                         'channel_id' => $orderItem->order->channel->id,
                     ]);
@@ -211,7 +228,16 @@ class OrderItemRepository extends Repository
         $additional['formatted_customizable_options'] = collect($orderItem->additional['formatted_customizable_options'])
             ->map(function ($option) use ($orderItem) {
                 if ($option['type'] === 'file') {
-                    $oldPath = $option['prices'][0]['label'];
+                    $oldPath = $option['prices'][0]['label'] ?? '';
+
+                    /**
+                     * The label is populated from the request when adding the product to the cart, so it must be
+                     * treated as untrusted input. Only relocate files that were genuinely uploaded by the customer
+                     * (stored under the "carts/" directory) to prevent arbitrary files on the disk from being moved.
+                     */
+                    if (! $this->isCustomerUploadedFilePath($oldPath)) {
+                        return $option;
+                    }
 
                     $newPath = 'orders/'.$orderItem->order_id.'/'.File::basename($oldPath);
 
@@ -227,5 +253,34 @@ class OrderItemRepository extends Repository
         $orderItem->additional = $orderItem->product->getTypeInstance()->getAdditionalOptions($additional);
 
         $orderItem->save();
+    }
+
+    /**
+     * Determine whether the given path points to a file the customer uploaded for a customizable option.
+     *
+     * Customer uploads are always stored under the "carts/{cart_id}/" directory of the default disk. Any other
+     * path (including path traversal attempts) is rejected so it cannot be relocated.
+     */
+    protected function isCustomerUploadedFilePath(mixed $path): bool
+    {
+        if (
+            ! is_string($path)
+            || $path === ''
+        ) {
+            return false;
+        }
+
+        /**
+         * Reject path traversal segments outright.
+         */
+        if (preg_match('#(^|/)\.\.(/|$)#', $path)) {
+            return false;
+        }
+
+        if (! str_starts_with($path, 'carts/')) {
+            return false;
+        }
+
+        return Storage::exists($path);
     }
 }

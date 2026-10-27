@@ -31,7 +31,7 @@ class WishlistController extends APIController
 
         $items = $this->wishlistRepository
             ->where([
-                'channel_id'  => core()->getCurrentChannel()->id,
+                'channel_id' => core()->getCurrentChannel()->id,
                 'customer_id' => auth()->guard('customer')->user()->id,
             ])
             ->get();
@@ -59,8 +59,8 @@ class WishlistController extends APIController
         }
 
         $data = [
-            'channel_id'  => core()->getCurrentChannel()->id,
-            'product_id'  => $product->id,
+            'channel_id' => core()->getCurrentChannel()->id,
+            'product_id' => $product->id,
             'customer_id' => auth()->guard()->user()->id,
         ];
 
@@ -77,7 +77,7 @@ class WishlistController extends APIController
         }
 
         $this->wishlistRepository->deleteWhere([
-            'product_id'  => $product->id,
+            'product_id' => $product->id,
             'customer_id' => auth()->guard()->user()->id,
         ]);
 
@@ -93,8 +93,12 @@ class WishlistController extends APIController
      */
     public function moveToCart($id): JsonResource
     {
+        $this->validate(request(), [
+            'quantity' => 'nullable|integer|min:1',
+        ]);
+
         $wishlistItem = $this->wishlistRepository->findOneWhere([
-            'id'          => $id,
+            'id' => $id,
             'customer_id' => auth()->guard('customer')->user()->id,
         ]);
 
@@ -110,26 +114,33 @@ class WishlistController extends APIController
             Event::dispatch('customer.wishlist.move-to-cart.after', $id);
 
             if ($result) {
+                $wishlistItems = $this->wishlistRepository
+                    ->where([
+                        'customer_id' => auth()->guard('customer')->user()->id,
+                        'channel_id' => core()->getCurrentChannel()->id,
+                    ])
+                    ->get();
+
                 return new JsonResource([
                     'data' => [
-                        'wishlist' => WishlistResource::collection($this->wishlistRepository->get()),
-                        'cart'     => new CartResource(Cart::getCart()),
+                        'wishlist' => WishlistResource::collection($wishlistItems),
+                        'cart' => new CartResource(Cart::getCart()),
                     ],
 
-                    'message'  => trans('shop::app.customers.account.wishlist.moved-success'),
+                    'message' => trans('shop::app.customers.account.wishlist.moved-success'),
                 ]);
             }
 
             return new JsonResource([
                 'redirect' => true,
-                'data'     => route('shop.product_or_category.index', $wishlistItem->product->url_key),
-                'message'  => trans('shop::app.checkout.cart.missing-options'),
+                'data' => route('shop.product_or_category.index', $wishlistItem->product->url_key),
+                'message' => trans('shop::app.checkout.cart.missing-options'),
             ]);
         } catch (\Exception $exception) {
             return new JsonResource([
                 'redirect' => true,
-                'data'     => route('shop.product_or_category.index', $wishlistItem->product->url_key),
-                'message'  => $exception->getMessage(),
+                'data' => route('shop.product_or_category.index', $wishlistItem->product->url_key),
+                'message' => $exception->getMessage(),
             ]);
         }
     }
@@ -144,7 +155,7 @@ class WishlistController extends APIController
         Event::dispatch('customer.wishlist.delete.before', $id);
 
         $success = $this->wishlistRepository->deleteWhere([
-            'id'          => $id,
+            'id' => $id,
             'customer_id' => auth()->guard('customer')->user()->id,
         ]);
 
@@ -156,8 +167,15 @@ class WishlistController extends APIController
             ]);
         }
 
+        $wishlistItems = $this->wishlistRepository
+            ->where([
+                'customer_id' => auth()->guard('customer')->user()->id,
+                'channel_id' => core()->getCurrentChannel()->id,
+            ])
+            ->get();
+
         return new JsonResource([
-            'data'    => WishlistResource::collection($this->wishlistRepository->get()),
+            'data' => WishlistResource::collection($wishlistItems),
             'message' => trans('shop::app.customers.account.wishlist.removed'),
         ]);
     }
@@ -170,19 +188,19 @@ class WishlistController extends APIController
         Event::dispatch('customer.wishlist.delete-all.before');
 
         $success = $this->wishlistRepository->deleteWhere([
-            'customer_id'  => auth()->guard('customer')->user()->id,
+            'customer_id' => auth()->guard('customer')->user()->id,
         ]);
 
         Event::dispatch('customer.wishlist.delete-all.after');
 
         if (! $success) {
             return new JsonResource([
-                'message'  => trans('shop::app.customers.account.wishlist.remove-fail'),
+                'message' => trans('shop::app.customers.account.wishlist.remove-fail'),
             ]);
         }
 
         return new JsonResource([
-            'message'  => trans('shop::app.customers.account.wishlist.removed'),
+            'message' => trans('shop::app.customers.account.wishlist.removed'),
         ]);
     }
 

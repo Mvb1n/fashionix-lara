@@ -3,23 +3,25 @@
 namespace Webkul\Product\Helpers;
 
 use Illuminate\Support\Facades\Storage;
+use Webkul\Category\Contracts\Category;
+use Webkul\Product\Contracts\Product;
 
 class SEO
 {
     /**
-     * Returns product json ld data for product
+     * Get the json-ld data of a product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return string
      */
     public function getProductJsonLd($product)
     {
         $data = [
-            '@context'    => 'https://schema.org/',
-            '@type'       => 'Product',
-            'name'        => $product->name,
-            'description' => $product->description,
-            'url'         => route('shop.product_or_category.index', $product->url_key),
+            '@context' => 'https://schema.org/',
+            '@type' => 'Product',
+            'name' => $product->name,
+            'description' => htmlspecialchars(trim(strip_tags($product->description))),
+            'url' => route('shop.product_or_category.index', $product->url_key),
         ];
 
         if (core()->getConfigData('catalog.rich_snippets.products.show_sku')) {
@@ -50,13 +52,13 @@ class SEO
             $data['offers'] = $this->getProductOffers($product);
         }
 
-        return json_encode($data);
+        return json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
     /**
-     * Returns product categories
+     * Get the names of a product's categories, comma separated.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return string
      */
     public function getProductCategories($product)
@@ -73,30 +75,24 @@ class SEO
     }
 
     /**
-     * Returns product images
+     * Get the full size url of each stored image of a product, through the product image helper.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getProductImages($product)
     {
-        $images = [];
-
-        foreach ($product->images as $image) {
-            if (! Storage::has($image->path)) {
-                continue;
-            }
-
-            $images[] = $image->url;
+        if (! $product->images->contains(fn ($image) => Storage::has($image->path))) {
+            return [];
         }
 
-        return $images;
+        return array_column(product_image()->getGalleryImages($product), 'original_image_url');
     }
 
     /**
-     * Returns product reviews
+     * Get the approved reviews of a product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getProductReviews($product)
@@ -105,15 +101,15 @@ class SEO
 
         foreach ($product->reviews()->where('status', 'approved')->get() as $review) {
             $reviews[] = [
-                '@type'        => 'Review',
+                '@type' => 'Review',
                 'reviewRating' => [
-                    '@type'       => 'Rating',
+                    '@type' => 'Rating',
                     'ratingValue' => $review->rating,
-                    'bestRating'  => '5',
+                    'bestRating' => '5',
                 ],
-                'author'       => [
+                'author' => [
                     '@type' => 'Person',
-                    'name'  => $review->name,
+                    'name' => $review->name,
                 ],
             ];
         }
@@ -122,60 +118,60 @@ class SEO
     }
 
     /**
-     * Returns product average ratings
+     * Get the average rating of a product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getProductAggregateRating($product)
     {
-        $reviewHelper = app('Webkul\Product\Helpers\Review');
+        $reviewHelper = app(Review::class);
 
         return [
-            '@type'       => 'AggregateRating',
+            '@type' => 'AggregateRating',
             'ratingValue' => $reviewHelper->getAverageRating($product),
             'reviewCount' => $reviewHelper->getTotalReviews($product),
         ];
     }
 
     /**
-     * Returns product average ratings
+     * Get the offer of a product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getProductOffers($product)
     {
         return [
-            '@type'         => 'Offer',
+            '@type' => 'Offer',
             'priceCurrency' => core()->getCurrentCurrencyCode(),
-            'price'         => $product->getTypeInstance()->getMinimalPrice(),
-            'availability'  => 'https://schema.org/InStock',
+            'price' => $product->getTypeInstance()->getMinimalPrice(),
+            'availability' => 'https://schema.org/InStock',
         ];
     }
 
     /**
-     * Returns product json ld data for category
+     * Get the json-ld data of a category page.
      *
-     * @param  \Webkul\Category\Contracts\Category  $category
-     * @return array
+     * @param  Category  $category
+     * @return string
      */
     public function getCategoryJsonLd($category)
     {
         $data = [
-            '@type'    => 'WebSite',
+            '@type' => 'WebSite',
             '@context' => 'http://schema.org',
-            'url'      => config('app.url'),
+            'url' => config('app.url'),
         ];
 
         if (core()->getConfigData('catalog.rich_snippets.categories.show_search_input_field')) {
             $data['potentialAction'] = [
-                '@type'       => 'SearchAction',
-                'target'      => config('app.url').'/search/?term={search_term_string}',
+                '@type' => 'SearchAction',
+                'target' => route('shop.search.index').'?query={search_term_string}',
                 'query-input' => 'required name=search_term_string',
             ];
         }
 
-        return json_encode($data);
+        return json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 }

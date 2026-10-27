@@ -14,8 +14,24 @@ class AttributeFamily extends Model implements AttributeFamilyContract
 {
     use HasFactory;
 
+    /**
+     * Code of the family every other screen falls back to, and the one the create family
+     * screen builds its groups from.
+     */
+    public const DEFAULT_CODE = 'default';
+
+    /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
     public $timestamps = false;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
     protected $fillable = [
         'code',
         'name',
@@ -58,7 +74,9 @@ class AttributeFamily extends Model implements AttributeFamilyContract
      */
     public function attribute_groups(): HasMany
     {
-        return $this->hasMany(AttributeGroupProxy::modelClass())->orderBy('position');
+        return $this->hasMany(AttributeGroupProxy::modelClass())
+            ->orderBy('column')
+            ->orderBy('position');
     }
 
     /**

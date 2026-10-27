@@ -128,7 +128,7 @@ abstract class AbstractReporting
             $this->setEndDate(request()->date('end'));
         }
 
-        $this->lastStartDate = $this->startDate->clone()->subDays($this->startDate->diffInDays($this->endDate));
+        $this->lastStartDate = $this->startDate->clone()->subDays((int) abs($this->startDate->diffInDays($this->endDate)));
     }
 
     /**
@@ -185,7 +185,7 @@ abstract class AbstractReporting
     public function getTimeInterval($startDate, $endDate, $period)
     {
         if ($period == 'auto') {
-            $totalMonths = $startDate->diffInMonths($endDate) + 1;
+            $totalMonths = (int) abs($startDate->diffInMonths($endDate)) + 1;
 
             /**
              * If the difference between the start and end date is more than 5 months
@@ -194,8 +194,8 @@ abstract class AbstractReporting
 
             if (! empty($intervals)) {
                 return [
-                    'group_column' => 'MONTH(created_at)',
-                    'intervals'    => $intervals,
+                    'group_column' => db_grammar()->extractDatePart('MONTH', 'created_at'),
+                    'intervals' => $intervals,
                 ];
             }
 
@@ -206,8 +206,8 @@ abstract class AbstractReporting
 
             if (! empty($intervals)) {
                 return [
-                    'group_column' => 'WEEK(created_at)',
-                    'intervals'    => $intervals,
+                    'group_column' => db_grammar()->extractDatePart('WEEK', 'created_at'),
+                    'intervals' => $intervals,
                 ];
             }
 
@@ -215,8 +215,8 @@ abstract class AbstractReporting
              * If the difference between the start and end date is less than 6 weeks
              */
             return [
-                'group_column' => 'DAYOFYEAR(created_at)',
-                'intervals'    => $this->getDaysInterval($startDate, $endDate),
+                'group_column' => db_grammar()->extractDatePart('DAYOFYEAR', 'created_at'),
+                'intervals' => $this->getDaysInterval($startDate, $endDate),
             ];
         } else {
             $datePeriod = CarbonPeriod::create($this->startDate, "1 $period", $this->endDate);
@@ -229,7 +229,7 @@ abstract class AbstractReporting
                 $formatter = '?-?-?';
             }
 
-            $groupColumn = 'DATE_FORMAT(created_at, "'.Str::replaceArray('?', ['%Y', '%m', '%d'], $formatter).'")';
+            $groupColumn = db_grammar()->dateFormat('created_at', Str::replaceArray('?', ['%Y', '%m', '%d'], $formatter));
 
             $intervals = [];
 
@@ -238,13 +238,13 @@ abstract class AbstractReporting
 
                 $intervals[] = [
                     'filter' => $formattedDate,
-                    'start'  => $formattedDate,
+                    'start' => $formattedDate,
                 ];
             }
 
             return [
                 'group_column' => $groupColumn,
-                'intervals'    => $intervals,
+                'intervals' => $intervals,
             ];
         }
     }
@@ -260,7 +260,7 @@ abstract class AbstractReporting
     {
         $intervals = [];
 
-        $totalMonths = $startDate->diffInMonths($endDate) + 1;
+        $totalMonths = (int) abs($startDate->diffInMonths($endDate)) + 1;
 
         /**
          * If the difference between the start and end date is less than 5 months
@@ -282,8 +282,8 @@ abstract class AbstractReporting
 
             $intervals[] = [
                 'filter' => $start->month,
-                'start'  => $start->format('d M'),
-                'end'    => $end->format('d M'),
+                'start' => $start->translatedFormat('d M'),
+                'end' => $end->translatedFormat('d M'),
             ];
         }
 
@@ -305,7 +305,7 @@ abstract class AbstractReporting
 
         $endWeekDay = Carbon::createFromTimeString(core()->xWeekRange($endDate, 1).' 23:59:59');
 
-        $totalWeeks = $startWeekDay->diffInWeeks($endWeekDay);
+        $totalWeeks = (int) abs($startWeekDay->diffInWeeks($endWeekDay));
 
         /**
          * If the difference between the start and end date is less than 6 weeks
@@ -329,8 +329,8 @@ abstract class AbstractReporting
 
             $intervals[] = [
                 'filter' => $start->week,
-                'start'  => $start->format('d M'),
-                'end'    => $end->format('d M'),
+                'start' => $start->translatedFormat('d M'),
+                'end' => $end->translatedFormat('d M'),
             ];
         }
 
@@ -348,7 +348,7 @@ abstract class AbstractReporting
     {
         $intervals = [];
 
-        $totalDays = $startDate->diffInDays($endDate) + 1;
+        $totalDays = (int) abs($startDate->diffInDays($endDate)) + 1;
 
         for ($i = 0; $i < $totalDays; $i++) {
             $intervalStartDate = clone $startDate;
@@ -357,8 +357,8 @@ abstract class AbstractReporting
 
             $intervals[] = [
                 'filter' => $intervalStartDate->dayOfYear,
-                'start'  => $intervalStartDate->startOfDay()->format('d M'),
-                'end'    => $intervalStartDate->endOfDay()->format('d M'),
+                'start' => $intervalStartDate->startOfDay()->translatedFormat('d M'),
+                'end' => $intervalStartDate->endOfDay()->translatedFormat('d M'),
             ];
         }
 

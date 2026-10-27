@@ -1,178 +1,84 @@
-import { test, expect } from "../../setup";
-import { generateCurrency } from "../../utils/faker";
-
-async function createCurrency(adminPage, currency) {
-    /**
-     * Reaching to the currency listing page.
-     */
-    await adminPage.goto("admin/settings/currencies");
-
-    /**
-     * Opening create currency form in modal.
-     */
-    await adminPage.getByRole("button", { name: "Create Currency" }).click();
-    await adminPage.locator('input[name="code"]').fill(currency.code);
-    await adminPage.locator('input[name="name"]').fill(currency.name);
-    await adminPage.locator('input[name="symbol"]').fill(currency.symbol);
-    await adminPage
-        .locator('input[name="decimal"]')
-        .fill(currency.decimalDigits);
-    await adminPage
-        .locator('input[name="group_separator"]')
-        .fill(currency.groupSeparator);
-    await adminPage
-        .locator('input[name="decimal_separator"]')
-        .fill(currency.decimalSeparator);
-
-    /**
-     * Saving currency and closing the modal.
-     */
-    await adminPage.getByRole("button", { name: "Save Currency" }).click();
-
-    /**
-     * The USD currency code was already provided during installation in the test environment.
-     */
-    if (currency.code === "USD") {
-        await expect(
-            adminPage.getByText("The code has already been taken.")
-        ).toBeVisible();
-
-        return;
-    }
-
-    /**
-     * Verifying the success message.
-     */
-    await expect(
-        adminPage.getByText("Currency created successfully.")
-    ).toBeVisible();
-
-    /**
-     * Verifying the currency in the listing.
-     */
-    await expect(
-        adminPage.getByText(currency.name, { exact: true })
-    ).toBeVisible();
-
-    await expect(
-        adminPage.getByText(currency.code, { exact: true })
-    ).toBeVisible();
-}
+import { test } from "../../setup";
+import {
+    buildCurrency,
+    CurrenciesPage,
+} from "../../pages/admin/settings/CurrenciesPage";
+import { uniqueStamp } from "../../utils/faker";
 
 test.describe("currency management", () => {
-    test("should create a currency", async ({ adminPage }) => {
-        const currency = generateCurrency();
+    let currenciesPage: CurrenciesPage;
+    let created: string[];
 
-        await createCurrency(adminPage, currency);
+    test.beforeEach(async ({ adminPage }) => {
+        currenciesPage = new CurrenciesPage(adminPage);
+        created = [];
     });
 
-    test("should edit a currency", async ({ adminPage }) => {
-        /**
-         * Generating a new currency.
-         */
-        const currency = generateCurrency();
-
-        await createCurrency(adminPage, {
-            ...currency,
-
-            /**
-             * Let's use invalid currency name and symbol at time of creation then we use
-             * valid currency name and symbol at time of edit.
-             */
-            name: "INVALID_CURRENCY_NAME",
-            symbol: "INVALID_CURRENCY_SYMBOL",
-        });
-
-        /**
-         * Reaching to the currency listing page.
-         */
-        await adminPage.goto("admin/settings/currencies");
-
-        /**
-         * Clicking on the edit button for the first currency opens the modal.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit", {
-            state: "visible",
-        });
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        await adminPage.locator('input[name="name"]').fill(currency.name);
-        await adminPage.locator('input[name="symbol"]').fill(currency.symbol);
-
-        /**
-         * Saving currency and closing the modal.
-         */
-        await adminPage.getByRole("button", { name: "Save Currency" }).click();
-
-        /**
-         * Verifying the success message.
-         */
-        await expect(
-            adminPage.getByText("Currency updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * Verifying the currency in the listing.
-         */
-        await expect(
-            adminPage.getByText(currency.name, { exact: true })
-        ).toBeVisible();
-
-        await expect(
-            adminPage.getByText(currency.code, { exact: true })
-        ).toBeVisible();
+    test.afterEach(async () => {
+        await currenciesPage.deleteCurrenciesIfPresent(created);
     });
 
-    test("should delete a currency", async ({ adminPage }) => {
-        /**
-         * Generating a new currency.
-         */
-        const currency = generateCurrency();
+    test("should create a currency and list it with its code", async () => {
+        const currency = buildCurrency();
+        created.push(currency.name);
 
-        await createCurrency(adminPage, currency);
+        await currenciesPage.createCurrency(currency);
 
-        /**
-         * Reaching to the currency listing page.
-         */
-        await adminPage.goto("admin/settings/currencies");
+        await currenciesPage.expectCurrencyListed(currency);
+    });
 
-        /**
-         * Delete the first currency.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
+    test("should reject a currency without a code and name", async () => {
+        await currenciesPage.submitEmptyCreateForm();
+
+        await currenciesPage.expectValidationError(
+            "The Code field is required",
         );
-        await iconDelete[0].click();
-
-        await adminPage.waitForSelector("text=Are you sure");
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
+        await currenciesPage.expectValidationError(
+            "The Name field is required",
         );
+    });
 
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
+    test("should reject a currency whose code is already used", async () => {
+        const existing = buildCurrency();
+        const duplicate = buildCurrency({ code: existing.code });
+        created.push(existing.name, duplicate.name);
 
-        /**
-         * Verifying the success message.
-         */
-        await expect(
-            adminPage.getByText("Currency deleted successfully.")
-        ).toBeVisible();
+        await currenciesPage.createCurrency(existing);
+        await currenciesPage.attemptCreateCurrency(duplicate);
 
-        /**
-         * Verifying the currency is not in the listing anymore.
-         */
-        await expect(
-            adminPage.getByText(currency.name, { exact: true })
-        ).not.toBeVisible();
+        await currenciesPage.expectValidationError(
+            "The code has already been taken.",
+        );
+        await currenciesPage.expectCurrencyAbsent(duplicate.name);
+        await currenciesPage.expectCurrencyCodeListedOnce(existing.code);
+    });
 
-        await expect(
-            adminPage.getByText(currency.code, { exact: true })
-        ).not.toBeVisible();
+    test("should update a currency and keep the new values after reload", async () => {
+        const currency = buildCurrency();
+        const changes = { name: `Currency ${uniqueStamp()} renamed`, symbol: "₿" };
+        created.push(currency.name, changes.name);
+
+        await currenciesPage.createCurrency(currency);
+        await currenciesPage.updateCurrency(currency.name, changes);
+
+        await currenciesPage.expectCurrencyListed({ ...currency, ...changes });
+        await currenciesPage.expectCurrencyAbsent(currency.name);
+        await currenciesPage.expectSymbolInEditForm(
+            changes.name,
+            changes.symbol,
+        );
+    });
+
+    test("should delete a currency and remove it from the grid", async () => {
+        const currency = buildCurrency();
+        const untouched = buildCurrency();
+        created.push(currency.name, untouched.name);
+
+        await currenciesPage.createCurrency(currency);
+        await currenciesPage.createCurrency(untouched);
+        await currenciesPage.deleteCurrency(currency.name);
+
+        await currenciesPage.expectCurrencyAbsent(currency.name);
+        await currenciesPage.expectCurrencyListed(untouched);
     });
 });

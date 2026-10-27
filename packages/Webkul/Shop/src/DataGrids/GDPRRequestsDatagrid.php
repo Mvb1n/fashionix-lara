@@ -2,6 +2,7 @@
 
 namespace Webkul\Shop\DataGrids;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -40,7 +41,7 @@ class GDPRRequestsDatagrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -61,22 +62,22 @@ class GDPRRequestsDatagrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'id',
-            'label'      => trans('shop::app.customers.account.gdpr.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'id',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.id'),
+            'type' => 'integer',
             'searchable' => true,
-            'sortable'   => true,
+            'sortable' => true,
             'filterable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'status',
-            'label'              => trans('shop::app.customers.account.gdpr.index.datagrid.status'),
-            'type'               => 'string',
-            'searchable'         => true,
-            'sortable'           => false,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'status',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.status'),
+            'type' => 'string',
+            'searchable' => true,
+            'sortable' => false,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => [
                 [
                     'label' => trans('shop::app.customers.account.gdpr.index.datagrid.pending'),
@@ -99,7 +100,7 @@ class GDPRRequestsDatagrid extends DataGrid
                     'value' => self::STATUS_REVOKED,
                 ],
             ],
-            'closure'    => function ($row) {
+            'closure' => function ($row) {
                 self::$status = $row->status;
 
                 switch ($row->status) {
@@ -122,13 +123,13 @@ class GDPRRequestsDatagrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'              => 'type',
-            'label'              => trans('shop::app.customers.account.gdpr.index.datagrid.type'),
-            'type'               => 'string',
-            'sortable'           => false,
-            'searchable'         => true,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'type',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.type'),
+            'type' => 'string',
+            'sortable' => false,
+            'searchable' => true,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => [
                 [
                     'label' => trans('shop::app.customers.account.gdpr.index.datagrid.delete'),
@@ -139,7 +140,7 @@ class GDPRRequestsDatagrid extends DataGrid
                     'value' => 'update',
                 ],
             ],
-            'closure'    => function ($row) {
+            'closure' => function ($row) {
                 switch ($row->type) {
                     case 'delete':
                         return trans('shop::app.customers.account.gdpr.index.datagrid.delete');
@@ -151,37 +152,37 @@ class GDPRRequestsDatagrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'      => 'message',
-            'label'      => trans('shop::app.customers.account.gdpr.index.datagrid.message'),
-            'type'       => 'string',
-            'sortable'   => false,
+            'index' => 'message',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.message'),
+            'type' => 'string',
+            'sortable' => false,
             'searchable' => true,
             'filterable' => false,
         ]);
 
         $this->addColumn([
-            'index'           => 'created_at',
-            'label'           => trans('shop::app.customers.account.gdpr.index.datagrid.date'),
-            'type'            => 'date',
-            'filterable'      => true,
+            'index' => 'created_at',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.date'),
+            'type' => 'date',
+            'filterable' => true,
             'filterable_type' => 'date_range',
-            'sortable'        => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'revoke',
-            'label'      => trans('shop::app.customers.account.gdpr.index.datagrid.revoke-btn'),
-            'type'       => 'string',
-            'sortable'   => false,
+            'index' => 'revoke',
+            'label' => trans('shop::app.customers.account.gdpr.index.datagrid.revoke-btn'),
+            'type' => 'string',
+            'sortable' => false,
             'searchable' => false,
             'filterable' => false,
-            'closure'    => function ($row) {
+            'closure' => function ($row) {
                 $isPending = self::$status == 'pending';
 
                 $url = route('shop.customers.account.gdpr.revoke', $row->id);
 
                 return $isPending
-                    ? '<a href="'.$url.'" class="primary-button rounded-full px-6 py-1.5 max-sm:py-1">'.trans('shop::app.customers.account.gdpr.index.datagrid.revoke-btn').'</a>'
+                    ? '<form method="POST" action="'.$url.'" style="display:inline;">'.csrf_field().'<button type="submit" class="primary-button rounded-full px-6 py-1.5 max-sm:py-1">'.trans('shop::app.customers.account.gdpr.index.datagrid.revoke-btn').'</button></form>'
                     : '<button class="primary-button rounded-full px-6 py-1.5 max-sm:py-1" disabled>'.trans('shop::app.customers.account.gdpr.index.datagrid.revoke-btn').'</button>';
             },
         ]);

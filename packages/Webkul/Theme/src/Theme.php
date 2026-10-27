@@ -9,7 +9,7 @@ class Theme
     /**
      * Contains theme parent.
      *
-     * @var \Webkul\Theme\Theme
+     * @var Theme
      */
     public $parent;
 
@@ -38,7 +38,7 @@ class Theme
     /**
      * Sets the parent.
      *
-     * @param  \Webkul\Theme\Theme
+     * @param  Theme
      * @return void
      */
     public function setParent(Theme $parent)
@@ -49,7 +49,7 @@ class Theme
     /**
      * Return the parent.
      *
-     * @return \Webkul\Theme\Theme
+     * @return Theme
      */
     public function getParent()
     {
@@ -89,11 +89,17 @@ class Theme
      */
     public function url(string $url)
     {
-        $viteUrl = trim($this->vite['package_assets_directory'], '/').'/'.$url;
+        try {
+            $viteUrl = trim($this->vite['package_assets_directory'], '/').'/'.$url;
 
-        return Vite::useHotFile($this->vite['hot_file'])
-            ->useBuildDirectory($this->vite['build_directory'])
-            ->asset($viteUrl);
+            return Vite::useHotFile($this->vite['hot_file'])
+                ->useBuildDirectory($this->vite['build_directory'])
+                ->asset($viteUrl);
+        } catch (\Exception $e) {
+            report($e);
+
+            abort(404);
+        }
     }
 
     /**

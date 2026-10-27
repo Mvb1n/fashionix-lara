@@ -4,9 +4,12 @@ namespace Webkul\Installer\Database\Seeders\User;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Core\Concerns\SyncsPostgresSequences;
 
 class RolesTableSeeder extends Seeder
 {
+    use SyncsPostgresSequences;
+
     /**
      * Seed the application's database.
      *
@@ -22,10 +25,12 @@ class RolesTableSeeder extends Seeder
         $defaultLocale = $parameters['default_locale'] ?? config('app.locale');
 
         DB::table('roles')->insert([
-            'id'              => 1,
-            'name'            => trans('installer::app.seeders.user.roles.name', [], $defaultLocale),
-            'description'     => trans('installer::app.seeders.user.roles.description', [], $defaultLocale),
+            'id' => 1,
+            'name' => trans('installer::app.seeders.user.roles.name', [], $defaultLocale),
+            'description' => trans('installer::app.seeders.user.roles.description', [], $defaultLocale),
             'permission_type' => 'all',
         ]);
+
+        $this->syncPostgresSequences(['roles']);
     }
 }

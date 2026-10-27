@@ -23,6 +23,7 @@
                 <x-admin::datagrid
                     :src="route('admin.marketing.communications.subscribers.index')"
                     ref="datagrid"
+                    :shimmer-columns="4"
                 >
                     <template #body="{
                         isLoading,
@@ -33,7 +34,9 @@
                         performAction
                     }">
                         <template v-if="isLoading">
-                            <x-admin::shimmer.datagrid.table.body />
+                            <x-admin::shimmer.datagrid.table.body
+                                :columns="4"
+                            />
                         </template>
 
                         <template v-else>
@@ -131,7 +134,7 @@
                                 </x-admin::form.control-group>
 
                                 <!-- Subscribed -->
-                                <x-admin::form.control-group class="!mb-0">
+                                <x-admin::form.control-group class="mb-0!">
                                     <x-admin::form.control-group.label class="required">
                                         @lang('admin::app.marketing.communications.subscribers.index.edit.subscribed')
                                     </x-admin::form.control-group.label>

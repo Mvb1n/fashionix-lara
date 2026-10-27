@@ -1,0 +1,1340 @@
+import { expect, Locator, Page } from "@playwright/test";
+import { TinymcePage } from "../../../../utils/TinymcePage";
+import { BaseProduct } from "../../../types/product.types";
+import { BasePage } from "../../../BasePage";
+import {
+    generateName,
+    generateHostname,
+    generateLocation,
+    generateDescription,
+} from "../../../../utils/faker";
+
+export class ProductCreatePage extends BasePage {
+    constructor(
+        page: Page,
+        private editor = new TinymcePage(page),
+    ) {
+        super(page);
+    }
+
+    private get createProductButton() {
+        return this.page.getByRole("button", { name: " Create Product " });
+    }
+
+    private get selectProductType() {
+        return this.page.locator('select[name="type"]');
+    }
+
+    private get saveProductButton() {
+        return this.page.getByRole("button", { name: "Save Product" });
+    }
+
+    private get selectAttribute() {
+        return this.page.locator('select[name="attribute_family_id"]');
+    }
+
+    private get productSku() {
+        return this.page.locator('input[name="sku"]');
+    }
+
+    private get productName() {
+        return this.page.locator("#name");
+    }
+
+    private get productUrlKey() {
+        return this.page.locator('input[name="url_key"]');
+    }
+
+    private get productShortDescription() {
+        return "#short_description_ifr";
+    }
+
+    private get productDescription() {
+        return "#description_ifr";
+    }
+
+    private get productPrice() {
+        return this.page.locator('//input[@name="price"]');
+    }
+
+    private get productWeight() {
+        return this.page.locator('//input[@name="weight"]');
+    }
+
+    private get openPanel() {
+        return this.page.locator("div.fixed").filter({ visible: true });
+    }
+
+    private get productInventory() {
+        return this.page.locator('input[name="inventories[1]"]');
+    }
+
+    private get clickRules() {
+        return this.page.locator('span:text("RMA Rules")');
+    }
+
+    private get rmaSelection() {
+        return this.page.getByText("Basic", { exact: true });
+    }
+
+    private panelHeaderAddButton(panelTitle: string) {
+        return this.page
+            .locator("div.box-shadow > div")
+            .filter({ has: this.page.locator(`p:text-is("${panelTitle}")`) })
+            .locator("div.secondary-button");
+    }
+
+    private get addOptionButton() {
+        return this.panelHeaderAddButton("Bundle Items");
+    }
+
+    private get addLableInput() {
+        return this.page.locator('input[name="label"]');
+    }
+
+    private get isRequiredCheckbox() {
+        return this.page.locator('select[name="is_required"]');
+    }
+
+    private get selectType() {
+        return this.page.locator('select[name="type"]');
+    }
+
+    private get updateProductSuccessToast() {
+        return this.page.locator("text=Product updated successfully").first();
+    }
+
+    private get removeRed() {
+        return this.page
+            .getByRole("paragraph")
+            .filter({ hasText: "Red" })
+            .locator("span");
+    }
+
+    private get removeGreen() {
+        return this.page
+            .getByRole("paragraph")
+            .filter({ hasText: "Green" })
+            .locator("span");
+    }
+
+    private get removeYellow() {
+        return this.page
+            .getByRole("paragraph")
+            .filter({ hasText: "Yellow" })
+            .locator("span");
+    }
+
+    private get iconCross() {
+        return this.page
+            .locator("div:nth-child(2) > div > p > .icon-cross")
+            .first();
+    }
+
+    private get addVariantButton() {
+        return this.page.getByText("Add Variant");
+    }
+
+    private get variantColorSelect() {
+        return this.page.locator('select[name="color"]');
+    }
+
+    private get variantSizeSelect() {
+        return this.page.locator('select[name="size"]');
+    }
+
+    private get addVariantConfirmButton() {
+        return this.page.getByRole("button", { name: "Add" });
+    }
+
+    private get variantsCard() {
+        return this.page
+            .locator("div.box-shadow")
+            .filter({ has: this.page.getByText("Add Variant") });
+    }
+
+    private get variantNameInput() {
+        return this.variantsCard.locator('input[name="name"]');
+    }
+
+    private get variantPriceInput() {
+        return this.page.locator('input[name="price"]');
+    }
+
+    private get variantWeightInput() {
+        return this.page.locator('input[name="weight"]');
+    }
+
+    private get variantInventoryInput() {
+        return this.page.locator('input[name="inventories\\[1\\]"]');
+    }
+
+    private get variantSkuInput() {
+        return this.variantsCard.locator('input[name="sku"]');
+    }
+
+    private get variantSaveButton() {
+        return this.page.getByRole("button", { name: "Save", exact: true });
+    }
+
+    private get searchByNameInput() {
+        return this.page.getByRole("textbox", { name: "Search by name" });
+    }
+
+    private get addSelectedProductButton() {
+        return this.page.getByText("Add Selected Product");
+    }
+
+    private get selectAllVariantsToggle() {
+        return this.variantsCard.locator('[for="select-all-variants"]');
+    }
+
+    private get selectActionButton() {
+        return this.page.getByRole("button", { name: "Select Action" });
+    }
+
+    private get editPricesOption() {
+        return this.page.getByText("Edit Prices");
+    }
+
+    private get confirmationText() {
+        return this.page.getByText("Are you sure?");
+    }
+
+    private get agreeButton() {
+        return this.page.getByRole("button", { name: "Agree", exact: true });
+    }
+
+    private get editPricesPanel() {
+        return this.page
+            .getByRole("paragraph")
+            .filter({ hasText: "Edit Prices" });
+    }
+
+    private get bulkPriceInput() {
+        return this.page.locator('input[name="price"]');
+    }
+
+    private get applyToAllButton() {
+        return this.page.getByRole("button", { name: "Apply to All" });
+    }
+
+    private get bulkSaveButton() {
+        return this.page.getByRole("button", { name: "Save", exact: true });
+    }
+
+    private get editInventoriesOption() {
+        return this.page.getByText("Edit Inventories");
+    }
+
+    private get inventoryInput() {
+        return this.page.locator('input[name="inventories\\[1\\]"]');
+    }
+
+    private get saveButton() {
+        return this.page.getByRole("button", { name: "Save", exact: true });
+    }
+
+    private get editWeightOption() {
+        return this.page.getByText("Edit Weight");
+    }
+
+    private get weightInput() {
+        return this.page.locator('input[name="weight"]');
+    }
+
+    private get addGroupedProductButton() {
+        return this.panelHeaderAddButton("Group Products");
+    }
+
+    private get selectProductsModalTitle() {
+        return this.page.locator('p:has-text("Select Products")');
+    }
+
+    private get addLinkButton() {
+        return this.panelHeaderAddButton("Downloadable Links");
+    }
+
+    private get linkTitleInput() {
+        return this.openPanel.locator('input[name="title"]');
+    }
+
+    private get linkPriceInput() {
+        return this.openPanel.locator('input[name="price"]');
+    }
+
+    private get linkDownloadsInput() {
+        return this.openPanel.locator('input[name="downloads"]');
+    }
+
+    private get linkTypeSelect() {
+        return this.openPanel.locator('select[name="type"]');
+    }
+
+    private get linkFileInput() {
+        return this.openPanel.locator('input[name="url"]');
+    }
+
+    private get sampleTypeSelect() {
+        return this.page.locator('select[name="sample_type"]');
+    }
+
+    private get sampleUrlInput() {
+        return this.page.locator('input[name="sample_url"]');
+    }
+
+    private get linkSaveButton() {
+        return this.openPanel.getByRole("button", { name: "Save", exact: true });
+    }
+
+    private get addSampleButton() {
+        return this.panelHeaderAddButton("Downloadable Samples");
+    }
+
+    private get sampleTitleInput() {
+        return this.openPanel.locator('input[name="title"]');
+    }
+
+    private get sampleTypeDropdown() {
+        return this.openPanel.locator('select[name="type"]');
+    }
+
+    private get sampleUrlField() {
+        return this.openPanel.locator('input[name="url"]');
+    }
+
+    private get bookingLocationInput() {
+        return this.page.locator('input[name="booking[location]"]');
+    }
+
+    private get bookingAvailableFromInput() {
+        return this.page.locator('input[name="booking[available_from]"]');
+    }
+
+    private get addTicketsButton() {
+        return this.page.locator('div.secondary-button:text-is("Add Tickets")');
+    }
+
+    private get ticketNameInput() {
+        return this.page.getByRole("textbox", { name: "Name" });
+    }
+
+    private get ticketQuantityInput() {
+        return this.page.getByRole("textbox", { name: "Quantity" });
+    }
+
+    private get ticketPriceInput() {
+        return this.page.getByRole("textbox", { name: "Price" });
+    }
+
+    private get ticketDescriptionInput() {
+        return this.page.getByRole("textbox", { name: "Description" });
+    }
+
+    private get bookingAvailableToInput() {
+        return this.page.locator('input[name="booking[available_to]"]');
+    }
+
+
+    private get addSlotsButton() {
+        return this.page.locator('div.secondary-button:text-is("Add Slots")');
+    }
+
+    private get fromDaySelect() {
+        return this.page.locator('select[name="from_day"]');
+    }
+
+    private get toDaySelect() {
+        return this.page.locator('select[name="to_day"]');
+    }
+
+    private get fromTimeTextbox() {
+        return this.page.getByRole("textbox", { name: "From Time" });
+    }
+
+    private get toTimeTextbox() {
+        return this.page.getByRole("textbox", { name: "To Time" });
+    }
+
+
+    private get flatpickrCalendar() {
+        return this.page.locator(".flatpickr-calendar.hasTime.noCalendar.open");
+    }
+
+    private get dayStatusSelect() {
+        return this.page.locator("select[name='status']");
+    }
+
+    private get escapeTarget() {
+        return this.page.locator("body");
+    }
+
+    private get allowRmaToggle() {
+        return this.page.locator('label[for="allow_rma"]');
+    }
+
+    private get modalSaveButton() {
+        return this.page.getByRole("button", { name: "Save", exact: true });
+    }
+
+    private get dailyPriceTextbox() {
+        return this.page.getByRole("textbox", { name: "Daily Price" });
+    }
+
+    private get hourlyPriceTextbox() {
+        return this.page.getByRole("textbox", { name: "Hourly Price" });
+    }
+
+    private bookingSelect(name: string) {
+        return this.page.locator(
+            `select[name="booking[${name}]"], select[name="booking[${name}]\`"]`,
+        );
+    }
+
+    private groupedProductVisibleByName(name: string | RegExp): Locator {
+        return this.page.locator("#app").locator("p", { hasText: name });
+    }
+
+    private slotEditorTrigger(dayIndex: number, slotIndex: number) {
+        return this.page.locator(
+            `div.flex.gap-2\\.5[index="${dayIndex}_${slotIndex}"]`,
+        );
+    }
+
+    private bookingInput(name: string) {
+        return this.page.locator(`input[name="booking[${name}]"]`);
+    }
+
+    private visibleText(text: string | RegExp) {
+        return this.page.getByText(text);
+    }
+
+    private productRowByText(text: string | RegExp) {
+        return this.page.locator("div.flex.justify-between").filter({
+            hasText: text,
+        });
+    }
+
+    private dayAvailabilityTrigger(dayIndex: number) {
+        return this.page.locator(
+            `.overflow-x-auto > div:nth-child(${dayIndex}) > div:nth-child(2) > .cursor-pointer`,
+        );
+    }
+
+    private slotTimeTextbox(label: "From" | "To", index: number) {
+        return this.page
+            .getByRole("textbox", {
+                name: label,
+                exact: true,
+            })
+            .nth(index);
+    }
+
+    private bookingDaySlotIdInput(dayIndex: number) {
+        return this.page.locator(
+            `input[name="booking[slots][${dayIndex}][0][id]"]`,
+        );
+    }
+
+    private inlineDaySlotTrigger(dayIndex: number) {
+        return this.page.locator(
+            `.overflow-x-auto > div:nth-child(${dayIndex}) > div > .cursor-pointer`,
+        );
+    }
+
+    private calendarSpinbutton(name: "Hour" | "Minute") {
+        return this.flatpickrCalendar.getByRole("spinbutton", { name });
+    }
+
+
+    private async fillTimeTextbox(
+        label: "From" | "To",
+        index: number,
+        hour: string,
+        minute: string,
+    ) {
+        const textbox = this.slotTimeTextbox(label, index);
+
+        await textbox.click();
+        await expect(this.calendarSpinbutton("Hour")).toBeFocused();
+        await this.calendarSpinbutton("Hour").fill(hour);
+        await this.calendarSpinbutton("Minute").fill(minute);
+        await this.calendarSpinbutton("Minute").press("Enter");
+        await expect(this.flatpickrCalendar).toBeHidden();
+        await expect(textbox).toHaveValue(
+            `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`,
+        );
+    }
+
+    private async fillSlotTime(
+        textbox: Locator,
+        hour: string,
+        minute: string,
+    ) {
+        const expected = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+
+        await textbox.evaluate((element, value) => {
+            const candidates = [
+                element,
+                element.previousElementSibling,
+                element.nextElementSibling,
+            ];
+
+            const owner = candidates.find(
+                (candidate) => candidate && (candidate as any)._flatpickr,
+            );
+
+            (owner as any)._flatpickr.setDate(value, true);
+        }, expected);
+
+        await expect(textbox).toHaveValue(expected);
+    }
+
+    private async saveSlotDrawer() {
+        await this.modalSaveButton.click();
+        await expect(this.modalSaveButton).toBeHidden();
+    }
+
+    private async fillInlineDaySlot(
+        dayIndex: number,
+        fromHour: string,
+        fromMinute: string,
+        toHour: string,
+        toMinute: string,
+        pressEscapeBeforeSave: boolean,
+    ) {
+        await this.inlineDaySlotTrigger(dayIndex).click();
+        await this.fillTimeTextbox("From", 0, fromHour, fromMinute);
+        await this.fillTimeTextbox("To", 0, toHour, toMinute);
+        if (pressEscapeBeforeSave) {
+            await this.escapeTarget.press("Escape");
+        }
+        await this.saveSlotDrawer();
+    }
+
+    private async openCreateModal(type: string, sku: string) {
+        await this.createProductButton.click();
+        await this.selectProductType.selectOption(type);
+        await this.selectAttribute.selectOption("1");
+        await this.productSku.fill(sku);
+        await this.saveProductButton.click();
+        await expect(this.page).toHaveURL(
+            /\/admin\/catalog\/products\/edit\/\d+/,
+        );
+        await this.waitForVueMount();
+        await this.productName.waitFor({ state: "visible" });
+    }
+
+    private async fillAndConfirm(field: Locator, value: string) {
+        await expect(async () => {
+            await field.fill(value);
+            await expect(field).toHaveValue(value, { timeout: 2000 });
+        }).toPass({ timeout: 15000 });
+    }
+
+    private async fillCommonDetails(product: BaseProduct) {
+        await this.productName.fill(product.name);
+        await expect(this.productName).toHaveValue(product.name);
+        await expect(this.productUrlKey).toHaveValue(/.+/);
+
+        product.urlKey = await this.productUrlKey.inputValue();
+
+        await this.productUrlKey.fill(product.urlKey);
+        await this.editor.fillInTinymce(
+            this.productShortDescription,
+            product.shortDescription,
+        );
+        await this.editor.fillInTinymce(
+            this.productDescription,
+            product.description,
+        );
+        if (product.type === "booking") {
+            await this.variantPriceInput.fill((product.price ?? 0).toString());
+        }
+    }
+
+    private async bundleAddOption(
+        optionType: string,
+        title: string,
+        items: string[],
+    ) {
+        await this.addOptionButton.click();
+        await this.addLableInput.fill(title);
+        await this.selectType.selectOption({ value: optionType });
+        await this.isRequiredCheckbox.selectOption({
+            value: "1",
+        });
+        await this.saveButton.click();
+
+        const optionHeader = this.page
+            .locator("div.mb-2\\.5.justify-between")
+            .filter({ hasText: title });
+
+        await expect(optionHeader).toHaveCount(1);
+
+        for (const item of items) {
+            await optionHeader
+                .locator("p.cursor-pointer")
+                .filter({ hasText: "Add Product" })
+                .click();
+            await expect(this.selectProductsModalTitle).toBeVisible();
+            await this.selectProductInModal(item);
+            await this.addSelectedProductButton.click();
+
+            await expect(this.selectProductsModalTitle).toBeHidden();
+        }
+    }
+
+    private async handleProductType(product: BaseProduct) {
+        switch (product.type) {
+            case "simple":
+                await this.simple(product);
+                break;
+
+            case "configurable":
+                await this.configurable(product);
+                break;
+
+            case "grouped":
+                await this.grouped(product);
+                break;
+
+            case "virtual":
+                await this.virtual(product);
+                break;
+
+            case "downloadable":
+                await this.downloadable(product);
+                break;
+
+            case "booking":
+                await this.booking(product);
+                break;
+
+            case "bundle":
+                await this.bundle(product);
+                break;
+
+            default:
+                throw new Error(`Unsupported product type: ${product.type}`);
+        }
+    }
+
+    private async simple(product: BaseProduct) {
+        if (product.price !== undefined) {
+            await this.fillAndConfirm(
+                this.productPrice,
+                product.price.toString(),
+            );
+        }
+        if (product.weight !== undefined) {
+            await this.fillAndConfirm(
+                this.productWeight,
+                product.weight.toString(),
+            );
+        }
+        if (product.inventory !== undefined) {
+            await this.fillAndConfirm(
+                this.productInventory,
+                (product.inventory ?? 100).toString(),
+            );
+        }
+        await this.applyRmaSetting(product, false);
+    }
+
+    private async configurable(_product: BaseProduct) {
+        await this.removeRed.click();
+        await this.removeGreen.click();
+        await this.removeYellow.click();
+        await this.iconCross.click();
+        await this.iconCross.click();
+        await this.saveProductButton.click();
+        await this.addVariantButton.click();
+        await this.variantColorSelect.selectOption("1");
+        await this.variantSizeSelect.selectOption("6");
+        await this.addVariantConfirmButton.click();
+        await this.variantNameInput.fill(generateName());
+        await this.variantPriceInput.fill("100");
+        await this.variantWeightInput.fill("10");
+        await this.variantInventoryInput.fill("10");
+        const skuValue = await this.variantSkuInput.inputValue();
+        await this.variantSaveButton.click();
+        await expect(this.visibleText(skuValue)).toBeVisible();
+        await this.selectAllVariantsToggle.click();
+        await this.selectActionButton.click();
+        await this.editPricesOption.click();
+        await this.confirmationText.click();
+        await this.agreeButton.click();
+        await this.editPricesPanel.click();
+        await this.bulkPriceInput.click();
+        await this.bulkPriceInput.fill("45");
+        await this.applyToAllButton.click();
+        await this.bulkSaveButton.click();
+        await this.selectAllVariantsToggle.click();
+        await this.selectActionButton.click();
+        await this.editInventoriesOption.click();
+        await this.confirmationText.click();
+        await this.agreeButton.click();
+        await this.inventoryInput.click();
+        await this.inventoryInput.fill("100");
+        await this.applyToAllButton.click();
+        await this.saveButton.click();
+        await this.selectAllVariantsToggle.click();
+        await this.selectActionButton.click();
+        await this.editWeightOption.click();
+        await this.confirmationText.click();
+        await this.agreeButton.click();
+        await this.weightInput.click();
+        await this.weightInput.fill("2");
+        await this.applyToAllButton.click();
+        await this.saveButton.click();
+        await this.saveProductButton.click();
+    }
+
+    private async grouped(product: BaseProduct) {
+        for (const item of product.groupedItems ?? []) {
+            await this.addGroupedProductButton.click();
+            await expect(this.selectProductsModalTitle).toBeVisible();
+            await this.selectProductInModal(item);
+            await this.addSelectedProductButton.click();
+
+            await expect(this.selectProductsModalTitle).toBeHidden();
+        }
+
+        await this.applyRmaSetting(product, true);
+
+        for (const item of product.groupedItems ?? []) {
+            await expect(this.groupedProductVisibleByName(item)).toBeVisible();
+        }
+    }
+
+    private async selectProductInModal(name: string) {
+        await this.searchByNameInput.fill(name);
+
+        const row = this.productRowByText(name);
+
+        await expect(row).toHaveCount(1);
+
+        await row.locator("label.icon-uncheckbox").click();
+
+        await expect(row.locator("input[type='checkbox']")).toBeChecked();
+    }
+
+    private async applyRmaSetting(product: BaseProduct, withRule: boolean) {
+        if (product.allowRma === false) {
+            return;
+        }
+
+        await this.allowRmaToggle.click();
+
+        if (withRule) {
+            await this.clickRules.click();
+            await this.rmaSelection.click();
+        }
+    }
+
+    private async virtual(product: BaseProduct) {
+        if (product.price !== undefined) {
+            await this.productPrice.fill(product.price.toString());
+        }
+        await this.productInventory.fill("100");
+    }
+
+    private async downloadable(product: BaseProduct) {
+        if (product.price !== undefined) {
+            await this.productPrice.fill(product.price.toString());
+        }
+        await this.addDownloadableLink(generateName(), generateHostname());
+        await this.addDownloadableSample(generateName(), generateHostname());
+    }
+
+    private async booking(product: BaseProduct) {
+        switch (product.bookingType) {
+            case "default":
+                await this.bookingDefault(product);
+                break;
+
+            case "appointment":
+                await this.bookingAppointment(product);
+                break;
+
+            case "event":
+                await this.bookingEvent(product);
+                break;
+
+            case "rental":
+                await this.bookingRental(product);
+                break;
+
+            case "table":
+                await this.bookingTable(product);
+                break;
+
+            default:
+                throw new Error(
+                    `Unsupported booking type: ${product.bookingType}`,
+                );
+        }
+    }
+
+    private async bookingDefault(product: BaseProduct) {
+        const availableFromDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const availableToDate = new Date(
+            availableFromDate.getTime() + 15 * 24 * 60 * 60 * 1000,
+        );
+        const formattedAvailableFromDate = availableFromDate
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+        const formattedAvailableToDate = availableToDate
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+        await this.bookingLocationInput.fill(generateLocation());
+        await this.bookingAvailableFromInput.fill(formattedAvailableFromDate);
+        await this.bookingAvailableToInput.fill(formattedAvailableToDate);
+        if (product.allowCancellation === false) {
+            await this.bookingSelect("allow_cancellation").selectOption("0");
+        }
+        await this.bookingInput("qty").fill((product.inventory ?? 100).toString());
+        if (product.defaultBookingType !== "many") {
+            await this.addSlotsButton.click();
+            await this.fromDaySelect.selectOption("0");
+            await this.toDaySelect.selectOption("6");
+            await this.fillSlotTime(this.fromTimeTextbox, "12", "00");
+            await this.fillSlotTime(this.toTimeTextbox, "12", "00");
+            await this.saveSlotDrawer();
+            await this.productPrice.fill("199");
+        } else {
+            await this.bookingSelect("booking_type").selectOption("many");
+            const weeks = [
+                { name: "Monday", status: 2 },
+                { name: "Tuesday", status: 3 },
+            ];
+            for (const day of weeks) {
+                await this.dayAvailabilityTrigger(day.status).click();
+                await this.fillSlotTime(
+                    this.slotTimeTextbox("From", 0),
+                    "10",
+                    "35",
+                );
+                await this.fillSlotTime(
+                    this.slotTimeTextbox("To", 0),
+                    "11",
+                    "20",
+                );
+                await this.dayStatusSelect.selectOption("1");
+                await this.escapeTarget.press("Escape");
+                await this.saveSlotDrawer();
+                await expect(
+                    this.bookingDaySlotIdInput(day.status - 1),
+                ).toHaveValue(/.+/);
+            }
+            await this.productPrice.fill("199");
+        }
+    }
+
+    private async bookingAppointment(product: BaseProduct) {
+        const availableFromDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const availableToDate = new Date(
+            availableFromDate.getTime() + 15 * 24 * 60 * 60 * 1000,
+        );
+        const formattedAvailableFromDate = availableFromDate
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+        const formattedAvailableToDate = availableToDate
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+        await this.bookingLocationInput.fill(generateLocation());
+        await this.bookingSelect("type").selectOption("appointment");
+        if (product.allowCancellation === false) {
+            await this.bookingSelect("allow_cancellation").selectOption("0");
+        }
+        if (!product.availableEveryWeek) {
+            await this.bookingSelect("available_every_week").selectOption("0");
+            await this.bookingAvailableFromInput.fill(
+                formattedAvailableFromDate,
+            );
+            await this.bookingAvailableToInput.fill(formattedAvailableToDate);
+            await this.bookingInput("qty").fill((product.inventory ?? 100).toString());
+            if (product.sameSlotAllDays) {
+                await this.bookingSelect("same_slot_all_days").selectOption(
+                    "1",
+                );
+                await this.addSlotsButton.click();
+                await this.fillTimeTextbox("From", 0, "10", "35");
+                await this.fillTimeTextbox("To", 0, "11", "35");
+                await this.escapeTarget.press("Escape");
+                await this.saveSlotDrawer();
+            } else {
+                await this.bookingSelect("same_slot_all_days").selectOption(
+                    "0",
+                );
+                const weeks = [
+                    { status: 0, slots: 1, fromHr: "10", toHr: "11" },
+                ];
+                for (const day of weeks) {
+                    await this.dayAvailabilityTrigger(day.status + 1).click();
+                    for (let slot = 0; slot < day.slots; slot++) {
+                        await this.slotEditorTrigger(day.status, slot).focus();
+                        await this.fillTimeTextbox(
+                            "From",
+                            slot,
+                            day.fromHr,
+                            "35",
+                        );
+                        await this.fillTimeTextbox("To", slot, day.toHr, "35");
+                    }
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                }
+            }
+        } else {
+            await this.bookingSelect("available_every_week").selectOption("1");
+            await this.bookingInput("qty").fill((product.inventory ?? 100).toString());
+            if (product.sameSlotAllDays) {
+                await this.bookingSelect("same_slot_all_days").selectOption(
+                    "1",
+                );
+                await this.addSlotsButton.click();
+                await this.fillTimeTextbox("From", 0, "10", "35");
+                await this.fillTimeTextbox("To", 0, "11", "35");
+                await this.escapeTarget.press("Escape");
+                await this.saveSlotDrawer();
+            } else {
+                await this.bookingSelect("same_slot_all_days").selectOption(
+                    "0",
+                );
+                const weeks = [
+                    { status: 0, slots: 1, fromHr: "10", toHr: "11" },
+                ];
+                for (const day of weeks) {
+                    await this.dayAvailabilityTrigger(day.status + 1).click();
+                    for (let slot = 0; slot < day.slots; slot++) {
+                        await this.slotEditorTrigger(day.status, slot).focus();
+                        await this.fillTimeTextbox(
+                            "From",
+                            slot,
+                            day.fromHr,
+                            "35",
+                        );
+                        await this.fillTimeTextbox("To", slot, day.toHr, "35");
+                    }
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                }
+            }
+        }
+    }
+
+    private async bookingEvent(product: BaseProduct) {
+        await this.bookingSelect("type").selectOption("event");
+        await this.bookingLocationInput.fill(generateLocation());
+        if (product.allowCancellation === false) {
+            await this.bookingSelect("allow_cancellation").selectOption("0");
+        }
+        const today = new Date();
+        const isPastNoon = today.getHours() >= 12;
+        const availableFromDate = new Date(today);
+        if (isPastNoon) {
+            availableFromDate.setDate(today.getDate() + 1);
+        }
+        availableFromDate.setHours(12, 0, 0, 0);
+        const availableToDate = new Date(availableFromDate);
+        availableToDate.setDate(availableFromDate.getDate() + 2);
+        availableToDate.setHours(12, 0, 0, 0);
+        const pad = (num: number) => String(num).padStart(2, "0");
+        const formatLocalDate = (date: Date) => {
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        };
+        const formattedAvailableFromDate = formatLocalDate(availableFromDate);
+        const formattedAvailableToDate = formatLocalDate(availableToDate);
+        await this.bookingInput("available_from").fill(
+            formattedAvailableFromDate,
+        );
+        await this.bookingInput("available_to").fill(formattedAvailableToDate);
+        const ticketCount = product.numberOfTickets ?? 1;
+        for (let i = 0; i < ticketCount; i++) {
+            await this.addTicketsButton.click();
+            await this.ticketNameInput.fill(generateName());
+            await this.ticketQuantityInput.fill("2");
+            await this.ticketPriceInput.fill("500");
+            await this.ticketDescriptionInput.fill(generateDescription());
+            await this.modalSaveButton.click();
+        }
+        return product.name;
+    }
+
+    private async bookingRental(product: BaseProduct) {
+        await this.bookingSelect("type").selectOption("rental");
+        await this.bookingLocationInput.fill(generateLocation());
+        await this.bookingInput("qty").fill((product.inventory ?? 100).toString());
+        if (product.allowCancellation === false) {
+            await this.bookingSelect("allow_cancellation").selectOption("0");
+        }
+        if (!product.availableEveryWeek) {
+            await this.bookingSelect("available_every_week").selectOption("0");
+            const today = new Date();
+            const isPastNoon = today.getHours() >= 12;
+            const availableFromDate = new Date(today);
+            if (isPastNoon) {
+                availableFromDate.setDate(today.getDate() + 1);
+            }
+            availableFromDate.setHours(12, 0, 0, 0);
+            const availableToDate = new Date(availableFromDate);
+            availableToDate.setDate(availableFromDate.getDate() + 7);
+            availableToDate.setHours(12, 0, 0, 0);
+            const pad = (num: number) => String(num).padStart(2, "0");
+            const formatLocalDate = (date: Date) => {
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+            };
+            const formattedAvailableFromDate =
+                formatLocalDate(availableFromDate);
+            const formattedAvailableToDate = formatLocalDate(availableToDate);
+            await this.bookingInput("available_from").fill(
+                formattedAvailableFromDate,
+            );
+            await this.bookingInput("available_to").fill(
+                formattedAvailableToDate,
+            );
+            if (product.rentalType === "daily") {
+                await this.bookingSelect("renting_type").selectOption("daily");
+                await this.dailyPriceTextbox.fill("50");
+                await this.escapeTarget.press("Escape");
+                return product.name;
+            } else if (product.rentalType === "hourly") {
+                await this.bookingSelect("renting_type").selectOption("hourly");
+                await this.hourlyPriceTextbox.fill("30");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "20");
+                    await this.fillTimeTextbox("To", 0, "11", "20");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "20",
+                        "11",
+                        "20",
+                        false,
+                    );
+                }
+            } else {
+                await this.bookingSelect("renting_type").selectOption(
+                    "daily_hourly",
+                );
+                await this.dailyPriceTextbox.fill("50");
+                await this.hourlyPriceTextbox.fill("30");
+                if (!product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        true,
+                    );
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "20");
+                    await this.fillTimeTextbox("To", 0, "11", "20");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                }
+            }
+        } else {
+            await this.bookingSelect("available_every_week").selectOption("1");
+            if (product.rentalType === "daily") {
+                await this.bookingSelect("renting_type").selectOption("daily");
+                await this.dailyPriceTextbox.fill("50");
+                await this.escapeTarget.press("Escape");
+                return product.name;
+            } else if (product.rentalType === "hourly") {
+                await this.bookingSelect("renting_type").selectOption("hourly");
+                await this.hourlyPriceTextbox.fill("30");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "20");
+                    await this.fillTimeTextbox("To", 0, "11", "20");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "20",
+                        "11",
+                        "20",
+                        false,
+                    );
+                }
+            } else {
+                await this.bookingSelect("renting_type").selectOption(
+                    "daily_hourly",
+                );
+                await this.dailyPriceTextbox.fill("50");
+                await this.hourlyPriceTextbox.fill("30");
+                if (!product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        true,
+                    );
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "20");
+                    await this.fillTimeTextbox("To", 0, "11", "20");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                }
+            }
+        }
+    }
+
+    private async bookingTable(product: BaseProduct) {
+        await this.bookingSelect("type").selectOption("table");
+        await this.bookingLocationInput.fill(generateLocation());
+        await this.bookingInput("qty").fill((product.inventory ?? 100).toString());
+        if (product.allowCancellation === false) {
+            await this.bookingSelect("allow_cancellation").selectOption("0");
+        }
+        if (!product.availableEveryWeek) {
+            await this.bookingSelect("available_every_week").selectOption("0");
+            const today = new Date();
+            const isPastNoon = today.getHours() >= 12;
+            const availableFromDate = new Date(today);
+            if (isPastNoon) {
+                availableFromDate.setDate(today.getDate() + 1);
+            }
+            availableFromDate.setHours(12, 0, 0, 0);
+            const availableToDate = new Date(availableFromDate);
+            availableToDate.setDate(availableFromDate.getDate() + 7);
+            availableToDate.setHours(12, 0, 0, 0);
+            const pad = (num: number) => String(num).padStart(2, "0");
+            const formatLocalDate = (date: Date) => {
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+            };
+            const formattedAvailableFromDate =
+                formatLocalDate(availableFromDate);
+            const formattedAvailableToDate = formatLocalDate(availableToDate);
+            await this.bookingInput("available_from").fill(
+                formattedAvailableFromDate,
+            );
+            await this.bookingInput("available_to").fill(
+                formattedAvailableToDate,
+            );
+            if (product.tableType === "per_guest") {
+                await this.bookingSelect("price_type").selectOption("guest");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "35");
+                    await this.fillTimeTextbox("To", 0, "11", "35");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        false,
+                    );
+                }
+            } else if (product.tableType === "per_table") {
+                await this.bookingSelect("price_type").selectOption("table");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "35");
+                    await this.fillTimeTextbox("To", 0, "11", "35");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        false,
+                    );
+                }
+            }
+        } else {
+            await this.bookingSelect("available_every_week").selectOption("1");
+            if (product.tableType === "per_guest") {
+                await this.bookingSelect("price_type").selectOption("guest");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "35");
+                    await this.fillTimeTextbox("To", 0, "11", "35");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        false,
+                    );
+                }
+            } else if (product.tableType === "per_table") {
+                await this.bookingSelect("price_type").selectOption("table");
+                if (product.sameSlotAllDays) {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "1",
+                    );
+                    await this.addSlotsButton.click();
+                    await this.fillTimeTextbox("From", 0, "10", "35");
+                    await this.fillTimeTextbox("To", 0, "11", "35");
+                    await this.escapeTarget.press("Escape");
+                    await this.saveSlotDrawer();
+                    return product.name;
+                } else {
+                    await this.bookingSelect("same_slot_all_days").selectOption(
+                        "0",
+                    );
+                    await this.fillInlineDaySlot(
+                        1,
+                        "10",
+                        "35",
+                        "11",
+                        "35",
+                        false,
+                    );
+                }
+            }
+        }
+    }
+
+    private async bundle(product: BaseProduct) {
+        await this.bundleAddOption(
+            "radio",
+            "Bundle Option 1",
+            product.bundleItems ?? [],
+        );
+        await this.applyRmaSetting(product, true);
+    }
+
+    private async clickPanelSave() {
+        await expect(this.linkSaveButton).toBeVisible();
+        await this.linkSaveButton.focus();
+        await this.linkSaveButton.press("Enter");
+
+        await expect(this.linkSaveButton).toBeHidden();
+    }
+
+    private async saveAndVerify() {
+        await this.saveProductButton.click();
+        await expect(this.updateProductSuccessToast).toBeVisible({ timeout: 60 * 1000 });
+    }
+
+    async createProduct(product: BaseProduct): Promise<BaseProduct> {
+        await this.visit("admin/catalog/products");
+        await this.openCreateModal(product.type, product.sku);
+        await this.fillCommonDetails(product);
+        await this.handleProductType(product);
+        await this.saveAndVerify();
+
+        return product;
+    }
+
+    async createConfigProduct(product: BaseProduct): Promise<BaseProduct> {
+        await this.visit("admin/catalog/products");
+        await this.createProductButton.click();
+        await this.selectProductType.selectOption(product.type);
+        await this.selectAttribute.selectOption("1");
+        await this.productSku.fill(product.sku);
+        await this.saveProductButton.click();
+        await this.handleProductType(product);
+        await this.fillCommonDetails(product);
+        await this.applyRmaSetting(product, true);
+        await this.saveAndVerify();
+
+        return product;
+    }
+
+    async addDownloadableLink(title: string, url: string) {
+        await this.addLinkButton.click();
+        await this.linkTitleInput.waitFor({ state: "visible" });
+        await this.linkTitleInput.fill(title);
+        await expect(this.linkTitleInput).toHaveValue(title);
+        const linkTitle = await this.linkTitleInput.inputValue();
+        await this.linkPriceInput.fill("100");
+        await this.linkDownloadsInput.fill("2");
+        await this.linkTypeSelect.selectOption("url");
+        await this.linkFileInput.fill(url);
+        await this.sampleTypeSelect.selectOption("url");
+        await this.sampleUrlInput.fill(url);
+        await this.clickPanelSave();
+        await expect(this.visibleText(linkTitle)).toBeVisible();
+    }
+
+    async addDownloadableSample(title: string, url: string) {
+        await this.addSampleButton.click();
+        await this.sampleTitleInput.waitFor({ state: "visible" });
+        await this.sampleTitleInput.fill(title);
+        await expect(this.sampleTitleInput).toHaveValue(title);
+        const sampleTitle = await this.sampleTitleInput.inputValue();
+        await this.sampleTypeDropdown.selectOption("url");
+        await this.sampleUrlField.fill(url);
+        await this.clickPanelSave();
+        await expect(this.visibleText(sampleTitle)).toBeVisible();
+    }
+}

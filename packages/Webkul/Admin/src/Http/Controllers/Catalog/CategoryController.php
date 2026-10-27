@@ -4,7 +4,9 @@ namespace Webkul\Admin\Http\Controllers\Catalog;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Catalog\CategoryDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\CategoryRequest;
@@ -12,6 +14,7 @@ use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Requests\MassUpdateRequest;
 use Webkul\Admin\Http\Resources\CategoryTreeResource;
 use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\Category\Contracts\Category;
 use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\Core\Repositories\ChannelRepository;
 
@@ -31,7 +34,7 @@ class CategoryController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -45,7 +48,7 @@ class CategoryController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -59,13 +62,13 @@ class CategoryController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store(CategoryRequest $categoryRequest)
     {
         Event::dispatch('catalog.category.create.before');
 
-        $category = $this->categoryRepository->create($categoryRequest->only([
+        $data = $categoryRequest->only([
             'locale',
             'name',
             'parent_id',
@@ -74,13 +77,22 @@ class CategoryController extends Controller
             'meta_title',
             'meta_keywords',
             'meta_description',
-            'status',
             'position',
             'display_mode',
             'attributes',
             'logo_path',
+            'logo_meta',
             'banner_path',
-        ]));
+            'banner_meta',
+        ]);
+
+        $data['status'] = $categoryRequest->boolean('status');
+
+        if (! empty($data['description'])) {
+            $data['description'] = clean_content($data['description']);
+        }
+
+        $category = $this->categoryRepository->create($data);
 
         Event::dispatch('catalog.category.create.after', $category);
 
@@ -92,7 +104,7 @@ class CategoryController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function edit(int $id)
     {
@@ -108,23 +120,37 @@ class CategoryController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(CategoryRequest $categoryRequest, int $id)
     {
         Event::dispatch('catalog.category.update.before', $id);
 
-        $category = $this->categoryRepository->update($categoryRequest->only(
+        $locale = $categoryRequest->input('locale');
+
+        $localeData = $categoryRequest->input($locale);
+
+        if (! empty($localeData['description'])) {
+            $localeData['description'] = clean_content($localeData['description']);
+        }
+
+        $data = $categoryRequest->only(
             'locale',
             'parent_id',
             'logo_path',
+            'logo_meta',
             'banner_path',
+            'banner_meta',
             'position',
             'display_mode',
-            'status',
-            'attributes',
-            $categoryRequest->input('locale')
-        ), $id);
+            'attributes'
+        );
+
+        $data['status'] = $categoryRequest->boolean('status');
+
+        $data[$locale] = $localeData;
+
+        $category = $this->categoryRepository->update($data, $id);
 
         Event::dispatch('catalog.category.update.after', $category);
 
@@ -213,7 +239,7 @@ class CategoryController extends Controller
     /**
      * Mass update Category.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function massUpdate(MassUpdateRequest $massUpdateRequest)
     {
@@ -225,7 +251,7 @@ class CategoryController extends Controller
 
                 $category = $this->categoryRepository->find($categoryId);
 
-                $category->status = $massUpdateRequest->input('value');
+                $category->status = $massUpdateRequest->boolean('value');
 
                 $category->save();
 
@@ -248,7 +274,7 @@ class CategoryController extends Controller
      * This method will fetch all root category ids from the channel. If `id` is present,
      * then it is not deletable.
      *
-     * @param  \Webkul\Category\Contracts\Category  $category
+     * @param  Category  $category
      * @return bool
      */
     private function isCategoryDeletable($category)
@@ -273,12 +299,12 @@ class CategoryController extends Controller
     /**
      * Get all the searched categories.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function search()
     {
         $categories = $this->categoryRepository->getAll([
-            'name'   => request()->input('query'),
+            'name' => request()->input('query'),
             'locale' => app()->getLocale(),
         ]);
 

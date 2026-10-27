@@ -21,9 +21,11 @@
 @endPush
 
 @push('scripts')
-    <script>
-        localStorage.setItem('categories', JSON.stringify(@json($categories)));
-    </script>
+    @if(! empty($categories))
+        <script>
+            localStorage.setItem('categories', JSON.stringify(@json($categories)));
+        </script>
+    @endif
 @endpush
 
 <x-shop::layouts>
@@ -32,37 +34,47 @@
         {{  $channel->home_seo['meta_title'] ?? '' }}
     </x-slot>
 
-    <!-- Loop over the theme customization -->
-    @foreach ($customizations as $customization)
-        @php ($data = $customization->options) @endphp
+    <!-- Loop over the storefront sections -->
+    @foreach ($sections as $section)
+        @php ($data = $section->options) @endphp
 
-        <!-- Static content -->
-        @switch ($customization->type)
-            @case ($customization::IMAGE_CAROUSEL)
+        {{-- The layout marks the types it draws on every page, so this page marks the rest. --}}
+        @php ($marks = ($preview ?? false) && ! $section->getTypeInstance()?->rendersInLayout())
+
+        @if ($marks)
+            <div
+                data-section-id="{{ $section->id }}"
+                data-section-name="{{ $section->name }}"
+            >
+        @endif
+
+        <!-- Static Content -->
+        @switch ($section->type)
+            @case (\Webkul\Theme\Enums\SectionTypeEnum::IMAGE_CAROUSEL->value)
                 <!-- Image Carousel -->
                 <x-shop::carousel
-                    :options="$data"
+                    :options="$section->getTypeInstance()?->sanitize((array) $data) ?? $data"
                     aria-label="{{ trans('shop::app.home.index.image-carousel') }}"
                 />
 
                 @break
-            @case ($customization::STATIC_CONTENT)
-                <!-- push style -->
+            @case (\Webkul\Theme\Enums\SectionTypeEnum::STATIC_CONTENT->value)
+                <!-- Push Style -->
                 @if (! empty($data['css']))
                     @push ('styles')
                         <style>
-                            {{ $data['css'] }}
+                            {!! bagisto_theme_storage()->resolveMarkup($data['css']) !!}
                         </style>
                     @endpush
                 @endif
 
-                <!-- render html -->
+                <!-- Render HTML -->
                 @if (! empty($data['html']))
-                    {!! $data['html'] !!}
+                    {!! bagisto_theme_storage()->resolveMarkup($data['html']) !!}
                 @endif
 
                 @break
-            @case ($customization::CATEGORY_CAROUSEL)
+            @case (\Webkul\Theme\Enums\SectionTypeEnum::CATEGORY_CAROUSEL->value)
                 <!-- Categories carousel -->
                 <x-shop::categories.carousel
                     :title="$data['title'] ?? ''"
@@ -72,7 +84,7 @@
                 />
 
                 @break
-            @case ($customization::PRODUCT_CAROUSEL)
+            @case (\Webkul\Theme\Enums\SectionTypeEnum::PRODUCT_CAROUSEL->value)
                 <!-- Product Carousel -->
                 <x-shop::products.carousel
                     :title="$data['title'] ?? ''"
@@ -83,5 +95,13 @@
 
                 @break
         @endswitch
+
+        @if ($marks)
+            </div>
+        @endif
     @endforeach
+
+    @if ($preview ?? false)
+        @include('shop::home.preview-bridge')
+    @endif
 </x-shop::layouts>

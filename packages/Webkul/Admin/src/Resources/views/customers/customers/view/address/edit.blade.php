@@ -254,6 +254,7 @@
                                     rules="required"
                                     :label="trans('admin::app.customers.customers.view.address.edit.country')"
                                     v-model="address.country"
+                                    @change="address.state = ''"
                                 >
                                     @foreach (core()->countries() as $country)
                                         <option
@@ -298,6 +299,7 @@
                                         type="text"
                                         name="state"
                                         ::value="address.state"
+                                        v-model="address.state"
                                         rules="required"
                                         :label="trans('admin::app.customers.customers.view.address.edit.state')"
                                         :placeholder="trans('admin::app.customers.customers.view.address.edit.state')"
@@ -377,7 +379,7 @@
 
                     formData.append('default_address', formData.get('default_address') ? 1 : 0);
 
-                    this.$axios.post(`{{ route('admin.customers.customers.addresses.update', '') }}/${params?.address_id}`, formData)
+                    this.$axios.post('{{ route('admin.customers.customers.addresses.update', ':id') }}'.replace(':id', params?.address_id), formData)
                         .then((response) => {
                             this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
 

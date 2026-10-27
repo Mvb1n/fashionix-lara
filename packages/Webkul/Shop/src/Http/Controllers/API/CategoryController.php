@@ -7,7 +7,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Webkul\Attribute\Enums\AttributeTypeEnum;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Category\Repositories\CategoryRepository;
+use Webkul\Product\Enums\SearchContextEnum;
 use Webkul\Product\Repositories\ProductRepository;
+use Webkul\Shop\Helpers\CatalogApiCache;
 use Webkul\Shop\Http\Resources\AttributeOptionResource;
 use Webkul\Shop\Http\Resources\AttributeResource;
 use Webkul\Shop\Http\Resources\CategoryResource;
@@ -23,13 +25,14 @@ class CategoryController extends APIController
     public function __construct(
         protected AttributeRepository $attributeRepository,
         protected CategoryRepository $categoryRepository,
-        protected ProductRepository $productRepository
+        protected ProductRepository $productRepository,
+        protected CatalogApiCache $catalogApiCache
     ) {}
 
     /**
      * Get all categories.
      */
-    public function index(): JsonResource
+    public function index(): JsonResponse
     {
         /**
          * These are the default parameters. By default, only the enabled category
@@ -40,9 +43,19 @@ class CategoryController extends APIController
             'locale' => app()->getLocale(),
         ];
 
-        $categories = $this->categoryRepository->getAll(array_merge($defaultParams, request()->all()));
+        /**
+         * Category listings are cached per catalog version, so repeated
+         * storefront visits skip the database entirely.
+         */
+        $data = $this->catalogApiCache->remember('categories', request()->all(), function () use ($defaultParams) {
+            $categories = $this->categoryRepository->getAll(array_merge($defaultParams, request()->all()));
 
-        return CategoryResource::collection($categories);
+            return CategoryResource::collection($categories)
+                ->response()
+                ->getData(true);
+        });
+
+        return response()->json($data)->withHeaders($this->catalogCacheHeaders());
     }
 
     /**
@@ -95,8 +108,8 @@ class CategoryController extends APIController
 
         if ($search = request('search')) {
             $query->where(function ($query) use ($search) {
-                $query->whereHas('translation', fn ($query) => $query->where('label', 'like', "%{$search}%"))
-                    ->orWhere('admin_name', 'like', "%{$search}%");
+                $query->whereHas('translation', fn ($query) => $query->where('label', db_grammar()->caseInsensitiveLike(), "%{$search}%"))
+                    ->orWhere('admin_name', db_grammar()->caseInsensitiveLike(), "%{$search}%");
             });
         }
 
@@ -110,13 +123,12 @@ class CategoryController extends APIController
      */
     public function getProductMaxPrice($categoryId = null): JsonResource
     {
-        if (core()->getConfigData('catalog.products.search.engine') == 'elastic') {
-            $searchEngine = core()->getConfigData('catalog.products.search.storefront_mode');
-        }
-
         $maxPrice = $this->productRepository
-            ->setSearchEngine($searchEngine ?? 'database')
-            ->getMaxPrice(['category_id' => $categoryId]);
+            ->setSearchContext(SearchContextEnum::STOREFRONT)
+            ->getMaxPrice([
+                'category_id' => $categoryId,
+                'attribute_code' => request('attribute_code', 'price'),
+            ]);
 
         return new JsonResource([
             'max_price' => core()->convertPrice($maxPrice),

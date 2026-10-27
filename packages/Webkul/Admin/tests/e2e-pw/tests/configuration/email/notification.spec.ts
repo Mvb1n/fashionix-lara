@@ -1,38 +1,24 @@
-import { test, expect } from "../../../setup";
+import { test } from "../../../setup";
+import { EmailNotificationsPage } from "../../../pages/admin/configuration/email/EmailNotificationsPage";
 
 test.describe("email notification configuration", () => {
-    test("should configure the email settings", async ({ adminPage }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/emails/general");
+    test.describe.configure({ timeout: 120000 });
 
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][verification]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][registration]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][customer_registration_confirmation_mail_to_admin]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][customer_account_credentials]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_order]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_order_mail_to_admin]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_invoice]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_invoice_mail_to_admin]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_refund]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_refund_mail_to_admin]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_shipment]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_shipment_mail_to_admin]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][new_inventory_source]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][cancel_order]"]');
-        // await adminPage.click('label[for="emails[general][notifications][emails][general][notifications][cancel_order_mail_to_admin]"]');
+    let configPage: EmailNotificationsPage;
+    let original: boolean;
 
-        /**
-         * Save the configuration.
-         */
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test.beforeEach(async ({ adminPage }) => {
+        configPage = new EmailNotificationsPage(adminPage);
+        original = await configPage.readNotification("new_order");
+    });
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applyNotification("new_order", original);
+    });
+
+    test("should persist the new order notification setting after reload", async () => {
+        await configPage.applyNotification("new_order", !original);
+
+        await configPage.expectNotification("new_order", !original);
     });
 });

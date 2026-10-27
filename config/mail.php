@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'smtp'),
+    'default' => env('MAIL_MAILER', 'bagisto-dynamic-smtp'),
 
     /*
     |--------------------------------------------------------------------------
@@ -38,15 +38,19 @@ return [
     'mailers' => [
 
         'smtp' => [
-            'transport'    => 'smtp',
-            'url'          => env('MAIL_URL'),
-            'host'         => env('MAIL_HOST', '127.0.0.1'),
-            'port'         => env('MAIL_PORT', 2525),
-            'encryption'   => env('MAIL_ENCRYPTION', 'tls'),
-            'username'     => env('MAIL_USERNAME'),
-            'password'     => env('MAIL_PASSWORD'),
-            'timeout'      => null,
+            'transport' => 'smtp',
+            'url' => env('MAIL_URL'),
+            'host' => env('MAIL_HOST', '127.0.0.1'),
+            'port' => env('MAIL_PORT', 2525),
+            'scheme' => env('MAIL_SCHEME'),
+            'username' => env('MAIL_USERNAME'),
+            'password' => env('MAIL_PASSWORD'),
+            'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        'bagisto-dynamic-smtp' => [
+            'transport' => 'bagisto-dynamic-smtp',
         ],
 
         'ses' => [
@@ -69,12 +73,12 @@ return [
 
         'sendmail' => [
             'transport' => 'sendmail',
-            'path'      => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
+            'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
         ],
 
         'log' => [
             'transport' => 'log',
-            'channel'   => env('MAIL_LOG_CHANNEL'),
+            'channel' => env('MAIL_LOG_CHANNEL'),
         ],
 
         'array' => [
@@ -88,6 +92,8 @@ return [
                 'smtp',
                 'log',
             ],
+
+            'retry_after' => 60,
         ],
 
         'roundrobin' => [
@@ -97,6 +103,8 @@ return [
                 'ses',
                 'postmark',
             ],
+
+            'retry_after' => 60,
         ],
     ],
 
@@ -113,7 +121,7 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS'),
-        'name'    => env('MAIL_FROM_NAME'),
+        'name' => env('MAIL_FROM_NAME'),
     ],
 
     /*
@@ -127,7 +135,7 @@ return [
 
     'admin' => [
         'address' => env('ADMIN_MAIL_ADDRESS'),
-        'name'    => env('ADMIN_MAIL_NAME', 'Admin'),
+        'name' => env('ADMIN_MAIL_NAME', 'Admin'),
     ],
 
     /*
@@ -136,7 +144,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | General contact address used in the footer of the email templates.
-
+    |
     | Here, you may specify a name and address that is used globally for
     | all e-mails that are sent by your application.
     |
@@ -144,7 +152,7 @@ return [
 
     'contact' => [
         'address' => env('CONTACT_MAIL_ADDRESS'),
-        'name'    => env('CONTACT_MAIL_NAME', 'Contact'),
+        'name' => env('CONTACT_MAIL_NAME', 'Contact'),
     ],
 
 ];

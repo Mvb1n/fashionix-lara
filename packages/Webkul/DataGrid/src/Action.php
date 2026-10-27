@@ -12,11 +12,24 @@ class Action
      */
     public function __construct(
         public string $index,
-        public string $icon,
-        public string $title,
+        public mixed $icon,
+        public mixed $title,
         public string $method,
         public mixed $url,
+        public mixed $condition = null,
     ) {}
+
+    /**
+     * Determine whether this action should be shown for the given record.
+     */
+    public function isVisible(mixed $record): bool
+    {
+        if (! $this->condition instanceof \Closure) {
+            return true;
+        }
+
+        return (bool) ($this->condition)($record);
+    }
 
     /**
      * Convert to an array.
@@ -24,11 +37,11 @@ class Action
     public function toArray()
     {
         return [
-            'index'  => $this->index,
-            'icon'   => $this->icon,
-            'title'  => $this->title,
+            'index' => $this->index,
+            'icon' => $this->icon,
+            'title' => $this->title,
             'method' => $this->method,
-            'url'    => $this->url,
+            'url' => $this->url,
         ];
     }
 }

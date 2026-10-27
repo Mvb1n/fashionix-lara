@@ -2,6 +2,7 @@
 
 namespace Webkul\DataGrid;
 
+use Webkul\Core\Enums\SupportedDatabaseEnum;
 use Webkul\DataGrid\Enums\ColumnTypeEnum;
 use Webkul\DataGrid\Exceptions\InvalidColumnException;
 
@@ -331,17 +332,17 @@ class Column
     public function toArray(): array
     {
         return [
-            'index'                 => $this->index,
-            'label'                 => $this->label,
-            'type'                  => $this->type,
-            'searchable'            => $this->searchable,
-            'filterable'            => $this->filterable,
-            'filterable_type'       => $this->filterableType,
-            'filterable_options'    => $this->filterableOptions,
+            'index' => $this->index,
+            'label' => $this->label,
+            'type' => $this->type,
+            'searchable' => $this->searchable,
+            'filterable' => $this->filterable,
+            'filterable_type' => $this->filterableType,
+            'filterable_options' => $this->filterableOptions,
             'allow_multiple_values' => $this->allowMultipleValues,
-            'sortable'              => $this->sortable,
-            'exportable'            => $this->exportable,
-            'visibility'            => $this->visibility,
+            'sortable' => $this->sortable,
+            'exportable' => $this->exportable,
+            'visibility' => $this->visibility,
         ];
     }
 
@@ -361,6 +362,15 @@ class Column
         if (empty($column['type'])) {
             throw new InvalidColumnException('The `type` key is required. Ensure that the `type` key is present in all calls to the `addColumn` method.');
         }
+    }
+
+    /**
+     * Get the appropriate LIKE operator for the current database driver.
+     * PostgreSQL requires ILIKE for case-insensitive matching.
+     */
+    public function likeOperator(): string
+    {
+        return SupportedDatabaseEnum::isPostgres() ? 'ILIKE' : 'LIKE';
     }
 
     /**

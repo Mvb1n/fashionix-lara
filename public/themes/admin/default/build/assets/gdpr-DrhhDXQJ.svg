@@ -1,0 +1,13 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Shield body -->
+    <path d="M90 20L145 43V91C145 125 123 150 90 161C57 150 35 125 35 91V43L90 20Z" fill="white" stroke="#6B7280" stroke-width="6" stroke-linejoin="round"/>
+
+    <!-- Shaded half, matching the two-tone of the other settings icons -->
+    <path d="M90 20L35 43V91C35 125 57 150 90 161V20Z" fill="#E5E7EB"/>
+
+    <!-- Outline redrawn over the shading so the seam down the middle does not show -->
+    <path d="M90 20L145 43V91C145 125 123 150 90 161C57 150 35 125 35 91V43L90 20Z" stroke="#6B7280" stroke-width="6" stroke-linejoin="round" fill="none"/>
+
+    <!-- Compliance tick -->
+    <path d="M68 89L83 104L113 74" stroke="#6B7280" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -2,7 +2,10 @@
 
 namespace Webkul\Admin\Http\Controllers\User;
 
+use Illuminate\Contracts\Auth\PasswordBroker;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
+use Illuminate\View\View;
 use Webkul\Admin\Http\Controllers\Controller;
 
 class ForgetPasswordController extends Controller
@@ -10,7 +13,7 @@ class ForgetPasswordController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -32,15 +35,15 @@ class ForgetPasswordController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
-        try {
-            $this->validate(request(), [
-                'email' => 'required|email',
-            ]);
+        $this->validate(request(), [
+            'email' => 'required|email',
+        ]);
 
+        try {
             $response = $this->broker()->sendResetLink(
                 request(['email'])
             );
@@ -51,13 +54,13 @@ class ForgetPasswordController extends Controller
                 return redirect()->route('admin.forget_password.create');
             }
 
-            return redirect()->route('admin.forget_password.create')
-                ->withInput(request(['email']))
-                ->withErrors([
-                    'email' => trans('admin::app.users.forget-password.create.email-not-exist'),
-                ]);
+            session()->flash('success', trans('admin::app.users.forget-password.create.reset-link-sent'));
+
+            return redirect()->route('admin.forget_password.create');
         } catch (\Exception $e) {
-            session()->flash('error', trans($e->getMessage()));
+            report($e);
+
+            session()->flash('error', trans('admin::app.users.forget-password.create.reset-link-failed'));
 
             return redirect()->back();
         }
@@ -66,7 +69,7 @@ class ForgetPasswordController extends Controller
     /**
      * Get the broker to be used during password reset.
      *
-     * @return \Illuminate\Contracts\Auth\PasswordBroker
+     * @return PasswordBroker
      */
     public function broker()
     {

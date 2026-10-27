@@ -1,4 +1,7 @@
-@props(['isMultiRow' => false])
+@props([
+    'isMultiRow'     => false,
+    'shimmerColumns' => 6,
+])
 
 <v-datagrid {{ $attributes }}>
     {{ $slot }}
@@ -15,7 +18,10 @@
 
             <!-- Table -->
             <div class="mt-8 flex max-md:mt-0">
-                <x-shop::datagrid.table :isMultiRow="$isMultiRow">
+                <x-shop::datagrid.table
+                    :isMultiRow="$isMultiRow"
+                    :shimmerColumns="$shimmerColumns"
+                >
                     <template #header="{
                         isLoading,
                         available,
@@ -151,7 +157,7 @@
                     const urlParams = new URLSearchParams(window.location.search);
 
                     if (urlParams.has('search')) {
-                        let searchAppliedColumn = this.findAppliedColumn('all');
+                        let searchAppliedColumn = this.applied.filters.columns.find(column => column.index === 'all');
 
                         searchAppliedColumn.value = [urlParams.get('search')];
                     }
@@ -167,7 +173,7 @@
                             this.applied.filters = currentDatagrid.applied.filters;
 
                             if (urlParams.has('search')) {
-                                let searchAppliedColumn = this.findAppliedColumn('all');
+                                let searchAppliedColumn = this.applied.filters.columns.find(column => column.index === 'all');
 
                                 searchAppliedColumn.value = [urlParams.get('search')];
                             }

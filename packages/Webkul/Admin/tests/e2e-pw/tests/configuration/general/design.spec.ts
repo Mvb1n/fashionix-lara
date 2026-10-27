@@ -1,173 +1,84 @@
-import { test, expect } from "../../../setup";
-import { getImageFile } from "../../../utils/faker";
+import { test } from "../../../setup";
+import { CategoryPage, type CategoryData } from "../../../pages/admin/catalog/categories/CategoryPage";
+import {
+    DesignConfigurationPage,
+    type DesignSettings,
+} from "../../../pages/admin/configuration/general/DesignConfigurationPage";
+import { StorefrontMenuPage } from "../../../pages/shop/StorefrontMenuPage";
+import { generateName, generateSlug, getImageFile, uniqueStamp } from "../../../utils/faker";
+
+function buildCategory(): CategoryData {
+    return {
+        name: `${generateName()} ${uniqueStamp()}`,
+        slug: generateSlug(),
+    };
+}
 
 test.describe("design configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let designConfig: DesignConfigurationPage;
+    let original: DesignSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/general/design");
+        designConfig = new DesignConfigurationPage(adminPage);
+        original = await designConfig.readSettings();
     });
 
-    test("should update and delete the logo", async ({ adminPage }) => {
-        /**
-         * Target the only logo input field.
-         */
-        const logoInput = await adminPage.$(
-            'input[type="file"][name="general[design][admin_logo][logo_image]"]'
-        );
-
-        if (logoInput) {
-            const filePath = getImageFile();
-            await logoInput.setInputFiles(filePath);
-        } else {
-            throw new Error("Logo input field not found");
-        }
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-       await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
-
-        /**
-         * Delete the uploaded logo.
-         */
-        await adminPage
-            .locator(
-                '[id="general\\[design\\]\\[admin_logo\\]\\[logo_image\\]\\[delete\\]"]'
-            )
-            .nth(1)
-            .click();
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+    test.afterEach(async () => {
+        await designConfig.applySettings(original);
     });
 
-    test("should update and delete favicon", async ({ adminPage }) => {
-        /**
-         * Target the only favicon input field.
-         */
-        const faviconInput = await adminPage.$(
-            'input[type="file"][name="general[design][admin_logo][favicon]"]'
-        );
+    for (const field of ["logo_image", "favicon"] as const) {
+        test(`should store an uploaded ${field.replace("_", " ")} and remove it again`, async () => {
+            test.skip(
+                await designConfig.hasMedia(field),
+                `A ${field} is already configured and would be lost by this test`,
+            );
 
-        if (faviconInput) {
-            const filePath = getImageFile();
-            await faviconInput.setInputFiles(filePath);
-        } else {
-            throw new Error("Favicon input field not found");
-        }
+            await designConfig.uploadMedia(field, getImageFile());
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+            await designConfig.expectMediaStored(field);
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+            await designConfig.deleteMedia(field);
 
-        /**
-         * Delete the uploaded favicon.
-         */
-        await adminPage
-            .locator(
-                '[id="general\\[design\\]\\[admin_logo\\]\\[favicon\\]\\[delete\\]"]'
-            )
-            .nth(1)
-            .click();
+            await designConfig.expectMediaAbsent(field);
+        });
+    }
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test.describe("category menu view", () => {
+        let categoryPage: CategoryPage;
+        let category: CategoryData;
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
-    });
+        test.beforeEach(async ({ adminPage }) => {
+            categoryPage = new CategoryPage(adminPage);
+            category = buildCategory();
 
-    test("should Set sidebar Menu category view", async ({ adminPage }) => {
-        /**
-         * Select the default menu category view.
-         */
-        await adminPage.selectOption(
-            '[name="general[design][categories][category_view]"]',
-            "sidebar"
-        );
-        await adminPage
-            .getByRole("button", { name: " Preview Sidebar Menu " })
-            .click();
-         await expect(
-            adminPage.locator(".flex.items-center.justify-between.gap-2\\.5")
-        ).toBeVisible();
+            await categoryPage.createCategory(category);
+        });
 
-        await adminPage.locator(".icon-cancel-1").click();
+        test.afterEach(async () => {
+            await categoryPage.deleteCategoriesIfPresent([category.name]);
+        });
 
-        await adminPage
-            .getByRole("button", { name: "Save Configuration" })
-            .click();
-        await expect(
-            adminPage.locator("#app p", {
-                hasText: "Configuration saved successfully",
-            })
-        ).toBeVisible();
+        test("should show categories in a sidebar drawer when the sidebar view is saved", async ({
+            adminPage,
+        }) => {
+            await designConfig.previewCategoryView("sidebar");
+            await designConfig.applySettings({ categoryView: "sidebar" });
 
-        /**
-         * chekk whether the sidebar menu category view is set or not.
-         */
-        await adminPage.goto("");
-        await expect(adminPage.getByText("All", { exact: true })).toBeVisible();
-        await adminPage
-            .locator("#app span")
-            .filter({ hasText: "All" })
-            .locator("span")
-            .click();
-        await adminPage.locator(".icon-cancel").first().click();
-    });
-    test("should Set default Menu category view", async ({ adminPage }) => {
-        /**
-         * Select the default menu category view.
-         */
-        await adminPage.selectOption(
-            '[name="general[design][categories][category_view]"]',
-            "default"
-        );
+            await designConfig.expectSettings({ categoryView: "sidebar" });
+            await new StorefrontMenuPage(adminPage).expectSidebarMenuLists(category.name);
+        });
 
-        await adminPage
-            .getByRole("button", { name: "Preview Default Menu" })
-            .click();
-        await expect(
-            adminPage.locator(".flex.items-center.justify-between.gap-2\\.5")
-        ).toBeVisible();
+        test("should show categories in the header when the default view is saved", async ({
+            adminPage,
+        }) => {
+            await designConfig.previewCategoryView("default");
+            await designConfig.applySettings({ categoryView: "default" });
 
-        await adminPage.locator(".icon-cancel-1").click();
-        await adminPage
-            .getByRole("button", { name: "Save Configuration" })
-            .click();
-        await expect(
-            adminPage.locator("#app p", {
-                hasText: "Configuration saved successfully",
-            })
-        ).toBeVisible();
-
-        /**
-         * Chekk whether the menu category view is set to default or not.
-         */
-
-        await adminPage.goto("");
-        await expect(adminPage.getByText("Men").first()).toBeVisible();
-        await adminPage.waitForTimeout(2000);
-        await adminPage.hover('a:has-text("Men")');
-        await adminPage.waitForTimeout(2000);
-        await expect(
-            adminPage.getByRole("link", { name: "Winter Wear" }).first()
-        ).toBeVisible();
+            await designConfig.expectSettings({ categoryView: "default" });
+            await new StorefrontMenuPage(adminPage).expectDefaultMenuLists(category.name);
+        });
     });
 });

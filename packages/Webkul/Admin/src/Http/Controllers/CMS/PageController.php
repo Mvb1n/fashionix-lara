@@ -3,11 +3,14 @@
 namespace Webkul\Admin\Http\Controllers\CMS;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\CMS\CMSPageDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\CMS\Repositories\PageRepository;
+use Webkul\Core\Rules\Slug;
 
 class PageController extends Controller
 {
@@ -21,7 +24,7 @@ class PageController extends Controller
     /**
      * Loads the index page showing the static pages resources.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -35,7 +38,7 @@ class PageController extends Controller
     /**
      * To create a new CMS page.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -45,19 +48,20 @@ class PageController extends Controller
     /**
      * To store a new CMS page in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
         $this->validate(request(), [
-            'url_key'      => ['required', 'unique:cms_page_translations,url_key', new \Webkul\Core\Rules\Slug],
-            'page_title'   => 'required',
+            'url_key' => ['required', 'unique:cms_page_translations,url_key', new Slug],
+            'page_title' => 'required',
             'html_content' => 'required',
+            'channels' => 'required|array|min:1',
         ]);
 
         Event::dispatch('cms.page.create.before');
 
-        $page = $this->pageRepository->create(request()->only([
+        $data = request()->only([
             'page_title',
             'channels',
             'html_content',
@@ -65,7 +69,11 @@ class PageController extends Controller
             'url_key',
             'meta_keywords',
             'meta_description',
-        ]));
+        ]);
+
+        $data['html_content'] = clean_content($data['html_content']);
+
+        $page = $this->pageRepository->create($data);
 
         Event::dispatch('cms.page.create.after', $page);
 
@@ -77,7 +85,7 @@ class PageController extends Controller
     /**
      * To edit a previously created CMS page.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function edit(int $id)
     {
@@ -89,28 +97,33 @@ class PageController extends Controller
     /**
      * To update the previously created CMS page in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(int $id)
     {
         $locale = core()->getRequestedLocaleCode();
 
         $this->validate(request(), [
-            $locale.'.url_key'      => ['required', new \Webkul\Core\Rules\Slug, function ($attribute, $value, $fail) use ($id) {
+            $locale.'.url_key' => ['required', new Slug, function ($attribute, $value, $fail) use ($id) {
                 if (! $this->pageRepository->isUrlKeyUnique($id, $value)) {
                     $fail(trans('admin::app.cms.index.already-taken', ['name' => 'Page']));
                 }
             }],
-            $locale.'.page_title'     => 'required',
-            $locale.'.html_content'   => 'required',
+            $locale.'.page_title' => 'required',
+            $locale.'.html_content' => 'required',
+            'channels' => 'required|array|min:1',
         ]);
 
         Event::dispatch('cms.page.update.before', $id);
 
+        $localeData = request()->input($locale);
+
+        $localeData['html_content'] = clean_content($localeData['html_content']);
+
         $page = $this->pageRepository->update([
-            $locale    => request()->input($locale),
+            $locale => $localeData,
             'channels' => request()->input('channels'),
-            'locale'   => $locale,
+            'locale' => $locale,
         ], $id);
 
         Event::dispatch('cms.page.update.after', $page);

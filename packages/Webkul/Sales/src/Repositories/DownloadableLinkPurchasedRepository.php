@@ -5,6 +5,8 @@ namespace Webkul\Sales\Repositories;
 use Illuminate\Container\Container;
 use Webkul\Core\Eloquent\Repository;
 use Webkul\Product\Repositories\ProductDownloadableLinkRepository;
+use Webkul\Sales\Contracts\DownloadableLinkPurchased;
+use Webkul\Sales\Contracts\OrderItem;
 
 class DownloadableLinkPurchasedRepository extends Repository
 {
@@ -21,15 +23,17 @@ class DownloadableLinkPurchasedRepository extends Repository
     }
 
     /**
-     * Specify Model class name
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\Sales\Contracts\DownloadableLinkPurchased';
+        return DownloadableLinkPurchased::class;
     }
 
     /**
-     * @param  \Webkul\Sales\Contracts\OrderItem  $orderItem
+     * Save the links bought with an ordered downloadable item, skipping any that is not one of its product's links.
+     *
+     * @param  OrderItem  $orderItem
      * @return void
      */
     public function saveLinks($orderItem)
@@ -39,45 +43,35 @@ class DownloadableLinkPurchasedRepository extends Repository
         }
 
         foreach ($orderItem->additional['links'] as $linkId) {
-            if (! $productDownloadableLink = $this->productDownloadableLinkRepository->find($linkId)) {
+            $productDownloadableLink = $this->productDownloadableLinkRepository->findOneWhere([
+                'id' => $linkId,
+                'product_id' => $orderItem->product_id,
+            ]);
+
+            if (! $productDownloadableLink) {
                 continue;
             }
 
             $this->create([
-                'name'            => $productDownloadableLink->title,
-                'product_name'    => $orderItem->name,
-                'url'             => $productDownloadableLink->url,
-                'file'            => $productDownloadableLink->file,
-                'file_name'       => $productDownloadableLink->file_name,
-                'type'            => $productDownloadableLink->type,
+                'name' => $productDownloadableLink->title,
+                'product_name' => $orderItem->name,
+                'url' => $productDownloadableLink->url,
+                'file' => $productDownloadableLink->file,
+                'file_name' => $productDownloadableLink->file_name,
+                'type' => $productDownloadableLink->type,
                 'download_bought' => $productDownloadableLink->downloads * $orderItem->qty_ordered,
-                'status'          => 'pending',
-                'customer_id'     => $orderItem->order->customer_id,
-                'order_id'        => $orderItem->order_id,
-                'order_item_id'   => $orderItem->id,
+                'status' => 'pending',
+                'customer_id' => $orderItem->order->customer_id,
+                'order_id' => $orderItem->order_id,
+                'order_item_id' => $orderItem->id,
             ]);
         }
     }
 
     /**
-     * Return true, if ordered item is valid downloadable product with links
+     * Update the status of the links bought with an ordered item.
      *
-     * @param  \Webkul\Sales\Contracts\OrderItem  $orderItem
-     */
-    private function isValidDownloadableProduct($orderItem): bool
-    {
-        if (
-            stristr($orderItem->type, 'downloadable') !== false
-            && isset($orderItem->additional['links'])
-        ) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  \Webkul\Sales\Contracts\OrderItem  $orderItem
+     * @param  OrderItem  $orderItem
      * @param  string  $status
      * @return void
      */
@@ -98,12 +92,12 @@ class DownloadableLinkPurchasedRepository extends Repository
                     $totalInvoiceQty = $totalInvoiceQty * ($purchasedLink->download_bought / $orderedQty);
 
                     $this->update([
-                        'status'            => $purchasedLink->download_used == $totalInvoiceQty ? $status : $purchasedLink->status,
+                        'status' => $purchasedLink->download_used == $totalInvoiceQty ? $status : $purchasedLink->status,
                         'download_canceled' => $purchasedLink->download_bought - $totalInvoiceQty,
                     ], $purchasedLink->id);
                 } else {
                     $this->update([
-                        'status'            => $status,
+                        'status' => $status,
                         'download_canceled' => $purchasedLink->download_bought,
                     ], $purchasedLink->id);
                 }
@@ -113,5 +107,22 @@ class DownloadableLinkPurchasedRepository extends Repository
                 ], $purchasedLink->id);
             }
         }
+    }
+
+    /**
+     * Whether the ordered item is a downloadable product carrying links.
+     *
+     * @param  OrderItem  $orderItem
+     */
+    private function isValidDownloadableProduct($orderItem): bool
+    {
+        if (
+            stristr($orderItem->type, 'downloadable') !== false
+            && isset($orderItem->additional['links'])
+        ) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -9,12 +9,12 @@
     </x-slot>
 
 	<!-- Page content -->
-	<div class="container mt-8 px-[60px] max-lg:px-8">
+	<div class="container mt-8 px-15 max-lg:px-8">
 		<div class="grid place-items-center gap-y-5 max-md:gap-y-2.5">
 			{{ view_render_event('bagisto.shop.checkout.success.image.before', ['order' => $order]) }}
 
 			<img
-				class="max-md:h-[100px] max-md:w-[100px]"
+				class="max-md:h-25 max-md:w-25"
 				src="{{ bagisto_asset('images/thank-you.png') }}"
 				alt="@lang('shop::app.checkout.success.thanks')"
 				title="@lang('shop::app.checkout.success.thanks')"
@@ -40,7 +40,7 @@
 
 			<p class="text-xl text-zinc-500 max-md:text-center max-md:text-xs">
 				@if (! empty($order->checkout_message))
-					{!! nl2br($order->checkout_message) !!}
+					{!! nl2br(e($order->checkout_message)) !!}
 				@else
 					@lang('shop::app.checkout.success.info')
 				@endif

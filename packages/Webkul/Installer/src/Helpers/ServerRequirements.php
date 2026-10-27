@@ -5,18 +5,17 @@ namespace Webkul\Installer\Helpers;
 class ServerRequirements
 {
     /**
-     * Minimum PHP Version Supported (Override is in installer.php config file).
+     * Minimum PHP version required for the application.
      *
      * @var string
      */
-    private $minPhpVersion = '8.1.0';
+    const MIN_PHP_VERSION = '8.3.0';
 
     /**
      * Check for the server requirements.
      */
     public function validate(): array
     {
-        // Server Requirements
         $requirements = [
             'php' => [
                 'calendar',
@@ -58,38 +57,34 @@ class ServerRequirements
 
     /**
      * Check PHP version requirement.
-     *
-     * @return array
      */
-    public function checkPHPversion(?string $minPhpVersion = null)
+    public function checkPHPversion(): array
     {
-        $minVersionPhp = $minPhpVersion ?? $this->minPhpVersion;
+        $minVersionPhp = self::MIN_PHP_VERSION;
 
         $currentPhpVersion = $this->getPhpVersionInfo();
 
         $supported = version_compare($currentPhpVersion['version'], $minVersionPhp) >= 0;
 
         return [
-            'full'      => $currentPhpVersion['full'],
-            'current'   => $currentPhpVersion['version'],
-            'minimum'   => $minVersionPhp,
+            'full' => $currentPhpVersion['full'],
+            'current' => $currentPhpVersion['version'],
+            'minimum' => $minVersionPhp,
             'supported' => $supported,
         ];
     }
 
     /**
      * Get current Php version information.
-     *
-     * @return array
      */
-    private static function getPhpVersionInfo()
+    public function getPhpVersionInfo(): array
     {
         $currentVersionFull = PHP_VERSION;
 
         preg_match("#^\d+(\.\d+)*#", $currentVersionFull, $filtered);
 
         return [
-            'full'    => $currentVersionFull,
+            'full' => $currentVersionFull,
             'version' => $filtered[0] ?? $currentVersionFull,
         ];
     }

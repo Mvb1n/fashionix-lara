@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Marketing\Communications;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -10,7 +11,7 @@ class EmailTemplateDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -34,29 +35,29 @@ class EmailTemplateDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'id',
-            'label'      => trans('admin::app.marketing.communications.templates.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'id',
+            'label' => trans('admin::app.marketing.communications.templates.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'name',
-            'label'      => trans('admin::app.marketing.communications.templates.index.datagrid.name'),
-            'type'       => 'string',
+            'index' => 'name',
+            'label' => trans('admin::app.marketing.communications.templates.index.datagrid.name'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'status',
-            'label'              => trans('admin::app.marketing.communications.templates.index.datagrid.status'),
-            'type'               => 'string',
-            'searchable'         => true,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
+            'index' => 'status',
+            'label' => trans('admin::app.marketing.communications.templates.index.datagrid.status'),
+            'type' => 'string',
+            'searchable' => true,
+            'filterable' => true,
+            'filterable_type' => 'dropdown',
             'filterable_options' => [
                 [
                     'label' => trans('admin::app.marketing.communications.templates.index.datagrid.active'),
@@ -71,8 +72,8 @@ class EmailTemplateDataGrid extends DataGrid
                     'value' => 'draft',
                 ],
             ],
-            'sortable'   => true,
-            'closure'    => function ($value) {
+            'sortable' => true,
+            'closure' => function ($value) {
                 if ($value->status == 'active') {
                     return trans('admin::app.marketing.communications.templates.index.datagrid.active');
                 } elseif ($value->status == 'inactive') {
@@ -93,10 +94,10 @@ class EmailTemplateDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('marketing.communications.email_templates.edit')) {
             $this->addAction([
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.marketing.communications.templates.index.datagrid.edit'),
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.marketing.communications.templates.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.marketing.communications.email_templates.edit', $row->id);
                 },
             ]);
@@ -104,10 +105,10 @@ class EmailTemplateDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('marketing.communications.email_templates.delete')) {
             $this->addAction([
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.marketing.communications.templates.index.datagrid.delete'),
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.marketing.communications.templates.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.marketing.communications.email_templates.delete', $row->id);
                 },
             ]);

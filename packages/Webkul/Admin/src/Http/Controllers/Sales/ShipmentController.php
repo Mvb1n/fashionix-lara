@@ -2,6 +2,8 @@
 
 namespace Webkul\Admin\Http\Controllers\Sales;
 
+use Illuminate\Http\Response;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Sales\OrderShipmentDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Sales\Repositories\OrderItemRepository;
@@ -24,7 +26,7 @@ class ShipmentController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -38,7 +40,7 @@ class ShipmentController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create(int $orderId)
     {
@@ -56,7 +58,7 @@ class ShipmentController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store(int $orderId)
     {
@@ -69,11 +71,17 @@ class ShipmentController extends Controller
         }
 
         $this->validate(request(), [
-            'shipment.source'    => 'required',
+            'shipment.source' => 'required',
             'shipment.items.*.*' => 'required|numeric|min:0',
         ]);
 
         $data = request()->only(['shipment', 'carrier_name']);
+
+        if (! $this->itemsBelongToOrder($order, array_keys((array) ($data['shipment']['items'] ?? [])))) {
+            session()->flash('error', trans('admin::app.sales.shipments.create.quantity-invalid'));
+
+            return redirect()->back();
+        }
 
         if (! $this->isInventoryValidate($data)) {
             session()->flash('error', trans('admin::app.sales.shipments.create.quantity-invalid'));
@@ -160,12 +168,23 @@ class ShipmentController extends Controller
     /**
      * Show the view for the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function view(int $id)
     {
         $shipment = $this->shipmentRepository->findOrFail($id);
 
         return view('admin::sales.shipments.view', compact('shipment'));
+    }
+
+    /**
+     * Whether every item the request names is one the order carries.
+     */
+    protected function itemsBelongToOrder($order, array $itemIds): bool
+    {
+        return ! array_diff(
+            array_map('intval', $itemIds),
+            $order->items->pluck('id')->map('intval')->all()
+        );
     }
 }

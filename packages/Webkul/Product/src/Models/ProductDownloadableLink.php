@@ -4,7 +4,7 @@ namespace Webkul\Product\Models;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Webkul\Core\Eloquent\TranslatableModel;
 use Webkul\Product\Contracts\ProductDownloadableLink as ProductDownloadableLinkContract;
 use Webkul\Product\Database\Factories\ProductDownloadableLinkFactory;
@@ -36,7 +36,7 @@ class ProductDownloadableLink extends TranslatableModel implements ProductDownlo
     /**
      * Get the product that owns the image.
      */
-    public function product(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function product(): BelongsTo
     {
         return $this->belongsTo(ProductProxy::modelClass());
     }
@@ -46,7 +46,7 @@ class ProductDownloadableLink extends TranslatableModel implements ProductDownlo
      */
     public function file_url(): string
     {
-        return Storage::url($this->file);
+        return route('admin.catalog.products.downloadable.link_file', ['id' => $this->id, 'type' => 'file']);
     }
 
     /**
@@ -62,7 +62,7 @@ class ProductDownloadableLink extends TranslatableModel implements ProductDownlo
      */
     public function sample_file_url(): string
     {
-        return Storage::url($this->sample_file);
+        return route('admin.catalog.products.downloadable.link_file', ['id' => $this->id, 'type' => 'sample_file']);
     }
 
     /**
@@ -81,9 +81,9 @@ class ProductDownloadableLink extends TranslatableModel implements ProductDownlo
 
         $array['title'] = $translation->title ?? '';
 
-        $array['file_url'] = $this->file ? Storage::url($this->file) : null;
+        $array['file_url'] = $this->file ? $this->file_url() : null;
 
-        $array['sample_file_url'] = $this->sample_file ? Storage::url($this->sample_file) : null;
+        $array['sample_file_url'] = $this->sample_file ? $this->sample_file_url() : null;
 
         return $array;
     }

@@ -3,6 +3,17 @@
 namespace Webkul\FPC\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Webkul\FPC\Listeners\Category;
+use Webkul\FPC\Listeners\Channel;
+use Webkul\FPC\Listeners\CoreConfig;
+use Webkul\FPC\Listeners\Order;
+use Webkul\FPC\Listeners\Page;
+use Webkul\FPC\Listeners\Price;
+use Webkul\FPC\Listeners\Product;
+use Webkul\FPC\Listeners\Refund;
+use Webkul\FPC\Listeners\Review;
+use Webkul\FPC\Listeners\Section;
+use Webkul\FPC\Listeners\URLRewrite;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -12,76 +23,116 @@ class EventServiceProvider extends ServiceProvider
      * @var array
      */
     protected $listen = [
-        'catalog.product.update.after'  => [
-            'Webkul\FPC\Listeners\Product@afterUpdate',
+        /**
+         * Catalog events.
+         */
+        'catalog.product.create.after' => [
+            [Product::class, 'afterCreate'],
+        ],
+
+        'catalog.product.update.after' => [
+            [Product::class, 'afterUpdate'],
         ],
 
         'catalog.product.delete.before' => [
-            'Webkul\FPC\Listeners\Product@beforeDelete',
+            [Product::class, 'beforeDelete'],
+        ],
+
+        'catalog.category.create.after' => [
+            [Category::class, 'afterCreate'],
         ],
 
         'catalog.category.update.after' => [
-            'Webkul\FPC\Listeners\Category@afterUpdate',
+            [Category::class, 'afterUpdate'],
         ],
 
         'catalog.category.delete.before' => [
-            'Webkul\FPC\Listeners\Category@beforeDelete',
+            [Category::class, 'beforeDelete'],
         ],
 
+        'catalog.product.price.reindex.after' => [
+            [Price::class, 'afterReindex'],
+        ],
+
+        /**
+         * Promotion events.
+         */
+        'promotions.catalog_rule.reindex.after' => [
+            [Price::class, 'afterReindex'],
+        ],
+
+        /**
+         * Customer events.
+         */
         'customer.review.update.after' => [
-            'Webkul\FPC\Listeners\Review@afterUpdate',
+            [Review::class, 'afterUpdate'],
         ],
 
         'customer.review.delete.before' => [
-            'Webkul\FPC\Listeners\Review@beforeDelete',
+            [Review::class, 'beforeDelete'],
         ],
 
-        'checkout.order.save.after'     => [
-            'Webkul\FPC\Listeners\Order@afterCancelOrCreate',
+        /**
+         * Sales events.
+         */
+        'checkout.order.save.after' => [
+            [Order::class, 'afterCancelOrCreate'],
         ],
 
-        'sales.order.cancel.after'      => [
-            'Webkul\FPC\Listeners\Order@afterCancelOrCreate',
+        'sales.order.cancel.after' => [
+            [Order::class, 'afterCancelOrCreate'],
         ],
 
-        'sales.refund.save.after'       => [
-            'Webkul\FPC\Listeners\Refund@afterCreate',
+        'sales.refund.save.after' => [
+            [Refund::class, 'afterCreate'],
         ],
 
+        /**
+         * CMS events.
+         */
         'cms.page.update.after' => [
-            'Webkul\FPC\Listeners\Page@afterUpdate',
+            [Page::class, 'afterUpdate'],
         ],
 
         'cms.page.delete.before' => [
-            'Webkul\FPC\Listeners\Page@beforeDelete',
+            [Page::class, 'beforeDelete'],
         ],
 
-        'theme_customization.create.after' => [
-            'Webkul\FPC\Listeners\ThemeCustomization@afterCreate',
+        /**
+         * Theme events.
+         */
+        'section.create.after' => [
+            [Section::class, 'afterCreate'],
         ],
 
-        'theme_customization.update.after' => [
-            'Webkul\FPC\Listeners\ThemeCustomization@afterUpdate',
+        'section.update.after' => [
+            [Section::class, 'afterUpdate'],
         ],
 
-        'theme_customization.delete.before' => [
-            'Webkul\FPC\Listeners\ThemeCustomization@beforeDelete',
+        'section.delete.before' => [
+            [Section::class, 'beforeDelete'],
         ],
 
+        /**
+         * Core events.
+         */
         'core.channel.update.after' => [
-            'Webkul\FPC\Listeners\Channel@afterUpdate',
+            [Channel::class, 'afterUpdate'],
         ],
 
         'core.configuration.save.after' => [
-            'Webkul\FPC\Listeners\CoreConfig@afterUpdate',
+            [CoreConfig::class, 'afterUpdate'],
         ],
 
+        /**
+         * Marketing events.
+         */
         'marketing.search_seo.url_rewrites.update.after' => [
-            'Webkul\FPC\Listeners\URLRewrite@afterUpdate',
+            [URLRewrite::class, 'afterUpdate'],
         ],
 
         'marketing.search_seo.url_rewrites.delete.before' => [
-            'Webkul\FPC\Listeners\URLRewrite@beforeDelete',
+            [URLRewrite::class, 'beforeDelete'],
         ],
     ];
 }

@@ -2,13 +2,20 @@
 
 namespace Webkul\Admin\Http\Controllers\Reporting;
 
+use Illuminate\Http\JsonResponse;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Webkul\Admin\Exports\ReportingExport;
 use Webkul\Admin\Helpers\Reporting as ReportingHelper;
 use Webkul\Admin\Http\Controllers\Controller as BaseController;
 
 class Controller extends BaseController
 {
+    /**
+     * The file types a report may be exported as.
+     */
+    private const EXPORT_FORMATS = ['csv', 'xls', 'xlsx'];
+
     /**
      * Request param functions.
      *
@@ -26,11 +33,11 @@ class Controller extends BaseController
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function stats()
     {
-        $stats = $this->reportingHelper->{$this->typeFunctions[request()->query('type')]}();
+        $stats = $this->reportingHelper->{$this->resolveTypeFunction()}();
 
         return response()->json([
             'statistics' => $stats,
@@ -41,11 +48,11 @@ class Controller extends BaseController
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function viewStats()
     {
-        $stats = $this->reportingHelper->{$this->typeFunctions[request()->query('type')]}('table');
+        $stats = $this->reportingHelper->{$this->resolveTypeFunction()}('table');
 
         return response()->json([
             'statistics' => $stats,
@@ -56,12 +63,40 @@ class Controller extends BaseController
     /**
      * Display a listing of the resource.
      *
-     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     * @return BinaryFileResponse
      */
     public function export()
     {
-        $stats = $this->reportingHelper->{$this->typeFunctions[request()->query('type')]}('table');
+        $stats = $this->reportingHelper->{$this->resolveTypeFunction()}('table');
 
-        return Excel::download(new ReportingExport($stats), request()->query('type').'.'.request()->query('format'));
+        $format = in_array(request()->query('format'), self::EXPORT_FORMATS, true)
+            ? request()->query('format')
+            : self::EXPORT_FORMATS[0];
+
+        return Excel::download(new ReportingExport($stats), request()->query('type').'.'.$format);
+    }
+
+    /**
+     * Validate if the requested type is valid.
+     *
+     * @return void
+     */
+    protected function validateRequestedType()
+    {
+        return ! array_key_exists(request()->query('type'), $this->typeFunctions);
+    }
+
+    /**
+     * Resolve the requested type into a valid function name.
+     *
+     * @return string
+     */
+    protected function resolveTypeFunction()
+    {
+        if ($this->validateRequestedType()) {
+            abort(404);
+        }
+
+        return $this->typeFunctions[request()->query('type')];
     }
 }

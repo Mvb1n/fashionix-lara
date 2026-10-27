@@ -20,6 +20,7 @@ import ja from "@vee-validate/i18n/dist/locale/ja.json";
 import nl from "@vee-validate/i18n/dist/locale/nl.json";
 import pl from "@vee-validate/i18n/dist/locale/pl.json";
 import pt_BR from "@vee-validate/i18n/dist/locale/pt_BR.json";
+import ro from "../locales/ro.json";
 import ru from "@vee-validate/i18n/dist/locale/ru.json";
 import sin from "../locales/sin.json";
 import tr from "@vee-validate/i18n/dist/locale/tr.json";
@@ -43,7 +44,13 @@ export default {
         /**
          * Registration of all global validators.
          */
-        Object.entries(all).forEach(([name, rule]) => defineRule(name, rule));
+        Object.entries(all).forEach(([name, rule]) => {
+            defineRule(name, (value, params, ctx) => {
+                const processedValue = typeof value === 'string' ? value.trim() : value;
+                
+                return rule(processedValue, params, ctx);
+            });
+        });
 
         defineRule("", () => true);
 
@@ -169,6 +176,7 @@ export default {
                     ...pl,
                     messages: {
                         ...pl.messages,
+                        confirmed: "Pole {field} nie zgadza się z polem potwierdzającym",
                         phone: "To {field} musi być prawidłowym numerem telefonu",
                     },
                 },
@@ -178,6 +186,14 @@ export default {
                     messages: {
                         ...pt_BR.messages,
                         phone: "Este {field} deve ser um número de telefone válido",
+                    },
+                },
+
+                ro: {
+                    ...ro,
+                    messages: {
+                        ...ro.messages,
+                        phone: "Acest {field} trebuie să fie un număr de telefon valid",
                     },
                 },
 

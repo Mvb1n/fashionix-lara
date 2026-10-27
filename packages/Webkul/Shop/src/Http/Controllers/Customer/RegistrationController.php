@@ -3,9 +3,11 @@
 namespace Webkul\Shop\Http\Controllers\Customer;
 
 use Cookie;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Webkul\Core\Repositories\SubscribersListRepository;
 use Webkul\Customer\Repositories\CustomerGroupRepository;
 use Webkul\Customer\Repositories\CustomerRepository;
@@ -30,7 +32,7 @@ class RegistrationController extends Controller
     /**
      * Opens up the user's sign up form.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -40,7 +42,7 @@ class RegistrationController extends Controller
     /**
      * Method to store user's sign up form data to DB.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store(RegistrationRequest $registrationRequest)
     {
@@ -55,12 +57,12 @@ class RegistrationController extends Controller
             'password_confirmation',
             'is_subscribed',
         ]), [
-            'password'                  => bcrypt(request()->input('password')),
-            'api_token'                 => Str::random(80),
-            'is_verified'               => ! core()->getConfigData('customer.settings.email.verification'),
-            'customer_group_id'         => $this->customerGroupRepository->findOneWhere(['code' => $customerGroup])->id,
-            'channel_id'                => core()->getCurrentChannel()->id,
-            'token'                     => md5(uniqid(rand(), true)),
+            'password' => bcrypt(request()->input('password')),
+            'api_token' => Str::random(80),
+            'is_verified' => ! core()->getConfigData('customer.settings.email.verification'),
+            'customer_group_id' => $this->customerGroupRepository->findOneWhere(['code' => $customerGroup])->id,
+            'channel_id' => core()->getCurrentChannel()->id,
+            'token' => Str::random(64),
             'subscribed_to_news_letter' => (bool) (request()->input('is_subscribed') ?? $subscription?->is_subscribed),
         ]);
 
@@ -81,11 +83,11 @@ class RegistrationController extends Controller
             Event::dispatch('customer.subscription.before');
 
             $subscription = $this->subscriptionRepository->create([
-                'email'         => $data['email'],
-                'customer_id'   => $customer->id,
-                'channel_id'    => core()->getCurrentChannel()->id,
+                'email' => $data['email'],
+                'customer_id' => $customer->id,
+                'channel_id' => core()->getCurrentChannel()->id,
                 'is_subscribed' => 1,
-                'token'         => uniqid(),
+                'token' => Str::random(64),
             ]);
 
             Event::dispatch('customer.subscription.after', $subscription);
@@ -108,7 +110,7 @@ class RegistrationController extends Controller
      * Method to verify account.
      *
      * @param  string  $token
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function verifyAccount($token)
     {
@@ -117,7 +119,7 @@ class RegistrationController extends Controller
         if ($customer) {
             $this->customerRepository->update([
                 'is_verified' => 1,
-                'token'       => null,
+                'token' => null,
             ], $customer->id);
 
             if ((bool) core()->getConfigData('emails.general.notifications.emails.general.notifications.registration')) {
@@ -138,28 +140,32 @@ class RegistrationController extends Controller
      * Resend verification email.
      *
      * @param  string  $email
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function resendVerificationEmail($email)
     {
-        $verificationData = [
-            'email' => $email,
-            'token' => md5(uniqid(rand(), true)),
-        ];
-
         $customer = $this->customerRepository->findOneByField('email', $email);
 
-        $this->customerRepository->update(['token' => $verificationData['token']], $customer->id);
+        if (! $customer) {
+            session()->flash('success', trans('shop::app.customers.signup-form.verification-sent'));
+
+            return redirect()->back();
+        }
+
+        $customer = $this->customerRepository->update(
+            ['token' => Str::random(64)],
+            $customer->id
+        );
 
         try {
-            Mail::queue(new EmailVerificationNotification($verificationData));
+            Mail::queue(new EmailVerificationNotification($customer));
 
             if (Cookie::has('enable-resend')) {
-                \Cookie::queue(\Cookie::forget('enable-resend'));
+                Cookie::queue(Cookie::forget('enable-resend'));
             }
 
             if (Cookie::has('email-for-resend')) {
-                \Cookie::queue(\Cookie::forget('email-for-resend'));
+                Cookie::queue(Cookie::forget('email-for-resend'));
             }
         } catch (\Exception $e) {
             report($e);

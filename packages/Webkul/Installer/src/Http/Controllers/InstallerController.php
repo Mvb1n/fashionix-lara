@@ -2,53 +2,34 @@
 
 namespace Webkul\Installer\Http\Controllers;
 
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Log;
 use Webkul\Installer\Helpers\DatabaseManager;
 use Webkul\Installer\Helpers\EnvironmentManager;
 use Webkul\Installer\Helpers\ServerRequirements;
-use Webkul\Product\Console\Commands\Indexer;
 
 class InstallerController extends Controller
 {
     /**
-     * Const Variable For Min PHP Version
-     *
-     * @var string
-     */
-    const MIN_PHP_VERSION = '8.1.0';
-
-    /**
-     * Const Variable for Static Customer Id
-     *
-     * @var int
-     */
-    const USER_ID = 1;
-
-    /**
-     * Create a new controller instance
+     * Create a new controller instance.
      *
      * @return void
      */
     public function __construct(
         protected ServerRequirements $serverRequirements,
         protected EnvironmentManager $environmentManager,
-        protected DatabaseManager $databaseManager
+        protected DatabaseManager $databaseManager,
     ) {}
 
     /**
-     * Installer View Root Page
+     * Display the installer welcome page.
      *
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
     public function index()
     {
-        $phpVersion = $this->serverRequirements->checkPHPversion(self::MIN_PHP_VERSION);
+        $phpVersion = $this->serverRequirements->checkPHPversion();
 
         $requirements = $this->serverRequirements->validate();
 
@@ -60,36 +41,46 @@ class InstallerController extends Controller
     }
 
     /**
-     * ENV File Setup
-     */
-    public function envFileSetup(Request $request): JsonResponse
-    {
-        $message = $this->environmentManager->generateEnv($request);
-
-        return new JsonResponse(['data' => $message]);
-    }
-
-    /**
-     * Run Migration
-     */
-    public function runMigration()
-    {
-        $migration = $this->databaseManager->migration();
-
-        return $migration;
-    }
-
-    /**
-     * Run Seeder
+     * Run migration.
      *
-     * @return void|string
+     * @return JsonResponse
+     */
+    public function runMigration(Request $request)
+    {
+        $this->abortIfInstalled();
+
+        $this->environmentManager->generateEnv($request->all());
+
+        $this->environmentManager->loadEnvConfigs();
+
+        $isDatabaseConnected = $this->databaseManager->checkDatabaseConnection();
+
+        if (! $isDatabaseConnected) {
+            return response()->json([
+                'migrated' => false,
+            ], 500);
+        }
+
+        return $this->databaseManager->migrateFresh()
+            ? response()->json(['migrated' => true])
+            : response()->json(['migrated' => false], 500);
+    }
+
+    /**
+     * Run seeder.
+     *
+     * @return JsonResponse
      */
     public function runSeeder()
     {
-        $selectedParameters = request()->selectedParameters;
-        $allParameters = request()->allParameters;
+        $this->abortIfInstalled();
+
+        $selectedParameters = request('selectedParameters');
+
+        $allParameters = request('allParameters');
 
         $appLocale = $allParameters['app_locale'] ?? null;
+
         $appCurrency = $allParameters['app_currency'] ?? null;
 
         $allowedLocales = array_unique(
@@ -106,94 +97,94 @@ class InstallerController extends Controller
             )
         );
 
-        $parameter = [
-            'parameter' => [
-                'default_locales'    => $appLocale,
-                'default_currency'   => $appCurrency,
-                'allowed_locales'    => $allowedLocales,
+        $isEnvVariablesUpdated = $this->environmentManager->updateEnvVariables($allParameters);
+
+        if ($isEnvVariablesUpdated) {
+            $isSeeded = $this->databaseManager->seed([
+                'default_locales' => $appLocale,
+                'default_currency' => $appCurrency,
+                'allowed_locales' => $allowedLocales,
                 'allowed_currencies' => $allowedCurrencies,
-            ],
-        ];
+                'skip_admin_creation' => true,
+            ]);
 
-        $response = $this->environmentManager->setEnvConfiguration(request()->allParameters);
+            $this->environmentManager->storageLink();
 
-        if ($response) {
-            $seeder = $this->databaseManager->seeder($parameter);
+            $this->environmentManager->optimizeClear();
 
-            return $seeder;
+            return $isSeeded
+                ? response()->json(['seeded' => true])
+                : response()->json(['seeded' => false], 500);
         }
+
+        return response()->json(['seeded' => false], 500);
     }
 
     /**
-     * Create Sample Products.
+     * Seed sample products.
      *
-     * @return mixed
+     * @return JsonResponse
      */
-    public function createSampleProducts()
+    public function seedSampleProducts()
     {
+        $this->abortIfInstalled();
+
         $defaultLocale = config('app.locale');
 
-        $allowedLocales = array_merge([$defaultLocale], request()->input('selectedLocales'));
+        $allowedLocales = array_values(array_unique(array_merge(
+            [$defaultLocale],
+            (array) request()->input('selectedLocales', [])
+        )));
 
         $defaultCurrency = config('app.currency');
 
-        $allowedCurrencies = array_merge([$defaultCurrency], request()->input('selectedCurrencies'));
+        $allowedCurrencies = array_values(array_unique(array_merge(
+            [$defaultCurrency],
+            (array) request()->input('selectedCurrencies', [])
+        )));
 
-        $this->databaseManager->seedSampleProducts([
-            'default_locale'     => $defaultLocale,
-            'allowed_locales'    => $allowedLocales,
-            'default_currency'   => $defaultCurrency,
+        $isSeeded = $this->databaseManager->seedSampleProducts([
+            'default_locale' => $defaultLocale,
+            'allowed_locales' => $allowedLocales,
+            'default_currency' => $defaultCurrency,
             'allowed_currencies' => $allowedCurrencies,
         ]);
 
-        Artisan::registerCommand(app(Indexer::class));
-
-        Artisan::call('indexer:index', ['--mode' => ['full']]);
+        return $isSeeded
+            ? response()->json(['sample_products_seeded' => true])
+            : response()->json(['sample_products_seeded' => false], 500);
     }
 
     /**
-     * Admin Configuration Setup.
+     * Create admin user.
      *
-     * @return bool
+     * @return JsonResponse
      */
-    public function adminConfigSetup()
+    public function createAdminUser(Request $request)
     {
-        $password = password_hash(request()->input('password'), PASSWORD_BCRYPT, ['cost' => 10]);
+        $this->abortIfInstalled();
 
-        try {
-            DB::table('admins')->updateOrInsert(
-                [
-                    'id' => self::USER_ID,
-                ], [
-                    'name'     => request()->input('admin'),
-                    'email'    => request()->input('email'),
-                    'password' => $password,
-                    'role_id'  => 1,
-                    'status'   => 1,
-                ]
-            );
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
 
-            return true;
-        } catch (\Throwable $th) {
-            Log::error('Error in Admin installer config setup'.$th->getMessage());
+        $data = $request->only(['name', 'email', 'password']);
 
-            return false;
-        }
+        return $this->databaseManager->createAdminUser($data)
+            ? response()->json(['admin_user_created' => true])
+            : response()->json(['admin_user_created' => false], 500);
     }
 
     /**
-     * SMTP connection setup for Mail
+     * Refuse an installer action once the application is already installed.
+     *
+     * The install routes stay registered for the life of the application, so every action that
+     * writes state re-checks the install flag itself rather than relying on the middleware alone.
      */
-    public function smtpConfigSetup()
+    protected function abortIfInstalled(): void
     {
-        $this->environmentManager->setEnvConfiguration(request()->input());
-
-        $filePath = storage_path('installed');
-
-        File::put($filePath, 'Your Bagisto App is Successfully Installed');
-
-        Event::dispatch('bagisto.installed');
-
-        return $filePath;
+        abort_if($this->databaseManager->isInstalled(), 403);
     }
 }

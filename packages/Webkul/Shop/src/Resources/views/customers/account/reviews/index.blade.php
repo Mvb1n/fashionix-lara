@@ -35,7 +35,6 @@
             <!-- Reviews Shimmer Effect -->
             <x-shop::shimmer.customers.account.reviews :count="4" />
         </v-product-reviews>
-
     </div>
 
     @pushOnce('scripts')
@@ -57,6 +56,10 @@
                         <!-- Review Information -->
                         <div class="mt-14 grid gap-5 max-1060:grid-cols-[1fr] max-md:mt-5">
                             @foreach($reviews as $review)
+                                @php
+                                    $productBaseImage = product_image()->getProductBaseImage($review->product);
+                                @endphp
+
                                 <a
                                     href="{{ route('shop.product_or_category.index', $review->product->url_key) }}"
                                     id="{{ $review->product_id }}"
@@ -67,9 +70,9 @@
                                         {!! view_render_event('bagisto.shop.customers.account.reviews.image.before', ['reviews' => $reviews]) !!}
 
                                         <x-shop::media.images.lazy
-                                            class="h-[146px] max-h-[146px] w-32 min-w-32 max-w-32 rounded-xl"
-                                            src="{{ $review->product->base_image_url ?? bagisto_asset('images/small-product-placeholder.webp') }}"
-                                            alt="Review Image"                   
+                                            class="h-36.5 max-h-36.5 w-32 min-w-32 max-w-32 rounded-xl"
+                                            src="{{ $productBaseImage['medium_image_url'] }}"
+                                            alt="{{ $productBaseImage['alt'] }}"
                                         />
 
                                         {!! view_render_event('bagisto.shop.customers.account.reviews.image.after', ['reviews' => $reviews]) !!}
@@ -78,8 +81,11 @@
                                             <div class="flex justify-between">
                                                 {!! view_render_event('bagisto.shop.customers.account.reviews.title.before', ['reviews' => $reviews]) !!}
 
-                                                <p class="text-xl font-medium">
-                                                    {{ $review->title}}
+                                                <p
+                                                    class="text-xl font-medium"
+                                                    v-pre
+                                                >
+                                                    {{ $review->title }}
                                                 </p>
 
                                                 {!! view_render_event('bagisto.shop.customers.account.reviews.title.after', ['reviews' => $reviews]) !!}
@@ -97,7 +103,10 @@
         
                                             {!! view_render_event('bagisto.shop.customers.account.reviews.created_at.before', ['reviews' => $reviews]) !!}
 
-                                            <p class="mt-2.5 text-sm font-medium">
+                                            <p
+                                                class="mt-2.5 text-sm font-medium"
+                                                v-pre
+                                            >
                                                 {{ $review->created_at }}
                                             </p>
         
@@ -105,7 +114,10 @@
 
                                             {!! view_render_event('bagisto.shop.customers.account.reviews.comment.before', ['reviews' => $reviews]) !!}
 
-                                            <p class="mt-5 text-base text-zinc-500 max-md:mt-2">
+                                            <p
+                                                class="mt-5 text-base text-zinc-500 max-md:mt-2"
+                                                v-pre
+                                            >
                                                 {{ $review->comment }}
                                             </p>
 
@@ -120,9 +132,9 @@
                                             {!! view_render_event('bagisto.shop.customers.account.reviews.image.before', ['reviews' => $reviews]) !!}
     
                                             <x-shop::media.images.lazy
-                                                class="h-[146px] max-h-[146px] w-32 min-w-32 max-w-32 rounded-xl max-md:h-20 max-md:w-20 max-md:min-w-20 max-md:rounded-lg"
-                                                src="{{ $review->product->base_image_url ?? bagisto_asset('images/small-product-placeholder.webp') }}"
-                                                alt="Review Image"                   
+                                                class="h-36.5 max-h-36.5 w-32 min-w-32 max-w-32 rounded-xl max-md:h-20 max-md:w-20 max-md:min-w-20 max-md:rounded-lg"
+                                                src="{{ $productBaseImage['medium_image_url'] }}"
+                                                alt="{{ $productBaseImage['alt'] }}"
                                             />
     
                                             {!! view_render_event('bagisto.shop.customers.account.reviews.image.after', ['reviews' => $reviews]) !!}
@@ -130,7 +142,10 @@
                                             <div class="justify-between">
                                                 {!! view_render_event('bagisto.shop.customers.account.reviews.title.before', ['reviews' => $reviews]) !!}
 
-                                                <p class="text-xl font-medium max-md:text-base">
+                                                <p
+                                                    class="text-xl font-medium max-md:text-base"
+                                                    v-pre
+                                                >
                                                     {{ $review->title}}
                                                 </p>
 
@@ -138,7 +153,10 @@
 
                                                 {!! view_render_event('bagisto.shop.customers.account.reviews.created_at.before', ['reviews' => $reviews]) !!}
 
-                                                <p class="mt-1.5 font-normal text-zinc-500 max-md:mt-0 max-md:text-xs">
+                                                <p
+                                                    class="mt-1.5 font-normal text-zinc-500 max-md:mt-0 max-md:text-xs"
+                                                    v-pre
+                                                >
                                                     {{ $review->created_at }}
                                                 </p>
             
@@ -160,7 +178,10 @@
                                         <div>
                                             {!! view_render_event('bagisto.shop.customers.account.reviews.comment.before', ['reviews' => $reviews]) !!}
 
-                                            <p class="text-xs text-zinc-500">
+                                            <p
+                                                class="text-xs text-zinc-500"
+                                                v-pre
+                                            >
                                                 {{ $review->comment }}
                                             </p>
 
@@ -177,7 +198,7 @@
                         <!-- Review Empty Page -->
                         <div class="m-auto grid w-full place-content-center items-center justify-items-center py-32 text-center">
                             <img
-                                class="max-md:h-[100px] max-md:w-[100px]"
+                                class="max-md:h-25 max-md:w-25"
                                 src="{{ bagisto_asset('images/review.png') }}"
                                 alt="Empty Review"
                                 title=""

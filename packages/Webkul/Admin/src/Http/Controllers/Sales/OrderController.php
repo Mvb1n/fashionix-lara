@@ -2,10 +2,11 @@
 
 namespace Webkul\Admin\Http\Controllers\Sales;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Sales\OrderDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Resources\AddressResource;
@@ -34,7 +35,7 @@ class OrderController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -42,15 +43,17 @@ class OrderController extends Controller
             return datagrid(OrderDataGrid::class)->process();
         }
 
+        $channels = core()->getAllChannels();
+
         $groups = $this->customerGroupRepository->findWhere([['code', '<>', 'guest']]);
 
-        return view('admin::sales.orders.index', compact('groups'));
+        return view('admin::sales.orders.index', compact('channels', 'groups'));
     }
 
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create(int $cartId)
     {
@@ -109,7 +112,7 @@ class OrderController extends Controller
         session()->flash('order', trans('admin::app.sales.orders.create.order-placed-success'));
 
         return new JsonResource([
-            'redirect'     => true,
+            'redirect' => true,
             'redirect_url' => route('admin.sales.orders.view', $order->id),
         ]);
     }
@@ -117,7 +120,7 @@ class OrderController extends Controller
     /**
      * Show the view for the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function view(int $id)
     {
@@ -129,25 +132,42 @@ class OrderController extends Controller
     /**
      * Reorder action for the specified resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function reorder(int $id)
     {
         $order = $this->orderRepository->findOrFail($id);
 
+        if (! $order->customer) {
+            session()->flash('error', trans('admin::app.sales.orders.view.reorder-customer-missing'));
+
+            return redirect()->route('admin.sales.orders.view', $id);
+        }
+
         $cart = Cart::createCart([
-            'customer'  => $order->customer,
+            'customer' => $order->customer,
             'is_active' => false,
         ]);
 
         Cart::setCart($cart);
 
+        $skippedBooking = false;
+
         foreach ($order->items as $item) {
+            if ($item->type === 'booking') {
+                $skippedBooking = true;
+
+                continue;
+            }
+
             try {
                 Cart::addProduct($item->product, $item->additional);
             } catch (\Exception $e) {
-                // do nothing
             }
+        }
+
+        if ($skippedBooking) {
+            session()->flash('info', trans('admin::app.sales.orders.view.reorder-booking-skipped'));
         }
 
         return redirect()->route('admin.sales.orders.create', $cart->id);
@@ -156,16 +176,16 @@ class OrderController extends Controller
     /**
      * Cancel action for the specified resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function cancel(int $id)
     {
-        $result = $this->orderRepository->cancel($id);
+        $result = $this->orderRepository->cancel($id, force: true);
 
         if ($result) {
             session()->flash('success', trans('admin::app.sales.orders.view.cancel-success'));
         } else {
-            session()->flash('error', trans('admin::app.sales.orders.view.create-error'));
+            session()->flash('error', trans('admin::app.sales.orders.view.cancel-error'));
         }
 
         return redirect()->route('admin.sales.orders.view', $id);
@@ -174,12 +194,12 @@ class OrderController extends Controller
     /**
      * Add comment to the order
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function comment(int $id)
     {
         $validatedData = $this->validate(request(), [
-            'comment'           => 'required',
+            'comment' => 'required',
             'customer_notified' => 'sometimes|sometimes',
         ]);
 
@@ -199,14 +219,15 @@ class OrderController extends Controller
     /**
      * Result of search product.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function search()
     {
         $orders = $this->orderRepository->scopeQuery(function ($query) {
-            return $query->where('customer_email', 'like', '%'.urldecode(request()->input('query')).'%')
-                ->orWhere('status', 'like', '%'.urldecode(request()->input('query')).'%')
-                ->orWhere(DB::raw('CONCAT('.DB::getTablePrefix().'customer_first_name, " ", '.DB::getTablePrefix().'customer_last_name)'), 'like', '%'.urldecode(request()->input('query')).'%')
+            return $query->where('customer_email', db_grammar()->caseInsensitiveLike(), '%'.urldecode(request()->input('query')).'%')
+                ->orWhere('status', db_grammar()->caseInsensitiveLike(), '%'.urldecode(request()->input('query')).'%')
+                ->orWhere('customer_first_name', db_grammar()->caseInsensitiveLike(), '%'.urldecode(request()->input('query')).'%')
+                ->orWhere('customer_last_name', db_grammar()->caseInsensitiveLike(), '%'.urldecode(request()->input('query')).'%')
                 ->orWhere('increment_id', request()->input('query'))
                 ->orderBy('created_at', 'desc');
         })->paginate(10);

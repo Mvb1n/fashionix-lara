@@ -5,7 +5,7 @@
     <x-admin::shimmer.catalog.products.edit.group-price />
 </v-product-customer-group-price>
 
-@inject('customerGroupRepository', 'Webkul\Customer\Repositories\CustomerGroupRepository')
+@inject('customerGroupRepository', \Webkul\Customer\Repositories\CustomerGroupRepository::class)
 
 @pushOnce('scripts')
     <script
@@ -94,7 +94,7 @@
                 >
                     <img
                         src="{{ bagisto_asset('images/icon-discount.svg') }}"
-                        class="h-20 w-20 rounded border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert"
+                        class="h-20 w-20 rounded-sm border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert"
                     />
 
                     <div class="flex flex-col gap-1.5">
@@ -253,13 +253,14 @@
         app.component('v-product-customer-group-price', {
             template: '#v-product-customer-group-price-template',
 
-            data: function() {
+            data() {
                 return {
                     groups: @json($customerGroupRepository->all()),
 
                     prices: @json($product->customer_group_prices),
 
                     selectedPrice: {
+                        id: null,
                         customer_group_id: null,
                         qty: 0,
                         value_type: 'fixed',
@@ -293,6 +294,7 @@
 
                 resetForm() {
                     this.selectedPrice = {
+                        id: null,
                         customer_group_id: null,
                         qty: 0,
                         value_type: 'fixed',
@@ -301,13 +303,18 @@
                 },
 
                 remove() {
+                    const selectedId = this.selectedPrice?.id ?? null;
+
                     this.$refs.groupPriceCreateModal.close();
 
                     this.$emitter.emit('open-confirm-modal', {
                         agree: () => {
-                            let index = this.prices.indexOf(this.selectedPrice);
+                            if (selectedId == null) {
+                                this.resetForm();
+                                return;
+                            }
 
-                            this.prices.splice(index, 1);
+                            this.prices = this.prices.filter(price => price.id !== selectedId);
 
                             this.resetForm();
                         }

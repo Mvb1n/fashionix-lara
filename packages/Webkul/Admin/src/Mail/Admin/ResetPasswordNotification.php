@@ -11,7 +11,7 @@ class ResetPasswordNotification extends ResetPassword
      * Build the mail representation of the notification.
      *
      * @param  mixed  $notifiable
-     * @return \Illuminate\Notifications\Messages\MailMessage
+     * @return MailMessage
      */
     public function toMail($notifiable)
     {
@@ -21,9 +21,10 @@ class ResetPasswordNotification extends ResetPassword
 
         return (new MailMessage)
             ->from(core()->getSenderEmailDetails()['email'], core()->getSenderEmailDetails()['name'])
+            ->subject(trans('admin::app.emails.admin.forgot-password.subject'))
             ->view('admin::emails.admin.forget-password', [
-                'userName'  => $notifiable->name,
-                'token'     => $this->token,
+                'userName' => $notifiable->name,
+                'token' => $this->token,
             ]);
     }
 }

@@ -2,7 +2,9 @@
 
 namespace Webkul\Admin\DataGrids\Catalog;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\DataGrid\DataGrid;
 
 class CategoryDataGrid extends DataGrid
@@ -15,9 +17,16 @@ class CategoryDataGrid extends DataGrid
     protected $primaryColumn = 'category_id';
 
     /**
+     * Constructor for the class.
+     *
+     * @return void
+     */
+    public function __construct(protected CategoryRepository $categoryRepository) {}
+
+    /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -25,6 +34,7 @@ class CategoryDataGrid extends DataGrid
             ->select(
                 'categories.id as category_id',
                 'category_translations.name',
+                'parent_translations.name as parent_name',
                 'categories.position',
                 'categories.status',
                 'category_translations.locale',
@@ -33,10 +43,26 @@ class CategoryDataGrid extends DataGrid
                 $join->on('categories.id', '=', 'category_translations.category_id')
                     ->where('category_translations.locale', '=', app()->getLocale());
             })
+            ->leftJoin('categories as parent_categories', 'parent_categories.id', '=', 'categories.parent_id')
+            ->leftJoin('category_translations as parent_translations', function ($join) {
+                $join->on('parent_categories.id', '=', 'parent_translations.category_id')
+                    ->where('parent_translations.locale', '=', app()->getLocale());
+            })
             ->where('category_translations.locale', app()->getLocale())
-            ->groupBy('categories.id');
+            ->groupBy(
+                'categories.id',
+                'category_translations.name',
+                'parent_translations.name',
+                'categories.position',
+                'categories.status',
+                'category_translations.locale'
+            );
 
         $this->addFilter('category_id', 'categories.id');
+        $this->addFilter('name', 'category_translations.name');
+        $this->addFilter('parent_name', 'parent_translations.name');
+        $this->addFilter('position', 'categories.position');
+        $this->addFilter('status', 'categories.status');
 
         return $queryBuilder;
     }
@@ -49,35 +75,46 @@ class CategoryDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'category_id',
-            'label'      => trans('admin::app.catalog.categories.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'category_id',
+            'label' => trans('admin::app.catalog.categories.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'name',
-            'label'      => trans('admin::app.catalog.categories.index.datagrid.name'),
-            'type'       => 'string',
+            'index' => 'name',
+            'label' => trans('admin::app.catalog.categories.index.datagrid.name'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'position',
-            'label'      => trans('admin::app.catalog.categories.index.datagrid.position'),
-            'type'       => 'integer',
+            'index' => 'parent_name',
+            'label' => trans('admin::app.catalog.categories.index.datagrid.parent-category'),
+            'type' => 'string',
+            'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'filterable_type' => 'dropdown',
+            'filterable_options' => $this->getParentCategoryOptions(),
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'              => 'status',
-            'label'              => trans('admin::app.catalog.categories.index.datagrid.status'),
-            'type'               => 'boolean',
-            'filterable'         => true,
+            'index' => 'position',
+            'label' => trans('admin::app.catalog.categories.index.datagrid.position'),
+            'type' => 'integer',
+            'filterable' => true,
+            'sortable' => true,
+        ]);
+
+        $this->addColumn([
+            'index' => 'status',
+            'label' => trans('admin::app.catalog.categories.index.datagrid.status'),
+            'type' => 'boolean',
+            'filterable' => true,
             'filterable_options' => [
                 [
                     'label' => trans('admin::app.catalog.categories.index.datagrid.active'),
@@ -88,8 +125,8 @@ class CategoryDataGrid extends DataGrid
                     'value' => 0,
                 ],
             ],
-            'sortable'   => true,
-            'closure'    => function ($value) {
+            'sortable' => true,
+            'closure' => function ($value) {
                 if ($value->status) {
                     return '<span class="badge badge-md badge-success">'.trans('admin::app.catalog.categories.index.datagrid.active').'</span>';
                 }
@@ -108,10 +145,10 @@ class CategoryDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('catalog.categories.edit')) {
             $this->addAction([
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.catalog.categories.index.datagrid.edit'),
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.catalog.categories.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.catalog.categories.edit', $row->category_id);
                 },
             ]);
@@ -119,10 +156,10 @@ class CategoryDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('catalog.categories.delete')) {
             $this->addAction([
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.catalog.categories.index.datagrid.delete'),
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.catalog.categories.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.catalog.categories.delete', $row->category_id);
                 },
             ]);
@@ -130,17 +167,17 @@ class CategoryDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('catalog.categories.delete')) {
             $this->addMassAction([
-                'title'  => trans('admin::app.catalog.categories.index.datagrid.delete'),
+                'title' => trans('admin::app.catalog.categories.index.datagrid.delete'),
                 'method' => 'POST',
-                'url'    => route('admin.catalog.categories.mass_delete'),
+                'url' => route('admin.catalog.categories.mass_delete'),
             ]);
         }
 
         if (bouncer()->hasPermission('catalog.categories.edit')) {
             $this->addMassAction([
-                'title'   => trans('admin::app.catalog.categories.index.datagrid.update-status'),
-                'method'  => 'POST',
-                'url'     => route('admin.catalog.categories.mass_update'),
+                'title' => trans('admin::app.catalog.categories.index.datagrid.update-status'),
+                'method' => 'POST',
+                'url' => route('admin.catalog.categories.mass_update'),
                 'options' => [
                     [
                         'label' => trans('admin::app.catalog.categories.index.datagrid.active'),
@@ -152,5 +189,29 @@ class CategoryDataGrid extends DataGrid
                 ],
             ]);
         }
+    }
+
+    /**
+     * Names of the categories that have children, in the current locale, as parent filter options.
+     */
+    protected function getParentCategoryOptions(): array
+    {
+        $parentIds = $this->categoryRepository->pluck('parent_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return $this->categoryRepository->findWhereIn('id', $parentIds)
+            ->map(fn ($category) => $category->translate(app()->getLocale())?->name)
+            ->filter()
+            ->unique()
+            ->sort()
+            ->map(fn ($name) => [
+                'label' => $name,
+                'value' => $name,
+            ])
+            ->values()
+            ->toArray();
     }
 }

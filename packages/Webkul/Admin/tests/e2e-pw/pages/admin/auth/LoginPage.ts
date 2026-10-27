@@ -1,0 +1,73 @@
+import { expect, Page } from "@playwright/test";
+import { BasePage } from "../../BasePage";
+
+export class LoginPage extends BasePage {
+    constructor(page: Page) {
+        super(page);
+    }
+
+    private get emailInput() {
+        return this.page.getByPlaceholder("Email");
+    }
+
+    private get passwordInput() {
+        return this.page.getByPlaceholder("Password");
+    }
+
+    private get loginButton() {
+        return this.page.getByRole("button", { name: "Sign In" });
+    }
+
+    private get accountDropdownToggle() {
+        return this.page
+            .locator("header div.flex.select-none > button")
+            .filter({ visible: true });
+    }
+
+    private get logoutLink() {
+        return this.page.getByRole("link", { name: "Logout" });
+    }
+
+    async visit() {
+        await super.visit("admin/login");
+
+        await expect(this.loginButton).toBeVisible();
+    }
+
+    async attemptLogin(email: string, password: string) {
+        await this.visit();
+        await this.emailInput.fill(email);
+        await this.passwordInput.fill(password);
+        await this.loginButton.click();
+    }
+
+    async login(email: string, password: string) {
+        await this.attemptLogin(email, password);
+
+        await this.expectSignedIn();
+    }
+
+    async logout() {
+        await this.waitForBackgroundRequestsToSettle();
+        await this.accountDropdownToggle.click();
+        await expect(this.logoutLink).toBeVisible();
+        await this.logoutLink.click();
+        await this.page.waitForURL("**/admin/login");
+        await expect(this.passwordInput).toBeVisible();
+    }
+
+    async expectSignedIn() {
+        await expect(this.page).toHaveURL(/admin\/dashboard/);
+    }
+
+    async expectDashboardRequiresLogin() {
+        await super.visit("admin/dashboard");
+
+        await expect(this.page).toHaveURL(/admin\/login/);
+    }
+
+    async expectLoginRefused(message: string) {
+        await expect(this.page.getByText(message)).toBeVisible();
+        await expect(this.page).toHaveURL(/admin\/login/);
+    }
+}

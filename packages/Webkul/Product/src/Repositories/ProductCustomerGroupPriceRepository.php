@@ -4,19 +4,23 @@ namespace Webkul\Product\Repositories;
 
 use Illuminate\Support\Str;
 use Webkul\Core\Eloquent\Repository;
+use Webkul\Product\Contracts\Product;
+use Webkul\Product\Contracts\ProductCustomerGroupPrice;
 
 class ProductCustomerGroupPriceRepository extends Repository
 {
     /**
-     * Specify Model class name.
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\Product\Contracts\ProductCustomerGroupPrice';
+        return ProductCustomerGroupPrice::class;
     }
 
     /**
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * Save the customer group prices of a product, removing the ones left out.
+     *
+     * @param  Product  $product
      * @return void
      */
     public function saveCustomerGroupPrices(array $data, $product)

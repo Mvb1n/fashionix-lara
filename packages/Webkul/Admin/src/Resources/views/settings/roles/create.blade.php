@@ -42,7 +42,7 @@
                 {!! view_render_event('bagisto.admin.settings.roles.create.card.access_control.before') !!}
 
                 <!-- Access Control Input Fields -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.settings.roles.create.access-control')
                     </p>
@@ -66,7 +66,7 @@
             </div>
 
             <!-- Right sub-component -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+            <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
 
                 {!! view_render_event('bagisto.admin.settings.roles.create.card.accordion.general.before') !!}
 
@@ -100,7 +100,7 @@
                         </x-admin::form.control-group>
 
                         <!-- Description -->
-                        <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label class="required">
                                 @lang('admin::app.settings.roles.create.description')
                             </x-admin::form.control-group.label>
@@ -156,9 +156,11 @@
                             @lang('admin::app.settings.roles.create.custom')
                         </option>
 
-                        <option value="all">
-                            @lang('admin::app.settings.roles.create.all')
-                        </option>
+                        @if (bouncer()->canGrantPermissions('all', []))
+                            <option value="all">
+                                @lang('admin::app.settings.roles.create.all')
+                            </option>
+                        @endif
                     </x-admin::form.control-group.control>
 
                     <x-admin::form.control-group.error control-name="permission_type" />
@@ -171,7 +173,9 @@
                         input-type="checkbox"
                         value-field="key"
                         id-field="key"
-                        :items="json_encode(acl()->getItems())"
+                        searchable="true"
+                        search-placeholder="{{ trans('admin::app.settings.roles.create.search-permissions') }}"
+                        :items="json_encode(bouncer()->getGrantableAclItems())"
                         :fallback-locale="config('app.fallback_locale')"
                     />
                 </div>

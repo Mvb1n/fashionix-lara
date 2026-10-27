@@ -22,6 +22,7 @@ class BookingProduct extends Model implements BookingProductContract
         'available_every_week',
         'available_from',
         'available_to',
+        'allow_cancellation',
         'product_id',
     ];
 
@@ -40,8 +41,11 @@ class BookingProduct extends Model implements BookingProductContract
      * The attributes that should be cast.
      */
     protected $casts = [
+        'available_every_week' => 'boolean',
         'available_from' => 'datetime',
-        'available_to'   => 'datetime',
+        'available_to' => 'datetime',
+        'show_location' => 'boolean',
+        'allow_cancellation' => 'boolean',
     ];
 
     /**

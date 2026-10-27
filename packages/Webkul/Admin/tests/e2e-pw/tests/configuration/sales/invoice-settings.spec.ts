@@ -1,91 +1,69 @@
-import { test, expect } from '../../../setup';
+import { test } from "../../../setup";
+import {
+    InvoiceSettingsConfigurationPage,
+    type InvoiceSettings,
+} from "../../../pages/admin/configuration/sales/InvoiceSettingsConfigurationPage";
 
-import { 
-    generateName, 
-    generateRandomNumericString,
-    getImageFile,
-} from '../../../utils/faker';
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
+}
 
-test.describe('Invoice Settings Configuration', () => {
-    /**
-     * Navigate to the configuration page.
-     */
+test.describe("invoice settings configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let configPage: InvoiceSettingsConfigurationPage;
+    let original: InvoiceSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        await adminPage.goto('admin/configuration/sales/invoice_settings');
+        configPage = new InvoiceSettingsConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    /**
-     * Update the Invoice Number Configuration.
-     */
-    test('should update invoice number settings', async ({ adminPage }) => {
-        await adminPage.fill('input[name="sales[invoice_settings][invoice_number][invoice_number_prefix]"]', generateName());
-        await adminPage.fill('input[name="sales[invoice_settings][invoice_number][invoice_number_length]"]', generateRandomNumericString(1, 10));
-        await adminPage.fill('input[name="sales[invoice_settings][invoice_number][invoice_number_suffix]"]', generateName());
-        await adminPage.fill('input[name="sales[invoice_settings][invoice_number][invoice_number_generator_class]"]', generateRandomNumericString(2));
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
     });
 
-    /**
-     * Update the Payment Term Configuration.
-     */
-    test('should update payment due duration', async ({ adminPage }) => {
-        await adminPage.fill('input[name="sales[invoice_settings][payment_terms][due_duration]"]', generateRandomNumericString(2));
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    test("should persist the invoice number format after reload", async () => {
+        const changed = {
+            invoiceNumberPrefix: other(original.invoiceNumberPrefix, "INV", "E2E"),
+            invoiceNumberLength: other(original.invoiceNumberLength, "6", "8"),
+            invoiceNumberSuffix: other(original.invoiceNumberSuffix, "X", "Y"),
+        };
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 
-    /**
-     * Configure PDF Print Outs.
-     */
-    test('should configure PDF print outs ', async ({ adminPage }) => {
-        await adminPage.click('label[for="sales[invoice_settings][pdf_print_outs][invoice_id]"]');
-        const adminReorderToggle = await adminPage.locator('input[name="sales[invoice_settings][pdf_print_outs][invoice_id]"]');
-        // await expect(adminReorderToggle).toBeChecked();
+    test("should persist the payment due duration after reload", async () => {
+        const changed = {
+            paymentDueDuration: other(original.paymentDueDuration, "15", "30"),
+        };
 
-        await adminPage.click('label[for="sales[invoice_settings][pdf_print_outs][order_id]"]');
-        const shopReorderToggle = await adminPage.locator('input[name="sales[invoice_settings][pdf_print_outs][order_id]"]');
-        // await expect(shopReorderToggle).toBeChecked();
+        await configPage.applySettings(changed);
 
-        const [fileChooser] = await Promise.all([
-            adminPage.waitForEvent('filechooser'),
-            adminPage.click('input[name="sales[invoice_settings][pdf_print_outs][logo]"]')
-        ]);
-
-        await fileChooser.setFiles(getImageFile());
-        
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    /**
-     * Invoice Reminders.
-     */
-    test('should configure the invoice reminders', async ({ adminPage }) => {
-        await adminPage.fill('input[name="sales[invoice_settings][invoice_reminders][reminders_limit]"]', generateRandomNumericString(2));
+    test("should persist the pdf print out settings after reload", async () => {
+        const changed = {
+            printInvoiceId: !original.printInvoiceId,
+            printOrderId: !original.printOrderId,
+        };
 
-        await adminPage.selectOption('select[name="sales[invoice_settings][invoice_reminders][interval_between_reminders]"]', 'P2D');
-        const reminderDuration = adminPage.locator('select[name="sales[invoice_settings][invoice_reminders][interval_between_reminders]"]');
-        await expect(reminderDuration).toHaveValue('P2D');
+        await configPage.applySettings(changed);
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        await configPage.expectSettings(changed);
+    });
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test("should persist the invoice reminder settings after reload", async () => {
+        const changed = {
+            remindersLimit: other(original.remindersLimit, "3", "5"),
+            remindersInterval: other(original.remindersInterval, "P2D", "P3D"),
+        };
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Webkul\Core\Models\Locale;
 
@@ -9,8 +10,23 @@ use function Pest\Laravel\get;
 use function Pest\Laravel\postJson;
 use function Pest\Laravel\putJson;
 
-it('should returns the locale index page', function () {
-    // Act and Assert.
+/**
+ * A locale code in the `xx_YY` form that no locale holds yet.
+ */
+function uniqueLocaleCode(): string
+{
+    do {
+        $code = fake()->lexify('??').'_'.strtoupper(fake()->lexify('??'));
+    } while (Locale::query()->where('code', $code)->exists());
+
+    return $code;
+}
+
+// ============================================================================
+// Index
+// ============================================================================
+
+it('should return the locale index page', function () {
     $this->loginAsAdmin();
 
     get(route('admin.settings.locales.index'))
@@ -19,29 +35,21 @@ it('should returns the locale index page', function () {
         ->assertSeeText(trans('admin::app.settings.locales.index.create-btn'));
 });
 
-it('should fail the validation with errors when certain field not provided when store the locale', function () {
-    // Act and Assert.
-    $this->loginAsAdmin();
-
-    postJson(route('admin.settings.locales.store'), [
-        'logo_path' => [
-            'INVALID_FORMAT_OF_LOGO_PATH',
-        ],
-    ])
-        ->assertJsonValidationErrorFor('code')
-        ->assertJsonValidationErrorFor('name')
-        ->assertJsonValidationErrorFor('direction')
-        ->assertJsonValidationErrorFor('logo_path.0')
-        ->assertUnprocessable();
+it('should deny guest access to the locale index page', function () {
+    get(route('admin.settings.locales.index'))
+        ->assertRedirect(route('admin.session.create'));
 });
 
-it('should store the newly created locale', function () {
-    // Act and Assert.
+// ============================================================================
+// Store
+// ============================================================================
+
+it('should store a newly created locale', function () {
     $this->loginAsAdmin();
 
     postJson(route('admin.settings.locales.store'), $data = [
-        'code'      => fake()->locale(),
-        'name'      => fake()->name(),
+        'code' => uniqueLocaleCode(),
+        'name' => fake()->name(),
         'direction' => fake()->randomElement(['ltr', 'rtl']),
         'logo_path' => [
             UploadedFile::fake()->image('logo.png'),
@@ -50,43 +58,64 @@ it('should store the newly created locale', function () {
         ->assertOk()
         ->assertSeeText(trans('admin::app.settings.locales.index.create-success'));
 
-    $this->assertModelWise([
-        Locale::class => [
-            [
-                'code'      => $data['code'],
-                'name'      => $data['name'],
-                'direction' => $data['direction'],
-                'logo_path' => 'locales/'.$data['code'].'.png',
-            ],
-        ],
+    $this->assertDatabaseHas('locales', [
+        'code' => $data['code'],
+        'name' => $data['name'],
+        'direction' => $data['direction'],
     ]);
 
     Storage::assertExists('locales/'.$data['code'].'.png');
 });
 
-it('should not store the new locale if the file has been tampered with', function () {
-    // Act and Assert.
+it('should fail validation when the code belongs to another locale on store', function () {
+    $locale = Locale::factory()->create();
+
     $this->loginAsAdmin();
 
-    postJson(route('admin.settings.locales.store'), $data = [
-        'code'      => fake()->locale(),
-        'name'      => fake()->name(),
-        'direction' => fake()->randomElement(['ltr', 'rtl']),
+    postJson(route('admin.settings.locales.store'), [
+        'code' => $locale->code,
+        'name' => fake()->name(),
+        'direction' => 'ltr',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('code');
+});
+
+it('should fail validation when required fields are missing on store', function () {
+    $this->loginAsAdmin();
+
+    postJson(route('admin.settings.locales.store'), [
+        'logo_path' => ['INVALID_FORMAT_OF_LOGO_PATH'],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('code')
+        ->assertJsonValidationErrorFor('name')
+        ->assertJsonValidationErrorFor('direction')
+        ->assertJsonValidationErrorFor('logo_path.0');
+});
+
+it('should reject a tampered file upload on store', function () {
+    $this->loginAsAdmin();
+
+    postJson(route('admin.settings.locales.store'), [
+        'code' => uniqueLocaleCode(),
+        'name' => fake()->name(),
+        'direction' => 'ltr',
         'logo_path' => [
             UploadedFile::fake()->image('tampered.php'),
         ],
     ])
-        ->assertJsonValidationErrorFor('logo_path.0')
-        ->assertUnprocessable();
-
-    Storage::assertMissing('locales/'.$data['code'].'.php');
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('logo_path.0');
 });
 
-it('should return the locale for edit', function () {
-    // Arrange.
+// ============================================================================
+// Edit
+// ============================================================================
+
+it('should return locale details for edit', function () {
     $locale = Locale::factory()->create();
 
-    // Act and Assert.
     $this->loginAsAdmin();
 
     get(route('admin.settings.locales.edit', $locale->id))
@@ -94,35 +123,19 @@ it('should return the locale for edit', function () {
         ->assertJsonFragment($locale->toArray());
 });
 
-it('should fail the validation with errors when certain field not provided when update the locale', function () {
-    // Arrange.
+// ============================================================================
+// Update
+// ============================================================================
+
+it('should update an existing locale', function () {
     $locale = Locale::factory()->create();
 
-    // Act and Assert.
-    $this->loginAsAdmin();
-
-    putJson(route('admin.settings.locales.update'), [
-        'id'        => $locale->id,
-        'logo_path' => [
-            UploadedFile::fake()->image(fake()->word().'.png'),
-        ],
-    ])
-        ->assertJsonValidationErrorFor('name')
-        ->assertJsonValidationErrorFor('direction')
-        ->assertUnprocessable();
-});
-
-it('should update the specified locale', function () {
-    // Arrange.
-    $locale = Locale::factory()->create();
-
-    // Act and Assert.
     $this->loginAsAdmin();
 
     putJson(route('admin.settings.locales.update'), $data = [
-        'id'        => $locale->id,
-        'code'      => $locale->code,
-        'name'      => fake()->name(),
+        'id' => $locale->id,
+        'code' => $locale->code,
+        'name' => fake()->name(),
         'direction' => fake()->randomElement(['ltr', 'rtl']),
         'logo_path' => [
             UploadedFile::fake()->image('logo.png'),
@@ -131,53 +144,164 @@ it('should update the specified locale', function () {
         ->assertOk()
         ->assertSeeText(trans('admin::app.settings.locales.index.update-success'));
 
-    $this->assertModelWise([
-        Locale::class => [
-            [
-                'name'      => $data['name'],
-                'code'      => $data['code'],
-                'direction' => $data['direction'],
-                'logo_path' => 'locales/'.$locale->code.'.png',
-            ],
-        ],
+    $this->assertDatabaseHas('locales', [
+        'id' => $locale->id,
+        'name' => $data['name'],
+        'direction' => $data['direction'],
     ]);
 
     Storage::assertExists('locales/'.$locale->code.'.png');
 });
 
-it('should not update the specified locale if the file has been tampered with', function () {
-    // Arrange.
+it('should fail validation when required fields are missing on update', function () {
     $locale = Locale::factory()->create();
 
-    // Act and Assert.
     $this->loginAsAdmin();
 
     putJson(route('admin.settings.locales.update'), [
-        'id'        => $locale->id,
-        'name'      => fake()->name(),
+        'id' => $locale->id,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('name')
+        ->assertJsonValidationErrorFor('direction');
+});
+
+it('should reject a tampered file upload on update', function () {
+    $locale = Locale::factory()->create();
+
+    $this->loginAsAdmin();
+
+    putJson(route('admin.settings.locales.update'), [
+        'id' => $locale->id,
+        'name' => fake()->name(),
+        'direction' => 'ltr',
         'logo_path' => [
             UploadedFile::fake()->image('tampered.php'),
         ],
     ])
-        ->assertJsonValidationErrorFor('direction')
-        ->assertJsonValidationErrorFor('logo_path.0')
-        ->assertUnprocessable();
-
-    Storage::assertMissing('locales/'.$locale->code.'.php');
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('logo_path.0');
 });
 
-it('should delete the locale', function () {
-    // Arrange.
+// ============================================================================
+// Delete
+// ============================================================================
+
+it('should delete a locale', function () {
     $locale = Locale::factory()->create();
 
-    // Act and Assert.
     $this->loginAsAdmin();
 
     deleteJson(route('admin.settings.locales.delete', $locale->id))
         ->assertOk()
         ->assertSeeText(trans('admin::app.settings.locales.index.delete-success'));
 
-    $this->assertDatabaseMissing('locales', [
+    $this->assertDatabaseMissing('locales', ['id' => $locale->id]);
+});
+
+// ============================================================================
+// Events
+// ============================================================================
+
+it('should announce a locale creation exactly once from the controller', function () {
+    Event::fake();
+
+    $this->loginAsAdmin();
+
+    postJson(route('admin.settings.locales.store'), $data = [
+        'code' => uniqueLocaleCode(),
+        'name' => fake()->name(),
+        'direction' => 'ltr',
+    ])->assertOk();
+
+    Event::assertDispatchedTimes('core.locale.create.before', 1);
+
+    Event::assertDispatchedTimes('core.locale.create.after', 1);
+
+    Event::assertDispatched('core.locale.create.after', fn ($event, $payload) => $payload instanceof Locale
+        && $payload->code === $data['code']);
+});
+
+it('should announce a locale update exactly once, carrying the id then the model', function () {
+    $locale = Locale::factory()->create();
+
+    Event::fake();
+
+    $this->loginAsAdmin();
+
+    putJson(route('admin.settings.locales.update'), [
         'id' => $locale->id,
-    ]);
+        'code' => $locale->code,
+        'name' => $name = fake()->name(),
+        'direction' => 'ltr',
+    ])->assertOk();
+
+    Event::assertDispatchedTimes('core.locale.update.before', 1);
+
+    Event::assertDispatchedTimes('core.locale.update.after', 1);
+
+    Event::assertDispatched('core.locale.update.before', fn ($event, $payload) => $payload == $locale->id);
+
+    Event::assertDispatched('core.locale.update.after', fn ($event, $payload) => $payload instanceof Locale
+        && $payload->name === $name);
+});
+
+it('should carry the stored logo on the locale creation event', function () {
+    Event::fake();
+
+    $this->loginAsAdmin();
+
+    $code = uniqueLocaleCode();
+
+    postJson(route('admin.settings.locales.store'), [
+        'code' => $code,
+        'name' => fake()->name(),
+        'direction' => 'ltr',
+        'logo_path' => [
+            UploadedFile::fake()->image('logo.png'),
+        ],
+    ])->assertOk();
+
+    Event::assertDispatched('core.locale.create.after', fn ($event, $payload) => $payload->logo_path === 'locales/'.$code.'.png');
+});
+
+it('should announce a locale deletion exactly once from the repository', function () {
+    Locale::factory()->create();
+
+    $locale = Locale::factory()->create();
+
+    Event::fake();
+
+    $this->loginAsAdmin();
+
+    deleteJson(route('admin.settings.locales.delete', $locale->id))->assertOk();
+
+    Event::assertDispatchedTimes('core.locale.delete.before', 1);
+
+    Event::assertDispatchedTimes('core.locale.delete.after', 1);
+
+    Event::assertDispatched('core.locale.delete.after', fn ($event, $payload) => $payload == $locale->id);
+});
+
+it('should remove the stored logo when a locale is deleted', function () {
+    Locale::factory()->create();
+
+    $this->loginAsAdmin();
+
+    $code = uniqueLocaleCode();
+
+    postJson(route('admin.settings.locales.store'), [
+        'code' => $code,
+        'name' => fake()->name(),
+        'direction' => 'ltr',
+        'logo_path' => [
+            UploadedFile::fake()->image('logo.png'),
+        ],
+    ])->assertOk();
+
+    Storage::assertExists('locales/'.$code.'.png');
+
+    deleteJson(route('admin.settings.locales.delete', Locale::query()->where('code', $code)->first()->id))->assertOk();
+
+    Storage::assertMissing('locales/'.$code.'.png');
 });

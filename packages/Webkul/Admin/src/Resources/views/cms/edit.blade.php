@@ -67,7 +67,7 @@
                         >
                             <span class="icon-language text-2xl"></span>
 
-                            {{ $currentLocale->name }}
+                            <span v-pre>{{ $currentLocale->name }}</span>
                             
                             <input
                                 type="hidden"
@@ -80,11 +80,12 @@
                     </x-slot>
 
                     <!-- Dropdown Content -->
-                    <x-slot:content class="!p-0">
+                    <x-slot:content class="p-0!">
                         @foreach (core()->getAllLocales() as $locale)
                             <a
                                 href="?{{ Arr::query(['locale' => $locale->code]) }}"
                                 class="flex gap-2.5 px-5 py-2 text-base  cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-950 dark:text-white {{ $locale->code == $currentLocale->code ? 'bg-gray-100 dark:bg-gray-950' : ''}}"
+                                v-pre
                             >
                                 {{ $locale->name }}
                             </a>
@@ -102,12 +103,12 @@
                 {!! view_render_event('bagisto.admin.cms.pages.edit.card.content.before', ['page' => $page]) !!}
 
                 <!--Content -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.cms.edit.description')
                     </p>
 
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label class="required">
                             @lang('admin::app.cms.edit.content')
                         </x-admin::form.control-group.label>
@@ -121,7 +122,6 @@
                             :label="trans('admin::app.cms.edit.content')"
                             :placeholder="trans('admin::app.cms.edit.content')"
                             :tinymce="true"
-                            :prompt="core()->getConfigData('general.magic_ai.content_generation.cms_page_content_prompt')"
                         />
 
                         <x-admin::form.control-group.error control-name="{{ $currentLocale->code }}[html_content]" />
@@ -133,13 +133,18 @@
                 {!! view_render_event('bagisto.admin.cms.pages.edit.card.seo.before', ['page' => $page]) !!}
 
                 <!-- SEO Input Fields -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.cms.edit.seo')
                     </p>
 
                     <!-- SEO Title & Description Blade Component -->
-                    <x-admin::seo slug="page"/>
+                    <x-admin::seo
+                        slug="page"
+                        meta-title-field="meta_title"
+                        url-key-field="url_key"
+                        meta-description-field="meta_description"
+                    />
 
                     <x-admin::form.control-group>
                         <x-admin::form.control-group.label>
@@ -194,7 +199,7 @@
                         <x-admin::form.control-group.error control-name="{{ $currentLocale->code }}[meta_keywords]" />
                     </x-admin::form.control-group>
 
-                    <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group class="mb-0!">
                         <x-admin::form.control-group.label>
                             @lang('admin::app.cms.edit.meta-description')
                         </x-admin::form.control-group.label>
@@ -218,7 +223,7 @@
             </div>
 
             <!-- Right sub-component -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+            <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
                 <!-- General -->
 
                 {!! view_render_event('bagisto.admin.cms.pages.edit.card.accordion.seo.before', ['page' => $page]) !!}
@@ -252,16 +257,17 @@
                         </x-admin::form.control-group>
 
                         <!-- Select Channels -->
-                        <x-admin::form.control-group.label>
+                        <x-admin::form.control-group.label class="required">
                             @lang('admin::app.cms.create.channels')
                         </x-admin::form.control-group.label>
 
                         @foreach(core()->getAllChannels() as $channel)
-                            <x-admin::form.control-group class="!mb-2 flex select-none items-center gap-2.5 last:!mb-0">
+                            <x-admin::form.control-group class="mb-2! flex select-none items-center gap-2.5 last:mb-0!">
                                 <x-admin::form.control-group.control
                                     type="checkbox"
                                     :id="'channels_' . $channel->id"
                                     name="channels[]"
+                                    rules="required"
                                     :value="$channel->id"
                                     :for="'channels_' . $channel->id"
                                     :label="trans('admin::app.cms.create.channels')"
@@ -270,7 +276,8 @@
 
                                 <label
                                     class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
-                                    for="channels_{{ $channel->id }}" 
+                                    for="channels_{{ $channel->id }}"
+                                    v-pre
                                 >
                                     {{ core()->getChannelName($channel) }}
                                 </label>

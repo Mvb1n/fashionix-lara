@@ -52,6 +52,8 @@
             <x-admin::datagrid
                 :src="route('admin.marketing.search_seo.url_rewrites.index')"
                 ref="datagrid"
+                :shimmer-columns="8"
+                :shimmer-mass-action="true"
             >
                 <template #body="{
                     isLoading,
@@ -62,7 +64,10 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="8"
+                            :massAction="true"
+                        />
                     </template>
 
                     <template v-else>
@@ -89,32 +94,32 @@
                             </p>
 
                             <!-- Id -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.id }}
                             </p>
 
                             <!-- For -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.entity_type }}
                             </p>
 
                             <!-- Request Path -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.request_path }}
                             </p>
 
                             <!-- Target Path -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.target_path }}
                             </p>
 
                             <!-- Redirect Type -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.redirect_type }}
                             </p>
 
                             <!-- Locale -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ record.locale }}
                             </p>
 
@@ -287,7 +292,12 @@
                                     :label="trans('admin::app.marketing.search-seo.url-rewrites.index.create.locale')"
                                 >
                                     @foreach (core()->getAllLocales() as $locale)
-                                        <option value="{{ $locale->code }}">{{ $locale->name }}</option>
+                                        <option 
+                                            value="{{ $locale->code }}"
+                                            v-pre
+                                        >
+                                            {{ $locale->name }}
+                                        </option>
                                     @endforeach
                                 </x-admin::form.control-group.control>
 

@@ -14,7 +14,7 @@
         type="text/x-template"
         id="v-product-variations-template"
     >
-        <div class="box-shadow relative rounded bg-white dark:bg-gray-900">
+        <div class="box-shadow relative rounded-sm bg-white dark:bg-gray-900">
             <!-- Panel Header -->
             <div class="mb-2.5 flex flex-wrap justify-between gap-2.5 p-4">
                 <div class="flex flex-col gap-2">
@@ -118,7 +118,7 @@
                                 <v-field
                                     as="select"
                                     :name="attribute.code"
-                                    class="custom-select flex min-h-[39px] w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="custom-select flex min-h-9.75 w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                     :class="[errors[attribute.code] ? 'border border-red-500' : '']"
                                     rules="required"
                                     :label="attribute.admin_name"
@@ -169,8 +169,8 @@
             <span
                 class="icon-uncheckbox flex cursor-pointer select-none text-2xl"
                 :class="{
-                    '!icon-checked text-blue-600': variants.length == selectedVariants.length,
-                    '!icon-checkbox-partial text-blue-600': selectedVariants.length && variants.length != selectedVariants.length
+                    'icon-checked! text-blue-600': variants.length == selectedVariants.length,
+                    'icon-checkbox-partial! text-blue-600': selectedVariants.length && variants.length != selectedVariants.length
                 }"
                 for="select-all-variants"
                 @click="selectAll"
@@ -292,13 +292,16 @@
                                     <template v-if="selectedType == 'editPrices'">
                                         <div class="border-b pb-2.5 dark:border-gray-800">
                                             <div class="flex items-end gap-2.5">
-                                                <x-admin::form.control-group class="!mb-0 flex-1">
-                                                    <x-admin::form.control-group.label>
+                                                <x-admin::form.control-group class="mb-0! flex-1">
+                                                    <x-admin::form.control-group.label class="required">
                                                         @lang('admin::app.catalog.products.edit.types.configurable.mass-edit.apply-to-all-sku')
                                                     </x-admin::form.control-group.label>
                         
                                                     <div class="relative">
-                                                        <span class="absolute top-1/2 -translate-y-1/2 text-gray-500 ltr:left-4 rtl:right-4">
+                                                        <span 
+                                                            class="absolute top-1/2 -translate-y-1/2 text-gray-500 ltr:left-4 rtl:right-4"
+                                                            v-pre
+                                                        >
                                                             {{ core()->currencySymbol(core()->getBaseCurrencyCode()) }}
                                                         </span>
 
@@ -325,7 +328,7 @@
                                         <div class="border-b pb-2.5 dark:border-gray-800">
                                             <div class="mb-2.5 grid grid-cols-3 gap-4">
                                                 <x-admin::form.control-group
-                                                    class="!mb-0"
+                                                    class="mb-0!"
                                                     v-for='inventorySource in inventorySources'
                                                 >
                                                     <x-admin::form.control-group.label>
@@ -336,7 +339,7 @@
                                                         type="text"
                                                         :name="'inventories[' + inventorySource.id + ']'"
                                                         value="0"
-                                                        class="flex min-h-[39px] w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                        class="flex min-h-9.75 w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                                         :class="[errors['inventories[' + inventorySource.id + ']'] ? 'border border-red-500' : '']"
                                                         rules="required|numeric|min:0"
                                                         :label="inventorySource.name"
@@ -379,7 +382,7 @@
                                     <template v-if="selectedType == 'editWeight'">
                                         <div class="border-b pb-2.5 dark:border-gray-800">
                                             <div class="flex items-end gap-2.5">
-                                                <x-admin::form.control-group class="!mb-0 flex-1">
+                                                <x-admin::form.control-group class="mb-0! flex-1">
                                                     <x-admin::form.control-group.label>
                                                         @lang('admin::app.catalog.products.edit.types.configurable.mass-edit.apply-to-all-weight')
                                                     </x-admin::form.control-group.label>
@@ -407,7 +410,7 @@
                                     <template v-if="selectedType == 'editName'">
                                         <div class="border-b pb-2.5 dark:border-gray-800">
                                             <div class="flex items-end gap-2.5">
-                                                <x-admin::form.control-group class="!mb-0 flex-1">
+                                                <x-admin::form.control-group class="mb-0! flex-1">
                                                     <x-admin::form.control-group.label>
                                                         @lang('admin::app.catalog.products.edit.types.configurable.mass-edit.apply-to-all-name')
                                                     </x-admin::form.control-group.label>
@@ -434,7 +437,7 @@
                                     <template v-if="selectedType == 'editStatus'">
                                         <div class="border-b pb-2.5 dark:border-gray-800">
                                             <div class="flex items-end gap-2.5">
-                                                <x-admin::form.control-group class="!mb-0 flex-1">
+                                                <x-admin::form.control-group class="mb-0! flex-1">
                                                     <x-admin::form.control-group.label>
                                                         @lang('admin::app.catalog.products.edit.types.configurable.mass-edit.apply-to-all-status')
                                                     </x-admin::form.control-group.label>
@@ -477,25 +480,30 @@
                                 ].includes(selectedType)}"
                                 v-for="variant in tempSelectedVariants"
                             >
-                                <div class="text-sm text-gray-800">
-                                    <span
-                                        class="after:content-['_/_'] last:after:content-[''] dark:text-white"
-                                        v-for='(attribute, index) in superAttributes'
-                                    >
-                                        @{{ optionName(attribute, variant[attribute.code]) }}
-                                    </span>
-                                </div>
+                                <x-admin::form.control-group.label class="required">
+                                    <div class="text-sm text-gray-800">
+                                        <span
+                                            class="after:content-['_/_'] last:after:content-[''] dark:text-white"
+                                            v-for='(attribute, index) in superAttributes'
+                                        >
+                                            @{{ optionName(attribute, variant[attribute.code]) }}
+                                        </span>
+                                    </div>
+                                </x-admin::form.control-group.label>
 
                                 <template v-if="selectedType == 'editPrices'">
-                                    <x-admin::form.control-group class="mb-0 max-w-[115px] flex-1">
+                                    <x-admin::form.control-group class="mb-0 max-w-28.75 flex-1">
                                         <div class="relative">
-                                            <span class="absolute top-1/2 -translate-y-1/2 text-gray-500 ltr:left-4 rtl:right-4">
+                                            <span 
+                                                class="absolute top-1/2 -translate-y-1/2 text-gray-500 ltr:left-4 rtl:right-4"
+                                                v-pre
+                                            >
                                                 {{ core()->currencySymbol(core()->getBaseCurrencyCode()) }}
                                             </span>
 
                                             <v-field
                                                 type="text"
-                                                class="flex min-h-[39px] w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-8 rtl:pr-8"
+                                                class="flex min-h-9.75 w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-8 rtl:pr-8"
                                                 :class="[errors['variants[variant_' + variant.id + ']'] ? 'border border-red-500' : '']"
                                                 :name="'variants[variant_' + variant.id + ']'"
                                                 :rules="{required: true, decimal: true, min_value: 0}"
@@ -517,11 +525,11 @@
                                 </template>
 
                                 <template v-if="selectedType == 'editWeight'">
-                                    <x-admin::form.control-group class="mb-0 max-w-[115px] flex-1">
+                                    <x-admin::form.control-group class="mb-0 max-w-28.75 flex-1">
                                         <div class="relative">
                                             <v-field
                                                 type="text"
-                                                class="flex min-h-[39px] w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
+                                                class="flex min-h-9.75 w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
                                                 :class="[errors['variants[variant_' + variant.id + ']'] ? 'border border-red-500' : '']"
                                                 :name="'variants[variant_' + variant.id + ']'"
                                                 ::rules="{ required: true, regex: /^([0-9]*[1-9][0-9]*(\.[0-9]+)?|[0]+\.[0-9]*[1-9][0-9]*)$/ }"
@@ -543,11 +551,11 @@
                                 </template>
 
                                 <template v-if="selectedType == 'editStatus'">
-                                    <x-admin::form.control-group class="mb-0 max-w-[115px] flex-1">
+                                    <x-admin::form.control-group class="mb-0 max-w-28.75 flex-1">
                                         <div class="relative">
                                             <v-field
                                                 as="select"
-                                                class="custom-select flex min-h-[39px] w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                class="custom-select flex min-h-9.75 w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                                 :class="[errors['variants[variant_' + variant.id + ']'] ? 'border border-red-500' : '']"
                                                 :name="'variants[variant_' + variant.id + ']'"
                                                 ::rules="{ required: true, regex: /^([0-9]*[1-9][0-9]*(\.[0-9]+)?|[0]+\.[0-9]*[1-9][0-9]*)$/ }"
@@ -580,18 +588,18 @@
                                         class="mb-0 flex-1"
                                         ::class="{ 
                                             'max-w-[115px]' : selectedType !== 'editName',
-                                            '!mb-0': selectedType === 'editName'
+                                            'mb-0!': selectedType === 'editName'
                                         }"
                                     >
                                         <div class="relative">
                                             <v-field
                                                 type="text"
-                                                class="flex min-h-[39px] w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
+                                                class="flex min-h-9.75 w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
                                                 :class="[errors['variants[variant_' + variant.id + ']'] ? 'border border-red-500' : '']"
                                                 :name="'variants[variant_' + variant.id + ']'"
                                                 ::rules="{ required: true, regex: /^([0-9]*[1-9][0-9]*(\.[0-9]+)?|[0]+\.[0-9]*[1-9][0-9]*)$/ }"
                                                 v-model="variant.name"
-                                                label="@lang('admin::app.catalog.products.edit.types.configurable.edit.variant-name')"
+                                                label="@lang('admin::app.catalog.products.edit.types.configurable.mass-edit.variant-name')"
                                             >
                                             </v-field>
                                         </div>
@@ -611,7 +619,7 @@
                                     <x-admin::form.control-group class="mb-0 mt-2.5">
                                         <div class="mb-2.5 grid grid-cols-3 gap-4">
                                             <x-admin::form.control-group
-                                                class="!mb-0"
+                                                class="mb-0!"
                                                 v-for='inventorySource in inventorySources'
                                             >
                                                 <x-admin::form.control-group.label>
@@ -620,7 +628,7 @@
                                                 
                                                 <v-field
                                                     type="text"
-                                                    class="flex min-h-[39px] w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                    class="flex min-h-9.75 w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                                     :class="[errors['variants[variant_' + variant.id + '][inventory_' + inventorySource.id + ']'] ? 'border border-red-500' : '']"
                                                     :name="'variants[variant_' + variant.id + '][inventory_' + inventorySource.id + ']'"
                                                     rules="required|numeric|min:0"
@@ -647,18 +655,18 @@
                                         class="mb-0 flex-1"
                                         ::class="{ 
                                             'max-w-[115px]' : selectedType !== 'editSku',
-                                            '!mb-0': selectedType === 'editSku'
+                                            'mb-0!': selectedType === 'editSku'
                                         }"
                                     >
                                         <div class="relative">
                                             <v-field
                                                 type="text"
-                                                class="flex min-h-[39px] w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
+                                                class="flex min-h-9.75 w-full rounded-md border bg-white py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pl-2.5 rtl:pr-2.5"
                                                 :class="[errors['variants[variant_' + variant.id + ']'] ? 'border border-red-500' : '']"
                                                 :name="'variants[variant_' + variant.id + ']'"
                                                 ::rules="{ required: true, regex: /^([0-9]*[1-9][0-9]*(\.[0-9]+)?|[0]+\.[0-9]*[1-9][0-9]*)$/ }"
                                                 v-model="variant.sku"
-                                                label="@lang('admin::app.catalog.products.edit.types.configurable.edit.variant-sku')"
+                                                label="@lang('admin::app.catalog.products.edit.types.configurable.mass-edit.variant-sku')"
                                                 v-slugify
                                             >
                                             </v-field>
@@ -783,7 +791,7 @@
 
                 <!-- Image -->
                 <div
-                    class="relative h-[60px] max-h-[60px] w-full max-w-[60px] overflow-hidden rounded"
+                    class="relative h-15 max-h-15 w-full max-w-15 overflow-hidden rounded-sm"
                     :class="{'border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert': ! variant.images.length}"
                 >
                     <template v-if="! variant.images.length">
@@ -1010,7 +1018,7 @@
 
                                             <div class="mb-2.5 grid grid-cols-3 gap-4">
                                                 <x-admin::form.control-group
-                                                    class="!mb-0"
+                                                    class="mb-0!"
                                                     v-for='inventorySource in inventorySources'
                                                 >
                                                     <x-admin::form.control-group.label>
@@ -1019,7 +1027,7 @@
 
                                                     <v-field
                                                         type="text"
-                                                        class="flex min-h-[39px] w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                        class="flex min-h-9.75 w-full rounded-md border bg-white px-3 py-1.5 text-sm font-normal text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                                         :class="[errors['inventories[' + inventorySource.id + ']'] ? 'border border-red-500' : '']"
                                                         :name="'inventories[' + inventorySource.id + ']'"
                                                         rules="numeric|min:0"

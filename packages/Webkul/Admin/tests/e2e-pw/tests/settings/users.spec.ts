@@ -1,104 +1,129 @@
-import { test, expect } from "../../setup";
-import { generateFullName, generateEmail } from "../../utils/faker";
+import { test } from "../../setup";
+import { LoginPage } from "../../pages/admin/auth/LoginPage";
+import {
+    UsersPage,
+    type AdminUserData,
+} from "../../pages/admin/settings/UsersPage";
+import { env } from "../../utils/env";
+import { generateFullName, uniqueStamp } from "../../utils/faker";
+
+function buildUser(overrides: Partial<AdminUserData> = {}): AdminUserData {
+    const stamp = uniqueStamp();
+
+    return {
+        name: `${generateFullName()} ${stamp}`,
+        email: `user-${stamp}@example.com`,
+        password: "user12345",
+        role: "Administrator",
+        active: true,
+        ...overrides,
+    };
+}
 
 test.describe("user management", () => {
-    test("should create a user", async ({ adminPage }) => {
-        /**
-         * Reaching to the user listing page.
-         */
-        await adminPage.goto("admin/settings/users");
+    let usersPage: UsersPage;
+    let created: string[];
 
-        /**
-         * Opening create user form in modal.
-         */
-        await adminPage.getByRole("button", { name: "Create User" }).click();
-        await adminPage.locator('input[name="name"]').fill(generateFullName());
-        await adminPage.locator('input[name="email"]').fill(generateEmail());
-        await adminPage.locator('input[name="password"]').fill("admin123");
-        await adminPage
-            .locator('input[name="password_confirmation"]')
-            .fill("admin123");
-        await adminPage.locator('select[name="role_id"]').selectOption("1");
-
-        // Clicking the status and verify the toggle state.
-        await adminPage.click('label[for="status"]');
-        const toggleInput = await adminPage.locator('input[name="status"]');
-        await expect(toggleInput).toBeChecked();
-
-        /**
-         * Saving user and closing the modal.
-         */
-        await adminPage.getByRole("button", { name: "Save User" }).click();
-
-        await expect(
-            adminPage.getByText("User created successfully.")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        usersPage = new UsersPage(adminPage);
+        created = [];
     });
 
-    test("should edit a users", async ({ adminPage }) => {
-        /**
-         * Generating new name and email for the user.
-         */
-        const updatedName = generateFullName();
-        const updatedEmail = generateEmail();
-
-        /**
-         * Reaching to the user listing page.
-         */
-        await adminPage.goto("admin/settings/users");
-
-        /**
-         * Clicking on the edit button for the first user opens the modal.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit", {
-            state: "visible",
-        });
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        await adminPage.locator('input[name="name"]').fill(updatedName);
-        await adminPage.locator('input[name="email"]').fill(updatedEmail);
-
-        /**
-         * Saving user and closing the modal.
-         */
-        await adminPage.getByRole("button", { name: "Save User" }).click();
-
-        await expect(
-            adminPage.getByText("User updated successfully.")
-        ).toBeVisible();
-        await expect(adminPage.getByText(updatedName)).toBeVisible();
-        await expect(adminPage.getByText(updatedEmail)).toBeVisible();
+    test.afterEach(async () => {
+        await usersPage.deleteUsersIfPresent(created);
     });
 
-    test("should delete a user", async ({ adminPage }) => {
-        /**
-         * Reaching to the user listing page.
-         */
-        await adminPage.goto("admin/settings/users");
+    test("should create a user and list it with its name and email", async () => {
+        const user = buildUser();
+        created.push(user.email);
 
-        /**
-         * Delete the first user.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
+        await usersPage.createUser(user);
+
+        await usersPage.expectUserListed(user.email, user.name);
+    });
+
+    test("should reject a user without a name and email", async () => {
+        await usersPage.submitEmptyCreateForm();
+
+        await usersPage.expectValidationError("The Name field is required");
+        await usersPage.expectValidationError("The Email field is required");
+    });
+
+    test("should reject a user whose email is already registered", async () => {
+        const existing = buildUser();
+        const duplicate = buildUser({ email: existing.email });
+        created.push(existing.email);
+
+        await usersPage.createUser(existing);
+        await usersPage.attemptCreateUser(duplicate);
+
+        await usersPage.expectValidationError(
+            "The email has already been taken.",
         );
-        await iconDelete[0].click();
+        await usersPage.expectUserListed(existing.email, existing.name);
+    });
 
-        await adminPage.waitForSelector("text=Are you sure");
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
+    test("should rename a user and keep the new name after reload", async () => {
+        const user = buildUser();
+        const newName = `${generateFullName()} ${uniqueStamp()}`;
+        created.push(user.email);
+
+        await usersPage.createUser(user);
+        await usersPage.renameUser(user.email, newName);
+
+        await usersPage.expectUserListed(user.email, newName);
+        await usersPage.expectNameInEditForm(user.email, newName);
+    });
+
+    test("should delete a user and remove it from the grid", async () => {
+        const user = buildUser();
+        const untouched = buildUser();
+        created.push(user.email, untouched.email);
+
+        await usersPage.createUser(user);
+        await usersPage.createUser(untouched);
+        await usersPage.deleteUser(user.email);
+
+        await usersPage.expectUserAbsent(user.email);
+        await usersPage.expectUserListed(untouched.email, untouched.name);
+    });
+
+    test("should refuse to delete the signed in admin", async () => {
+        const other = buildUser();
+        created.push(other.email);
+
+        await usersPage.createUser(other);
+        await usersPage.attemptDeleteUser(env.adminEmail);
+
+        await usersPage.expectErrorMessage(
+            "You cannot delete your own account.",
         );
+        await usersPage.expectUserListed(env.adminEmail, "");
+    });
 
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
+    test("should let a newly created active user sign in", async ({
+        page,
+    }) => {
+        const user = buildUser();
+        created.push(user.email);
 
-        await expect(
-            adminPage.getByText("User deleted successfully.")
-        ).toBeVisible();
+        await usersPage.createUser(user);
+
+        await new LoginPage(page).login(user.email, user.password);
+    });
+
+    test("should refuse to sign in an inactive user", async ({ page }) => {
+        const user = buildUser({ active: false });
+        created.push(user.email);
+
+        await usersPage.createUser(user);
+
+        const loginPage = new LoginPage(page);
+
+        await loginPage.attemptLogin(user.email, user.password);
+
+        await loginPage.expectLoginRefused(
+            "Your account is yet to be activated, please contact administrator.",
+        );
     });
 });

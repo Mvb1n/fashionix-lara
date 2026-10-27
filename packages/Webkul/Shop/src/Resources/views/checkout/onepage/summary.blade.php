@@ -12,9 +12,9 @@
         {!! view_render_event('bagisto.shop.checkout.onepage.summary.item_image.before') !!}
 
         <img
-            class="h-[90px] max-h-[90px] w-[90px] max-w-[90px] rounded-xl max-md:h-20 max-md:max-h-20 max-md:max-w-20 max-md:rounded-lg"
+            class="h-22.5 max-h-22.5 w-22.5 max-w-22.5 rounded-xl max-md:h-20 max-md:max-h-20 max-md:max-w-20 max-md:rounded-lg"
             :src="item.base_image.small_image_url"
-            :alt="item.name"
+            :alt="item.base_image.alt"
             width="110"
             height="110"
         />
@@ -32,11 +32,11 @@
 
             <p class="mt-2.5 flex flex-col text-lg font-medium max-md:mt-1 max-md:text-base max-md:font-normal max-sm:text-sm">
                 <template v-if="displayTax.prices == 'including_tax'">
-                    @lang('shop::app.checkout.onepage.summary.price_&_qty', ['price' => '@{{ item.formatted_price_incl_tax }}', 'qty' => '@{{ item.quantity }}'])
+                    @lang('shop::app.checkout.onepage.summary.price-and-qty', ['price' => '@{{ item.formatted_price_incl_tax }}', 'qty' => '@{{ item.quantity }}'])
                 </template>
 
                 <template v-else-if="displayTax.prices == 'both'">
-                    @lang('shop::app.checkout.onepage.summary.price_&_qty', ['price' => '@{{ item.formatted_price_incl_tax }}', 'qty' => '@{{ item.quantity }}'])
+                    @lang('shop::app.checkout.onepage.summary.price-and-qty', ['price' => '@{{ item.formatted_price_incl_tax }}', 'qty' => '@{{ item.quantity }}'])
 
                     <span class="text-xs font-normal">
                         @lang('shop::app.checkout.onepage.summary.excl-tax')
@@ -46,7 +46,7 @@
                 </template>
 
                 <template v-else>
-                    @lang('shop::app.checkout.onepage.summary.price_&_qty', ['price' => '@{{ item.formatted_price }}', 'qty' => '@{{ item.quantity }}'])
+                    @lang('shop::app.checkout.onepage.summary.price-and-qty', ['price' => '@{{ item.formatted_price }}', 'qty' => '@{{ item.quantity }}'])
                 </template>
             </p>
         </div>
@@ -73,22 +73,18 @@
     <template v-else-if="displayTax.subtotal == 'both'">
         <div class="flex justify-between text-right">
             <p class="text-base max-sm:text-sm">
-                @lang('shop::app.checkout.onepage.summary.sub-total-excl-tax')
+                @lang('shop::app.checkout.onepage.summary.sub-total')
             </p>
 
-            <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_sub_total }}
-            </p>
-        </div>
-        
-        <div class="flex justify-between text-right">
-            <p class="text-base max-sm:text-sm">
-                @lang('shop::app.checkout.onepage.summary.sub-total-incl-tax')
-            </p>
+            <div>
+                <p class="text-base font-medium max-sm:text-sm">
+                    @{{ cart.formatted_sub_total_incl_tax }}
+                </p>
 
-            <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_sub_total_incl_tax }}
-            </p>
+                <p class="text-xs italic text-gray-500 dark:text-gray-400">
+                    @lang('shop::app.checkout.onepage.summary.excl-tax') @{{ cart.formatted_sub_total }}
+                </p>
+            </div>
         </div>
     </template>
 
@@ -109,18 +105,70 @@
     <!-- Discount -->
     {!! view_render_event('bagisto.shop.checkout.onepage.summary.discount_amount.before') !!}
 
-    <div
-        class="flex justify-between text-right"
-        v-if="cart.discount_amount && parseFloat(cart.discount_amount) > 0"
-    >
-        <p class="text-base max-sm:text-sm">
-            @lang('shop::app.checkout.onepage.summary.discount-amount')
-        </p>
+    <template v-if="cart.discount_amount && parseFloat(cart.discount_amount) > 0">
+        <!-- Single Source: Simple line. -->
+        <div
+            class="flex justify-between text-right"
+            v-if="parseFloat(cart.items_discount_amount || 0) <= 0 || parseFloat(cart.shipping_discount_amount || 0) <= 0"
+        >
+            <p class="text-base text-red-600 max-sm:text-sm">
+                @lang('shop::app.checkout.onepage.summary.discount-amount')
+            </p>
 
-        <p class="text-base font-medium max-sm:text-sm">
-            @{{ cart.formatted_discount_amount }}
-        </p>
-    </div>
+            <p class="text-base font-medium text-red-600 max-sm:text-sm">
+                - @{{ cart.formatted_discount_amount }}
+            </p>
+        </div>
+
+        <!-- Multi Source: Expandable breakdown. -->
+        <div
+            class="flex flex-col gap-2 border-y py-2"
+            v-else
+        >
+            <div
+                class="flex cursor-pointer justify-between text-right"
+                @click="cart.show_discount_breakdown = ! cart.show_discount_breakdown"
+            >
+                <p class="text-base text-red-600 max-sm:text-sm">
+                    @lang('shop::app.checkout.onepage.summary.discount-amount')
+                </p>
+
+                <p class="flex items-center gap-1 text-base font-medium text-red-600 max-sm:text-sm">
+                    - @{{ cart.formatted_discount_amount }}
+
+                    <span
+                        class="text-xl"
+                        :class="{'icon-arrow-up': cart.show_discount_breakdown, 'icon-arrow-down': ! cart.show_discount_breakdown}"
+                    ></span>
+                </p>
+            </div>
+
+            <div
+                class="flex flex-col gap-1"
+                v-show="cart.show_discount_breakdown"
+            >
+                <div class="flex justify-between gap-1 text-right">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        @lang('shop::app.checkout.onepage.summary.items-discount')
+                    </p>
+
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        - @{{ cart.formatted_items_discount_amount }}
+                    </p>
+                </div>
+
+                <div class="flex justify-between gap-1 text-right">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        @lang('shop::app.checkout.onepage.summary.shipping-discount')
+                    </p>
+
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        - @{{ cart.formatted_shipping_discount_amount }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </template>
 
     {!! view_render_event('bagisto.shop.checkout.onepage.summary.discount_amount.after') !!}
 
@@ -141,7 +189,7 @@
             </p>
 
             <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_shipping_amount_incl_tax }}
+                + @{{ cart.formatted_shipping_amount_incl_tax }}
             </p>
         </div>
     </template>
@@ -149,22 +197,18 @@
     <template v-else-if="displayTax.shipping == 'both'">
         <div class="flex justify-between text-right">
             <p class="text-base max-sm:text-sm">
-                @lang('shop::app.checkout.onepage.summary.delivery-charges-excl-tax')
+                @lang('shop::app.checkout.onepage.summary.delivery-charges')
             </p>
 
-            <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_shipping_amount }}
-            </p>
-        </div>
-        
-        <div class="flex justify-between text-right">
-            <p class="text-base max-sm:text-sm">
-                @lang('shop::app.checkout.onepage.summary.delivery-charges-incl-tax')
-            </p>
+            <div>
+                <p class="text-base font-medium max-sm:text-sm">
+                    + @{{ cart.formatted_shipping_amount_incl_tax }}
+                </p>
 
-            <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_shipping_amount_incl_tax }}
-            </p>
+                <p class="text-xs italic text-gray-500 dark:text-gray-400">
+                    @lang('shop::app.checkout.onepage.summary.excl-tax') @{{ cart.formatted_shipping_amount }}
+                </p>
+            </div>
         </div>
     </template>
 
@@ -175,7 +219,7 @@
             </p>
 
             <p class="text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_shipping_amount }}
+                + @{{ cart.formatted_shipping_amount }}
             </p>
         </div>
     </template>
@@ -186,6 +230,10 @@
     <!-- Taxes -->
     {!! view_render_event('bagisto.shop.checkout.onepage.summary.tax.before') !!}
 
+    @php
+        $showTaxBreakdown = (bool) core()->getConfigData('sales.taxes.shopping_cart.show_tax_breakdown');
+    @endphp
+
     <div
         class="flex justify-between text-right"
         v-if="! cart.tax_total"
@@ -195,50 +243,95 @@
         </p>
 
         <p class="text-lg font-semibold max-sm:text-sm">
-            @{{ cart.formatted_tax_total }}
+            + @{{ cart.formatted_tax_total }}
         </p>
     </div>
 
-    <div
-        class="flex flex-col gap-2 border-y py-2"
-        v-else
-    >
+    @if ($showTaxBreakdown)
         <div
-            class="flex cursor-pointer justify-between text-right"
-            @click="cart.show_taxes = ! cart.show_taxes"
+            class="flex flex-col gap-2 border-y py-2"
+            v-else
+        >
+            <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-between gap-2 rounded text-right focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:outline-hidden"
+                @click="cart.show_taxes = ! cart.show_taxes"
+            >
+                <p class="text-base max-md:font-normal max-sm:text-sm">
+                    @lang('shop::app.checkout.onepage.summary.tax')
+                </p>
+
+                <p class="flex items-center gap-1.5 text-base font-medium max-sm:text-sm">
+                    <template v-if="displayTax.subtotal === 'including_tax' || displayTax.subtotal === 'both'">
+                        @{{ cart.formatted_tax_total }}
+
+                        <span class="text-xs italic font-normal text-gray-500 dark:text-gray-400">
+                            (@lang('shop::app.checkout.onepage.summary.included'))
+                        </span>
+                    </template>
+
+                    <template v-else>+ @{{ cart.formatted_tax_total }}</template>
+
+                    <span
+                        class="text-xl"
+                        :class="{'icon-arrow-up': cart.show_taxes, 'icon-arrow-down': ! cart.show_taxes}"
+                    ></span>
+                </p>
+            </button>
+
+            <div
+                class="flex flex-col gap-2"
+                v-show="cart.show_taxes"
+            >
+                <div
+                    class="flex flex-col gap-1"
+                    v-for="taxLine in cart.applied_taxes_breakdown"
+                >
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        @{{ taxLine.rate }}
+                    </p>
+
+                    <div
+                        class="flex items-center justify-between gap-2 pl-3"
+                        v-for="product in taxLine.items"
+                    >
+                        <p class="truncate text-xs text-gray-400 dark:text-gray-500">
+                            @{{ product.name }}
+                        </p>
+
+                        <p class="shrink-0 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
+                            <template v-if="displayTax.subtotal === 'including_tax' || displayTax.subtotal === 'both'">@{{ product.tax_amount }}</template>
+
+                            <template v-else>+ @{{ product.tax_amount }}</template>
+
+                            <span class="italic">(@{{ product.taxable_amount }})</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @else
+        <div
+            class="flex justify-between text-right"
+            v-else
         >
             <p class="text-base max-md:font-normal max-sm:text-sm">
                 @lang('shop::app.checkout.onepage.summary.tax')
             </p>
 
-            <p class="flex items-center gap-1 text-base font-medium max-sm:text-sm">
-                @{{ cart.formatted_tax_total }}
-                
-                <span
-                    class="text-xl"
-                    :class="{'icon-arrow-up': cart.show_taxes, 'icon-arrow-down': ! cart.show_taxes}"
-                ></span>
+            <p class="flex items-center justify-end gap-1.5 text-lg font-semibold max-sm:text-sm">
+                <template v-if="displayTax.subtotal === 'including_tax' || displayTax.subtotal === 'both'">
+                    @{{ cart.formatted_tax_total }}
+
+                    <span class="text-xs italic font-normal text-gray-500 dark:text-gray-400">
+                        (@lang('shop::app.checkout.onepage.summary.included'))
+                    </span>
+                </template>
+
+                <template v-else>+ @{{ cart.formatted_tax_total }}</template>
             </p>
         </div>
-
-        <div
-            class="flex flex-col gap-1"
-            v-show="cart.show_taxes"
-        >
-            <div
-                class="flex justify-between gap-1 text-right"
-                v-for="(amount, index) in cart.applied_taxes"
-            >
-                <p class="text-sm max-md:font-normal">
-                    @{{ index }}
-                </p>
-
-                <p class="text-sm font-medium">
-                    @{{ amount }}
-                </p>
-            </div>
-        </div>
-    </div>
+    @endif
 
     {!! view_render_event('bagisto.shop.checkout.onepage.summary.tax.after') !!}
 

@@ -3,10 +3,14 @@
 namespace Webkul\Admin\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Settings\ChannelDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
+use Webkul\Core\Helpers\MediaFileName;
 use Webkul\Core\Repositories\ChannelRepository;
+use Webkul\Core\Rules\Code;
 
 class ChannelController extends Controller
 {
@@ -20,7 +24,7 @@ class ChannelController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -34,7 +38,7 @@ class ChannelController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create()
     {
@@ -44,39 +48,42 @@ class ChannelController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
         $data = $this->validate(request(), [
             /* general */
-            'code'                  => ['required', 'unique:channels,code', new \Webkul\Core\Rules\Code],
-            'name'                  => 'required',
-            'description'           => 'nullable',
-            'inventory_sources'     => 'required|array|min:1',
-            'root_category_id'      => 'required',
-            'hostname'              => 'unique:channels,hostname',
+            'code' => ['required', 'unique:channels,code', new Code],
+            'name' => 'required',
+            'description' => 'nullable',
+            'inventory_sources' => 'required|array|min:1',
+            'root_category_id' => 'required',
+            'hostname' => 'unique:channels,hostname',
 
             /* currencies and locales */
-            'locales'               => 'required|array|min:1',
-            'default_locale_id'     => 'required|in_array:locales.*',
-            'currencies'            => 'required|array|min:1',
-            'base_currency_id'      => 'required|in_array:currencies.*',
+            'locales' => 'required|array|min:1',
+            'default_locale_id' => 'required|in_array:locales.*',
+            'currencies' => 'required|array|min:1',
+            'base_currency_id' => 'required|in_array:currencies.*',
 
             /* design */
-            'theme'                 => 'nullable',
-            'logo.*'                => 'nullable|mimes:bmp,jpeg,jpg,png,webp',
-            'favicon.*'             => 'nullable|mimes:bmp,jpeg,jpg,png,webp,ico',
+            'theme' => 'nullable',
+            'logo.*' => 'nullable|mimes:bmp,jpeg,jpg,png,webp',
+            'logo_meta.*.alt_text' => ['nullable', 'string', 'max:255'],
+            'logo_meta.*.file_name' => ['nullable', 'string', 'max:'.MediaFileName::MAX_LENGTH],
+            'favicon.*' => 'nullable|mimes:bmp,jpeg,jpg,png,webp,ico',
+            'favicon_meta.*.file_name' => ['nullable', 'string', 'max:'.MediaFileName::MAX_LENGTH],
 
             /* seo */
-            'seo_title'             => 'required|string',
-            'seo_description'       => 'required|string',
-            'seo_keywords'          => 'required|string',
+            'seo_title' => 'required|string',
+            'seo_description' => 'required|string',
+            'seo_keywords' => 'required|string',
 
             /* maintenance mode */
-            'is_maintenance_on'     => 'boolean',
+            'is_maintenance_on' => 'boolean',
             'maintenance_mode_text' => 'nullable',
-            'allowed_ips'           => 'nullable',
+            'allowed_ips' => 'nullable',
         ]);
 
         $data = $this->setSEOContent($data);
@@ -101,7 +108,7 @@ class ChannelController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function edit(int $id)
     {
@@ -113,7 +120,7 @@ class ChannelController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(int $id)
     {
@@ -121,33 +128,36 @@ class ChannelController extends Controller
 
         $data = $this->validate(request(), [
             /* general */
-            'code'                             => ['required', 'unique:channels,code,'.$id, new \Webkul\Core\Rules\Code],
-            $locale.'.name'                    => 'required',
-            $locale.'.description'             => 'nullable',
-            'inventory_sources'                => 'required|array|min:1',
-            'root_category_id'                 => 'required',
-            'hostname'                         => 'unique:channels,hostname,'.$id,
+            'code' => ['required', 'unique:channels,code,'.$id, new Code],
+            $locale.'.name' => 'required',
+            $locale.'.description' => 'nullable',
+            'inventory_sources' => 'required|array|min:1',
+            'root_category_id' => 'required',
+            'hostname' => 'unique:channels,hostname,'.$id,
 
             /* currencies and locales */
-            'locales'                          => 'required|array|min:1',
-            'default_locale_id'                => 'required|in_array:locales.*',
-            'currencies'                       => 'required|array|min:1',
-            'base_currency_id'                 => 'required|in_array:currencies.*',
+            'locales' => 'required|array|min:1',
+            'default_locale_id' => 'required|in_array:locales.*',
+            'currencies' => 'required|array|min:1',
+            'base_currency_id' => 'required|in_array:currencies.*',
 
             /* design */
-            'theme'                            => 'nullable',
-            'logo.*'                           => 'nullable|mimes:bmp,jpeg,jpg,png,webp',
-            'favicon.*'                        => 'nullable|mimes:bmp,jpeg,jpg,png,webp,ico',
+            'theme' => 'nullable',
+            'logo.*' => 'nullable|mimes:bmp,jpeg,jpg,png,webp',
+            'logo_meta.*.alt_text' => ['nullable', 'string', 'max:255'],
+            'logo_meta.*.file_name' => ['nullable', 'string', 'max:'.MediaFileName::MAX_LENGTH],
+            'favicon.*' => 'nullable|mimes:bmp,jpeg,jpg,png,webp,ico',
+            'favicon_meta.*.file_name' => ['nullable', 'string', 'max:'.MediaFileName::MAX_LENGTH],
 
             /* seo */
-            $locale.'.seo_title'               => 'required|string',
-            $locale.'.seo_description'         => 'required|string',
-            $locale.'.seo_keywords'            => 'required|string',
+            $locale.'.seo_title' => 'required|string',
+            $locale.'.seo_description' => 'required|string',
+            $locale.'.seo_keywords' => 'required|string',
 
             /* maintenance mode */
-            'is_maintenance_on'                => 'boolean',
-            $locale.'.maintenance_mode_text'   => 'nullable',
-            'allowed_ips'                      => 'nullable',
+            'is_maintenance_on' => 'boolean',
+            $locale.'.maintenance_mode_text' => 'nullable',
+            'allowed_ips' => 'nullable',
         ]);
 
         $data['is_maintenance_on'] = request()->input('is_maintenance_on') == '1';
@@ -184,7 +194,7 @@ class ChannelController extends Controller
 
         if ($channel->code == config('app.channel')) {
             return new JsonResponse([
-                'message'    => trans('admin::app.settings.channels.index.last-delete-error'),
+                'message' => trans('admin::app.settings.channels.index.last-delete-error'),
             ], 400);
         }
 
@@ -196,13 +206,13 @@ class ChannelController extends Controller
             Event::dispatch('core.channel.delete.after', $id);
 
             return new JsonResponse([
-                'message'    => trans('admin::app.settings.channels.index.delete-success'),
+                'message' => trans('admin::app.settings.channels.index.delete-success'),
             ], 200);
         } catch (\Exception $e) {
         }
 
         return new JsonResponse([
-            'message'    => trans('admin::app.settings.channels.index.delete-failed'),
+            'message' => trans('admin::app.settings.channels.index.delete-failed'),
         ], 500);
     }
 

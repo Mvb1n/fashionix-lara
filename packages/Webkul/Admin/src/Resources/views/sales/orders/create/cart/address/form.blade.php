@@ -49,7 +49,7 @@
 
             <!-- First Name -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
+                <x-admin::form.control-group.label class="required mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.first-name')
                 </x-admin::form.control-group.label>
 
@@ -69,7 +69,7 @@
 
             <!-- Last Name -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
+                <x-admin::form.control-group.label class="required mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.last-name')
                 </x-admin::form.control-group.label>
 
@@ -89,7 +89,7 @@
 
             <!-- Email -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
+                <x-admin::form.control-group.label class="required mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.email')
                 </x-admin::form.control-group.label>
 
@@ -109,7 +109,7 @@
 
             <!-- Street Address -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
+                <x-admin::form.control-group.label class="required mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.street-address')
                 </x-admin::form.control-group.label>
 
@@ -149,8 +149,8 @@
             {!! view_render_event('bagisto.admin.sales.order.create.cart.address.form.address.after') !!}
 
             <!-- Country -->
-            <x-admin::form.control-group class="!mb-4">
-                <x-admin::form.control-group.label class="{{ core()->isCountryRequired() ? 'required' : '' }} !mt-0">
+            <x-admin::form.control-group class="mb-4!">
+                <x-admin::form.control-group.label class="{{ core()->isCountryRequired() ? 'required' : '' }} mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.country')
                 </x-admin::form.control-group.label>
 
@@ -162,6 +162,7 @@
                     rules="{{ core()->isCountryRequired() ? 'required' : '' }}"
                     :label="trans('admin::app.sales.orders.create.cart.address.country')"
                     :placeholder="trans('admin::app.sales.orders.create.cart.address.country')"
+                    @change="selectedState = ''"
                 >
                     <option value="">
                         @lang('admin::app.sales.orders.create.cart.address.select-country')
@@ -182,7 +183,7 @@
 
             <!-- State -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="{{ core()->isStateRequired() ? 'required' : '' }} !mt-0">
+                <x-admin::form.control-group.label class="{{ core()->isStateRequired() ? 'required' : '' }} mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.state')
                 </x-admin::form.control-group.label>
 
@@ -192,6 +193,7 @@
                             type="select"
                             ::name="controlName + '.state'"
                             ::value="address.state"
+                            v-model="selectedState"
                             rules="{{ core()->isStateRequired() ? 'required' : '' }}"
                             :label="trans('admin::app.sales.orders.create.cart.address.state')"
                             :placeholder="trans('admin::app.sales.orders.create.cart.address.state')"
@@ -214,6 +216,7 @@
                             type="text"
                             ::name="controlName + '.state'"
                             ::value="address.state"
+                            v-model="selectedState"
                             rules="{{ core()->isStateRequired() ? 'required' : '' }}"
                             :label="trans('admin::app.sales.orders.create.cart.address.state')"
                             :placeholder="trans('admin::app.sales.orders.create.cart.address.state')"
@@ -228,7 +231,7 @@
 
             <!-- City -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
+                <x-admin::form.control-group.label class="required mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.city')
                 </x-admin::form.control-group.label>
 
@@ -248,7 +251,7 @@
 
             <!-- Postcode -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="{{ core()->isPostCodeRequired() ? 'required' : '' }} !mt-0">
+                <x-admin::form.control-group.label class="{{ core()->isPostCodeRequired() ? 'required' : '' }} mt-0!">
                     @lang('admin::app.sales.orders.create.cart.address.postcode')
                 </x-admin::form.control-group.label>
 
@@ -268,8 +271,8 @@
 
             <!-- Phone Number -->
             <x-admin::form.control-group>
-                <x-admin::form.control-group.label class="required !mt-0">
-                    @lang('admin::app.sales.orders.create.cart.address.telephone')
+                <x-admin::form.control-group.label class="required mt-0!">
+                    @lang('admin::app.sales.orders.create.cart.address.phone')
                 </x-admin::form.control-group.label>
 
                 <x-admin::form.control-group.control
@@ -277,8 +280,8 @@
                     ::name="controlName + '.phone'"
                     ::value="address.phone"
                     rules="required|numeric"
-                    :label="trans('admin::app.sales.orders.create.cart.address.telephone')"
-                    :placeholder="trans('admin::app.sales.orders.create.cart.address.telephone')"
+                    :label="trans('admin::app.sales.orders.create.cart.address.phone')"
+                    :placeholder="trans('admin::app.sales.orders.create.cart.address.phone')"
                 />
 
                 <x-admin::form.control-group.error ::name="controlName + '.phone'" />
@@ -320,6 +323,8 @@
             data() {
                 return {
                     selectedCountry: this.address.country,
+
+                    selectedState: this.address.state,
 
                     countries: [],
 

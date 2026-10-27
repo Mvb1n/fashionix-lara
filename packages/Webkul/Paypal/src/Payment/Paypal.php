@@ -54,14 +54,14 @@ abstract class Paypal extends Payment
         $billingAddress = $cart->billing_address;
 
         $fields = array_merge($fields, [
-            'city'             => $billingAddress->city,
-            'country'          => $billingAddress->country,
-            'email'            => $billingAddress->email,
-            'first_name'       => $billingAddress->first_name,
-            'last_name'        => $billingAddress->last_name,
-            'zip'              => $billingAddress->postcode,
-            'state'            => $billingAddress->state,
-            'address1'         => $billingAddress->address,
+            'city' => $billingAddress->city,
+            'country' => $billingAddress->country,
+            'email' => $billingAddress->email,
+            'first_name' => $billingAddress->first_name,
+            'last_name' => $billingAddress->last_name,
+            'zip' => $billingAddress->postcode,
+            'state' => $billingAddress->state,
+            'address1' => $billingAddress->address,
             'address_override' => 1,
         ]);
     }
@@ -79,11 +79,13 @@ abstract class Paypal extends Payment
     /**
      * Format a currency value according to paypal's api constraints
      *
-     * @param  float|int  $long
+     * @param  float|int  $number
      */
     public function formatCurrencyValue($number): float
     {
-        return round((float) $number, 2);
+        $decimal = core()->getCurrentCurrency()->decimal ?? 2;
+
+        return round((float) $number, $decimal);
     }
 
     /**

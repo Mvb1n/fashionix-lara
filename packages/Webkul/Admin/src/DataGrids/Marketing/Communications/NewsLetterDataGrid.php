@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Marketing\Communications;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -10,7 +11,7 @@ class NewsLetterDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -34,21 +35,21 @@ class NewsLetterDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'id',
-            'label'      => trans('admin::app.marketing.communications.subscribers.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'id',
+            'label' => trans('admin::app.marketing.communications.subscribers.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'status',
-            'label'      => trans('admin::app.marketing.communications.subscribers.index.datagrid.subscribed'),
-            'type'       => 'boolean',
+            'index' => 'status',
+            'label' => trans('admin::app.marketing.communications.subscribers.index.datagrid.subscribed'),
+            'type' => 'boolean',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
-            'closure'    => function ($value) {
+            'sortable' => true,
+            'closure' => function ($value) {
                 if ($value->status) {
                     return trans('admin::app.marketing.communications.subscribers.index.datagrid.true');
                 }
@@ -58,12 +59,12 @@ class NewsLetterDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'      => 'email',
-            'label'      => trans('admin::app.marketing.communications.subscribers.index.datagrid.email'),
-            'type'       => 'string',
+            'index' => 'email',
+            'label' => trans('admin::app.marketing.communications.subscribers.index.datagrid.email'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
     }
 
@@ -76,11 +77,11 @@ class NewsLetterDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('marketing.communications.subscribers.edit')) {
             $this->addAction([
-                'index'  => 'edit',
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.marketing.communications.subscribers.index.datagrid.edit'),
+                'index' => 'edit',
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.marketing.communications.subscribers.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.marketing.communications.subscribers.edit', $row->id);
                 },
             ]);
@@ -88,11 +89,11 @@ class NewsLetterDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('marketing.communications.subscribers.delete')) {
             $this->addAction([
-                'index'  => 'delete',
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.marketing.communications.subscribers.index.datagrid.delete'),
+                'index' => 'delete',
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.marketing.communications.subscribers.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.marketing.communications.subscribers.delete', $row->id);
                 },
             ]);

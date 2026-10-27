@@ -1,4 +1,9 @@
-@props(['isMultiRow' => false])
+@props([
+    'isMultiRow' => false,
+    'shimmerColumns' => 6,
+    'shimmerMultiRow' => null,
+    'shimmerMassAction' => null,
+])
 
 <v-datagrid {{ $attributes }}>
     {{ $slot }}
@@ -14,7 +19,12 @@
             <x-admin::datagrid.toolbar />
 
             <div class="mt-4 flex">
-                <x-admin::datagrid.table :isMultiRow="$isMultiRow">
+                <x-admin::datagrid.table
+                    :isMultiRow="$isMultiRow"
+                    :shimmerColumns="$shimmerColumns"
+                    :shimmerMultiRow="$shimmerMultiRow"
+                    :shimmerMassAction="$shimmerMassAction"
+                >
                     <template #header="{
                         isLoading,
                         available,
@@ -253,6 +263,17 @@
 
                             this.isLoading = false;
                         });
+                },
+
+                /**
+                 * Put the grid into, or out of, its loading state, so an action that reaches the
+                 * server reads as busy for as long as it is in flight.
+                 *
+                 * @param {boolean} state
+                 * @returns {void}
+                 */
+                setLoading(state) {
+                    this.isLoading = state;
                 },
 
                 /**

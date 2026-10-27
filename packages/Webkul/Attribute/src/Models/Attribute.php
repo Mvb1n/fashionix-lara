@@ -9,13 +9,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Webkul\Attribute\Contracts\Attribute as AttributeContract;
 use Webkul\Attribute\Database\Factories\AttributeFactory;
 use Webkul\Core\Eloquent\TranslatableModel;
+use Webkul\Core\Rules\Regex;
 
 class Attribute extends TranslatableModel implements AttributeContract
 {
     use HasFactory;
 
+    /**
+     * The translatable attributes.
+     *
+     * @var array
+     */
     public $translatedAttributes = ['name'];
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
     protected $fillable = [
         'code',
         'admin_name',
@@ -38,23 +49,49 @@ class Attribute extends TranslatableModel implements AttributeContract
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'is_required' => 'boolean',
+        'is_unique' => 'boolean',
+        'is_filterable' => 'boolean',
+        'is_configurable' => 'boolean',
+        'is_visible_on_front' => 'boolean',
+        'is_comparable' => 'boolean',
+        'is_user_defined' => 'boolean',
+        'value_per_locale' => 'boolean',
+        'value_per_channel' => 'boolean',
+        'enable_wysiwyg' => 'boolean',
+    ];
+
+    /**
      * Attribute type fields.
      *
      * @var array
      */
     public $attributeTypeFields = [
-        'text'        => 'text_value',
-        'textarea'    => 'text_value',
-        'price'       => 'float_value',
-        'boolean'     => 'boolean_value',
-        'select'      => 'integer_value',
+        'text' => 'text_value',
+        'textarea' => 'text_value',
+        'price' => 'float_value',
+        'boolean' => 'boolean_value',
+        'select' => 'integer_value',
         'multiselect' => 'text_value',
-        'datetime'    => 'datetime_value',
-        'date'        => 'date_value',
-        'file'        => 'text_value',
-        'image'       => 'text_value',
-        'checkbox'    => 'text_value',
+        'datetime' => 'datetime_value',
+        'date' => 'date_value',
+        'file' => 'text_value',
+        'image' => 'text_value',
+        'checkbox' => 'text_value',
     ];
+
+    /**
+     * Set default value with empty string to null conversion.
+     */
+    public function setDefaultValueAttribute($value): void
+    {
+        $this->attributes['default_value'] = $value !== '' && $value !== null ? $value : null;
+    }
 
     /**
      * Get the options.
@@ -65,7 +102,7 @@ class Attribute extends TranslatableModel implements AttributeContract
     }
 
     /**
-     * Scope a query to only include popular users.
+     * Scope a query to only include filterable attributes.
      */
     public function scopeFilterableAttributes(Builder $query): Builder
     {
@@ -75,7 +112,7 @@ class Attribute extends TranslatableModel implements AttributeContract
     }
 
     /**
-     * Returns attribute value table column based attribute type
+     * Returns attribute value table column based on attribute type.
      *
      * @return string
      */
@@ -85,7 +122,7 @@ class Attribute extends TranslatableModel implements AttributeContract
     }
 
     /**
-     * Returns attribute validation rules
+     * Returns attribute validation rules.
      *
      * @return string
      */
@@ -118,7 +155,9 @@ class Attribute extends TranslatableModel implements AttributeContract
         }
 
         if ($this->validation == 'regex') {
-            $validations[] = 'regex: '.$this->regex;
+            if (Regex::isUsable($this->regex)) {
+                $validations[] = 'regex: '.$this->regex;
+            }
         } elseif ($this->validation) {
             $validations[] = $this->validation.': true';
         }
@@ -129,7 +168,7 @@ class Attribute extends TranslatableModel implements AttributeContract
     }
 
     /**
-     * Create a new factory instance for the model
+     * Create a new factory instance for the model.
      */
     protected static function newFactory(): Factory
     {

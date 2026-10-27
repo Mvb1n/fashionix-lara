@@ -1,11 +1,10 @@
-
 <?php
 
 return [
     'boolean' => [
         'options' => [
+            'no' => 'Não',
             'yes' => 'Sim',
-            'no'  => 'Não',
         ],
     ],
 ];

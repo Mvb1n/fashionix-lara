@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'file'),
+    'default' => env('CACHE_STORE', 'database'),
 
     /*
     |--------------------------------------------------------------------------
@@ -34,28 +34,34 @@ return [
     'stores' => [
 
         'array' => [
-            'driver'    => 'array',
+            'driver' => 'array',
             'serialize' => false,
         ],
 
+        'storage' => [
+            'driver' => 'storage',
+            'disk' => env('CACHE_STORAGE_DISK'),
+            'path' => env('CACHE_STORAGE_PATH', 'framework/cache/data'),
+        ],
+
         'database' => [
-            'driver'          => 'database',
-            'connection'      => env('DB_CACHE_CONNECTION'),
-            'table'           => env('DB_CACHE_TABLE', 'cache'),
+            'driver' => 'database',
+            'connection' => env('DB_CACHE_CONNECTION'),
+            'table' => env('DB_CACHE_TABLE', 'cache'),
             'lock_connection' => env('DB_CACHE_LOCK_CONNECTION'),
-            'lock_table'      => env('DB_CACHE_LOCK_TABLE'),
+            'lock_table' => env('DB_CACHE_LOCK_TABLE'),
         ],
 
         'file' => [
-            'driver'    => 'file',
-            'path'      => storage_path('framework/cache/data'),
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/data'),
             'lock_path' => storage_path('framework/cache/data'),
         ],
 
         'memcached' => [
-            'driver'        => 'memcached',
+            'driver' => 'memcached',
             'persistent_id' => env('MEMCACHED_PERSISTENT_ID'),
-            'sasl'          => [
+            'sasl' => [
                 env('MEMCACHED_USERNAME'),
                 env('MEMCACHED_PASSWORD'),
             ],
@@ -64,30 +70,38 @@ return [
             ],
             'servers' => [
                 [
-                    'host'   => env('MEMCACHED_HOST', '127.0.0.1'),
-                    'port'   => env('MEMCACHED_PORT', 11211),
+                    'host' => env('MEMCACHED_HOST', '127.0.0.1'),
+                    'port' => env('MEMCACHED_PORT', 11211),
                     'weight' => 100,
                 ],
             ],
         ],
 
         'redis' => [
-            'driver'          => 'redis',
-            'connection'      => env('REDIS_CACHE_CONNECTION', 'cache'),
+            'driver' => 'redis',
+            'connection' => env('REDIS_CACHE_CONNECTION', 'cache'),
             'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'default'),
         ],
 
         'dynamodb' => [
-            'driver'   => 'dynamodb',
-            'key'      => env('AWS_ACCESS_KEY_ID'),
-            'secret'   => env('AWS_SECRET_ACCESS_KEY'),
-            'region'   => env('AWS_DEFAULT_REGION', 'us-east-1'),
-            'table'    => env('DYNAMODB_CACHE_TABLE', 'cache'),
+            'driver' => 'dynamodb',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'table' => env('DYNAMODB_CACHE_TABLE', 'cache'),
             'endpoint' => env('DYNAMODB_ENDPOINT'),
         ],
 
         'octane' => [
             'driver' => 'octane',
+        ],
+
+        'failover' => [
+            'driver' => 'failover',
+            'stores' => [
+                'database',
+                'array',
+            ],
         ],
 
     ],
@@ -104,5 +118,23 @@ return [
     */
 
     'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache_'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Serializable Classes
+    |--------------------------------------------------------------------------
+    |
+    | Controls which PHP classes may be restored when cached values are
+    | unserialized. Laravel 13 ships this as `false` (block all objects),
+    | but Prettus L5 Repository's CacheableRepository trait — mixed into
+    | Webkul\Core\Eloquent\Repository and used by ~100 repositories —
+    | caches Eloquent Collections and Models. Restricting classes here
+    | would surface them as __PHP_Incomplete_Class on read. Set to `true`
+    | to allow all classes; replace with an explicit allow-list if the
+    | repository layer is ever moved off object caching.
+    |
+    */
+
+    'serializable_classes' => true,
 
 ];

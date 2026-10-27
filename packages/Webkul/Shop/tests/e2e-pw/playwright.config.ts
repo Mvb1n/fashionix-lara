@@ -1,19 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+import { env } from "./utils/env";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.resolve(__dirname, "../../../../../.env") });
+process.env.TZ = env.timezone;
 
 export default defineConfig({
     testDir: "./tests",
 
-    timeout: 120 * 1000,
+    timeout: 240 * 1000,
 
-    expect: { timeout: 20 * 1000 },
+    globalTimeout: 2 * 60 * 60 * 1000,
+
+    expect: { timeout: 30 * 1000 },
 
     outputDir: "./test-results",
 
@@ -29,7 +26,7 @@ export default defineConfig({
 
     reporter: [
         ["list"],
-        
+
         [
             "html",
             {
@@ -39,10 +36,14 @@ export default defineConfig({
     ],
 
     use: {
-        baseURL: `${process.env.APP_URL}/`.replace(/\/+$/, "/"),
+        baseURL: `${env.baseUrl}/`,
+        timezoneId: env.timezone,
+        headless: !env.headed,
         screenshot: { mode: "only-on-failure", fullPage: true },
         video: "retain-on-failure",
         trace: "retain-on-failure",
+        actionTimeout: 30 * 1000,
+        navigationTimeout: 30 * 1000,
     },
 
     projects: [

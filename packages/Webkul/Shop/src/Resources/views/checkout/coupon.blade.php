@@ -32,14 +32,13 @@
                         <x-shop::modal ref="couponModel">
                             <!-- Modal Toggler -->
                             <x-slot:toggle>
-                                <span 
-                                    class="cursor-pointer text-base text-blue-700 max-sm:text-sm"
-                                    role="button"
-                                    tabindex="0"
+                                <button 
+                                    type="button"
+                                    class="cursor-pointer text-base text-blue-700 max-sm:text-sm focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-hidden rounded"
                                     v-if="! cart.coupon_code"
                                 >
                                     @lang('shop::app.checkout.coupon.apply')
-                                </span>
+                                </button>
                             </x-slot>
 
                             <!-- Modal Header -->
@@ -50,11 +49,11 @@
                             </x-slot>
 
                             <!-- Modal Content -->
-                            <x-slot:content class="!px-4">
-                                <x-shop::form.control-group class="!mb-0">
+                            <x-slot:content class="px-4!">
+                                <x-shop::form.control-group class="mb-0!">
                                     <x-shop::form.control-group.control
                                         type="text"
-                                        class="px-6 py-4 max-md:!mb-0 max-md:!p-3 max-sm:!p-2"
+                                        class="px-6 py-4 max-md:mb-0! max-md:p-3! max-sm:p-2!"
                                         name="code"
                                         rules="required"
                                         :placeholder="trans('shop::app.checkout.coupon.enter-your-code')"
@@ -82,7 +81,7 @@
                                     </div>
 
                                     <x-shop::button
-                                        class="primary-button max-w-none flex-auto rounded-2xl px-11 py-3 max-md:max-w-[153px] max-md:rounded-lg max-md:py-2"
+                                        class="primary-button max-w-none flex-auto rounded-2xl px-11 py-3 max-md:max-w-38.25 max-md:rounded-lg max-md:py-2"
                                         :title="trans('shop::app.checkout.coupon.button-title')"
                                         ::loading="isStoring"
                                         ::disabled="isStoring"
@@ -96,24 +95,26 @@
                 </x-shop::form>
 
                 <!-- Applied Coupon Information Container -->
-                <div 
-                    class="font-small flex items-center justify-between text-xs"
+                <span
+                    class="inline-flex items-center gap-2"
                     v-if="cart.coupon_code"
                 >
-                    <p 
-                        class="text-base font-medium text-navyBlue max-sm:text-sm"
-                        title="@lang('shop::app.checkout.coupon.applied')"
+                    <span
+                        class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-0.5 text-sm font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 max-sm:text-xs"
+                        :title="@js(trans('shop::app.checkout.coupon.applied'))"
                     >
-                        "@{{ cart.coupon_code }}"
-                    </p>
+                        @{{ cart.coupon_code }}
+                    </span>
 
-                    <span 
-                        class="icon-cancel cursor-pointer text-2xl max-sm:text-base"
+                    <button
+                        type="button"
+                        class="icon-cancel cursor-pointer text-xl text-gray-400 transition-colors hover:text-red-500 max-sm:text-base focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:outline-hidden rounded bg-transparent border-0"
                         title="@lang('shop::app.checkout.coupon.remove')"
+                        aria-label="@lang('shop::app.checkout.coupon.remove')"
                         @click="destroyCoupon"
                     >
-                    </span>
-                </div>
+                    </button>
+                </span>
             </p>
 
             {!! view_render_event('bagisto.shop.checkout.cart.coupon.after') !!}

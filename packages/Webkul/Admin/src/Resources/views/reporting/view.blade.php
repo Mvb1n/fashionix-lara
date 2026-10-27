@@ -50,13 +50,13 @@
                         <x-admin::dropdown position="bottom-right">
                             <x-slot:toggle>
                                 <div class="transparent-button hover:bg-gray-200 dark:text-white dark:hover:bg-gray-800">
-                                    <span class="icon-export text-xl text-gray-600"></span>
+                                    <span class="icon-admin-export text-xl text-gray-600"></span>
             
                                     @lang('admin::app.export.export')
                                 </div>
                             </x-slot>
 
-                            <x-slot:menu class="!p-0 shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
+                            <x-slot:menu class="p-0! shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
                                 <x-admin::dropdown.menu.item>
                                     <span @click="exportReporting('csv')">
                                         @lang('admin::app.reporting.view.export-csv')
@@ -91,7 +91,7 @@
                                     </button>
                                 </x-slot>
 
-                                <x-slot:menu class="!p-0 shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
+                                <x-slot:menu class="p-0! shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
                                     <x-admin::dropdown.menu.item
                                         v-for="channel in channels"
                                         ::class="{'bg-gray-100 dark:bg-gray-950': channel.code == filters.channel}"
@@ -140,29 +140,28 @@
 
                     <!-- Actions -->
                     <div class="flex items-center gap-1.5">
-                        <x-admin::flat-picker.date class="!w-[140px]" ::allow-input="false">
-                            <input
-                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
-                                v-model="filters.start"
-                                placeholder="@lang('admin::app.reporting.view.start-date')"
-                            />
-                        </x-admin::flat-picker.date>
-
-                        <x-admin::flat-picker.date class="!w-[140px]" ::allow-input="false">
-                            <input
-                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
-                                v-model="filters.end"
-                                placeholder="@lang('admin::app.reporting.view.end-date')"
-                            />
-                        </x-admin::flat-picker.date>
+                        <x-admin::date-range-picker
+                            :start-label="trans('admin::app.reporting.view.start-date')"
+                            :end-label="trans('admin::app.reporting.view.end-date')"
+                            ::start="filters.start"
+                            ::end="filters.end"
+                            @change="applyDateRange"
+                        />
                     </div>
                 </div>
 
-                <div class="table-responsive box-shadow grid w-full overflow-hidden rounded bg-white dark:bg-gray-900">
+                <div class="table-responsive box-shadow grid w-full overflow-hidden rounded-sm bg-white dark:bg-gray-900">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.head />
+                        <x-admin::shimmer.datagrid.table.head
+                            :columns="3"
+                            :actions="false"
+                        />
 
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="3"
+                            :rows="10"
+                            :actions="false"
+                        />
                     </template>
 
                     <template v-else>
@@ -172,12 +171,22 @@
                             :style="`grid-template-columns: repeat(${reporting.statistics.columns.length}, minmax(0, 1fr))`"
                         >
                             <div
-                                class="flex cursor-pointer gap-2.5"
+                                class="flex cursor-pointer select-none items-center gap-2.5"
                                 v-for="column in reporting.statistics.columns"
+                                @click="toggleSort(column.key)"
                             >
                                 <p class="text-gray-600 dark:text-gray-300">
                                     @{{ column.label }}
                                 </p>
+
+                                <span
+                                    class="text-base leading-none"
+                                    :class="{
+                                        'icon-sort-up text-blue-600 dark:text-blue-400': sortColumn === column.key && sortDirection === 'asc',
+                                        'icon-sort-down text-blue-600 dark:text-blue-400': sortColumn === column.key && sortDirection === 'desc',
+                                        'icon-sort-up-down text-gray-400': sortColumn !== column.key,
+                                    }"
+                                ></span>
                             </div>
                         </div>
 
@@ -185,11 +194,21 @@
                         <div
                             class="row grid items-center gap-2.5 border-b px-4 py-4 text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-950" style="grid-template-columns: repeat(4, minmax(0, 1fr));"
                             :style="`grid-template-columns: repeat(${reporting.statistics.columns.length}, minmax(0, 1fr))`"
-                            v-if="reporting.statistics.records.length"
-                            v-for="record in reporting.statistics.records"
+                            v-if="sortedRecords.length"
+                            v-for="record in sortedRecords"
                         >
                             <p v-for="column in reporting.statistics.columns">
-                                @{{ record[column.key] }}
+                                <a
+                                    v-if="column.link && record[column.link]"
+                                    :href="record[column.link]"
+                                    class="text-blue-600 transition-all hover:underline dark:text-blue-400"
+                                >
+                                    @{{ record[column.key] }}
+                                </a>
+
+                                <template v-else>
+                                    @{{ record[column.key] }}
+                                </template>
                             </p>
                         </div>
 
@@ -217,10 +236,10 @@
                             },
                             ...@json(core()->getAllChannels()),
                         ],
-                        
+
                         filters: {
                             type: "{{ request()->query('type') }}",
-                            
+
                             period: 'day',
 
                             channel: '',
@@ -235,11 +254,54 @@
                         isLoading: true,
 
                         entity: "{{ $entity }}",
+
+                        sortColumn: null,
+
+                        sortDirection: 'asc',
                     }
                 },
 
                 mounted() {
                     this.getStats();
+                },
+
+                computed: {
+                    /**
+                     * The report's rows in the order the operator asked for, comparing numerically
+                     * where both values read as numbers and alphabetically otherwise.
+                     *
+                     * @returns {array}
+                     */
+                    sortedRecords() {
+                        const records = this.reporting?.statistics?.records ?? [];
+
+                        if (! this.sortColumn) {
+                            return records;
+                        }
+
+                        const direction = this.sortDirection === 'asc' ? 1 : -1;
+
+                        return [...records].sort((a, b) => {
+                            const aVal = a[this.sortColumn];
+                            const bVal = b[this.sortColumn];
+
+                            if (aVal === null || aVal === undefined) return 1;
+                            if (bVal === null || bVal === undefined) return -1;
+
+                            const aNum = typeof aVal === 'number' ? aVal : parseFloat(String(aVal).replace(/[^0-9.\-]/g, ''));
+                            const bNum = typeof bVal === 'number' ? bVal : parseFloat(String(bVal).replace(/[^0-9.\-]/g, ''));
+
+                            const bothNumeric = ! isNaN(aNum) && ! isNaN(bNum)
+                                && /^[\s\-+]*[\d.,\s$€£¥₹%]+$/.test(String(aVal))
+                                && /^[\s\-+]*[\d.,\s$€£¥₹%]+$/.test(String(bVal));
+
+                            if (bothNumeric) {
+                                return (aNum - bNum) * direction;
+                            }
+
+                            return String(aVal).localeCompare(String(bVal)) * direction;
+                        });
+                    }
                 },
 
                 watch: {
@@ -253,6 +315,24 @@
                 },
 
                 methods: {
+                    /**
+                     * Take a chosen range in one assignment, so the table is asked to reload once
+                     * rather than once per end of the range.
+                     *
+                     * @param {object} range
+                     * @param {string} range.start
+                     * @param {string} range.end
+                     * @returns {void}
+                     */
+                    applyDateRange({ start, end }) {
+                        this.filters = { ...this.filters, start, end };
+                    },
+
+                    /**
+                     * Fetch the report for the filters as they currently stand.
+                     *
+                     * @returns {void}
+                     */
                     getStats() {
                         this.isLoading = true;
 
@@ -267,6 +347,29 @@
                             .catch(error => {});
                     },
 
+                    /**
+                     * Sort on a column, turning the direction around when it is already the one
+                     * being sorted on.
+                     *
+                     * @param {string} column
+                     * @returns {void}
+                     */
+                    toggleSort(column) {
+                        if (this.sortColumn === column) {
+                            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            this.sortColumn = column;
+                            this.sortDirection = 'asc';
+                        }
+                    },
+
+                    /**
+                     * Open the report as a file in the requested format, carrying the same filters
+                     * the table is showing.
+                     *
+                     * @param {string} format
+                     * @returns {void}
+                     */
                     exportReporting(format) {
                         let filters = this.filters;
 

@@ -4,6 +4,7 @@ namespace Webkul\Product\Type;
 
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Customer\Repositories\CustomerRepository;
+use Webkul\Product\Contracts\Product;
 use Webkul\Product\Helpers\Indexers\Price\Grouped as GroupedIndexer;
 use Webkul\Product\Repositories\ProductAttributeValueRepository;
 use Webkul\Product\Repositories\ProductCustomerGroupPriceRepository;
@@ -81,7 +82,7 @@ class Grouped extends AbstractType
      *
      * @param  int  $id
      * @param  array  $attributes
-     * @return \Webkul\Product\Contracts\Product
+     * @return Product
      */
     public function update(array $data, $id, $attributes = [])
     {
@@ -94,27 +95,6 @@ class Grouped extends AbstractType
         $this->productGroupedProductRepository->saveGroupedProducts($data, $product);
 
         return $product;
-    }
-
-    /**
-     * Copy relationships.
-     *
-     * @param  \Webkul\Product\Models\Product  $product
-     * @return void
-     */
-    protected function copyRelationships($product)
-    {
-        parent::copyRelationships($product);
-
-        $attributesToSkip = config('products.skipAttributesOnCopy') ?? [];
-
-        if (in_array('grouped_products', $attributesToSkip)) {
-            return;
-        }
-
-        foreach ($this->product->grouped_products as $groupedProduct) {
-            $product->grouped_products()->save($groupedProduct->replicate());
-        }
     }
 
     /**
@@ -180,7 +160,7 @@ class Grouped extends AbstractType
     {
         return view('shop::products.prices.grouped', [
             'product' => $this->product,
-            'prices'  => $this->getProductPrices(),
+            'prices' => $this->getProductPrices(),
         ])->render();
     }
 
@@ -201,8 +181,13 @@ class Grouped extends AbstractType
 
         $cartProductsList = [];
 
+        $associatedProductIds = $this->product->grouped_products->pluck('associated_product_id');
+
         foreach ($data['qty'] as $productId => $qty) {
-            if (! $qty) {
+            if (
+                (int) $qty < 1
+                || ! $associatedProductIds->contains($productId)
+            ) {
                 continue;
             }
 
@@ -214,7 +199,7 @@ class Grouped extends AbstractType
 
             $cartProducts = $product->getTypeInstance()->prepareForCart([
                 'product_id' => $productId,
-                'quantity'   => $qty,
+                'quantity' => $qty,
             ]);
 
             if (is_string($cartProducts)) {
@@ -234,7 +219,7 @@ class Grouped extends AbstractType
     }
 
     /**
-     * Returns price indexer class for a specific product type
+     * Returns price indexer class for a specific product type.
      *
      * @return string
      */
@@ -265,5 +250,26 @@ class Grouped extends AbstractType
                 }
             },
         ];
+    }
+
+    /**
+     * Copy relationships.
+     *
+     * @param  \Webkul\Product\Models\Product  $product
+     * @return void
+     */
+    protected function copyRelationships($product)
+    {
+        parent::copyRelationships($product);
+
+        $attributesToSkip = config('products.copy.skip_attributes') ?? [];
+
+        if (in_array('grouped_products', $attributesToSkip)) {
+            return;
+        }
+
+        foreach ($this->product->grouped_products as $groupedProduct) {
+            $product->grouped_products()->save($groupedProduct->replicate());
+        }
     }
 }

@@ -37,6 +37,8 @@
                 :src="route('admin.sales.transactions.index')"
                 :isMultiRow="true"
                 ref="datagrid"
+                :shimmer-columns="8"
+                :shimmer-multi-row="false"
             >
                 <template #body="{
                     isLoading,
@@ -47,7 +49,9 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="8"
+                        />
                     </template>
 
                     <template v-else>
@@ -58,47 +62,47 @@
                         >
                             <!-- ID -->
                             <p
-                                class="break-words"
+                                class="wrap-break-word"
                                 v-text="record.id"
                             >
                             </p>
 
                             <!-- Transaction ID -->
                             <p
-                                class="break-words"
+                                class="wrap-break-word"
                                 v-text="record.transaction_id"
                             >
                             </p>
 
                             <!-- Amount -->
-                            <p class="break-words">
+                            <p class="wrap-break-word">
                                 @{{ $admin.formatPrice(record.amount) }}
                             </p>
 
                             <!-- Invoice ID -->
                             <p
-                                class="break-words"
-                                v-text="record.invoice_id"
+                                class="wrap-break-word"
+                                v-html="record.invoice_id"
                             >
                             </p>
 
                             <!-- Order ID -->
                             <p
-                                class="break-words"
-                                v-text="record.order_id"
+                                class="wrap-break-word"
+                                v-html="record.order_id"
                             >
                             </p>
 
                             <!-- Status -->
                             <p
-                                class="break-words"
+                                class="wrap-break-word"
                                 v-html="record.status"
                             >
                             </p>
 
                             <!-- Date -->
                             <p
-                                class="break-words"
+                                class="wrap-break-word"
                                 v-text="record.created_at"
                             >
                             </p>

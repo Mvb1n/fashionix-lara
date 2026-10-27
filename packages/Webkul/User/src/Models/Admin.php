@@ -4,6 +4,7 @@ namespace Webkul\User\Models;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +30,23 @@ class Admin extends Authenticatable implements AdminContract
         'api_token',
         'role_id',
         'status',
+        'two_factor_secret',
+        'two_factor_enabled',
+        'two_factor_backup_codes',
+        'two_factor_verified_at',
+        'two_factor_last_used_window',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'two_factor_backup_codes' => 'array',
+        'two_factor_verified_at' => 'datetime',
+        'two_factor_last_used_window' => 'integer',
+        'two_factor_enabled' => 'boolean',
     ];
 
     /**
@@ -77,7 +95,7 @@ class Admin extends Authenticatable implements AdminContract
     /**
      * Get the role that owns the admin.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function role()
     {

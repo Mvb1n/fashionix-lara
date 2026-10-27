@@ -1,537 +1,326 @@
-import { test, expect } from "../setup";
-import address from "../utils/address";
+import { expect, test } from "../setup";
+import { ProductCreatePage } from "../pages/admin/catalog/products/ProductCreatePage";
+import { ProductListPage } from "../pages/admin/catalog/products/ProductListPage";
 import {
+    CustomersPage,
+    type CustomerData,
+} from "../pages/admin/customers/CustomersPage";
+import { CustomerDetailsPage } from "../pages/admin/customers/CustomerDetailsPage";
+import { InvoicesPage } from "../pages/admin/sales/InvoicesPage";
+import { OrderCreatePage } from "../pages/admin/sales/OrderCreatePage";
+import { OrderViewPage } from "../pages/admin/sales/OrderViewPage";
+import { RmaManagePage } from "../pages/admin/sales/RmaManagePage";
+import {
+    RmaCustomFieldsPage,
+    type RmaCustomFieldData,
+} from "../pages/admin/sales/RmaCustomFieldsPage";
+import { RmaReasonsPage } from "../pages/admin/sales/RmaReasonsPage";
+import { RmaRulesPage } from "../pages/admin/sales/RmaRulesPage";
+import { RmaStatusesPage } from "../pages/admin/sales/RmaStatusesPage";
+import { RmaShopPage } from "../pages/shop/RmaShopPage";
+import {
+    generateDescription,
     generateFirstName,
     generateLastName,
-    generateEmail,
-    generatePhoneNumber,
-    generateDescription,
     generateName,
-    generateRandomNumericString,
+    generatePhoneNumber,
+    generateSKU,
+    uniqueStamp,
 } from "../utils/faker";
 
-export async function generateOrder(adminPage) {
-    await adminPage.goto("admin/sales/orders");
-    await adminPage.click("button.primary-button:visible");
-    await adminPage.click(
-        "div.flex.flex-col.items-center > button.secondary-button:visible"
-    );
+function buildCustomer(): CustomerData {
+    const stamp = uniqueStamp();
 
-    /**
-     * Fill customer details
-     */
-    await adminPage.fill(
-        'input[name="first_name"]:visible',
-        generateFirstName()
-    );
-    await adminPage.fill('input[name="last_name"]:visible', generateLastName());
-    await adminPage.fill('input[name="email"]:visible', generateEmail());
-    await adminPage.fill('input[name="phone"]:visible', generatePhoneNumber());
-    await adminPage.selectOption('select[name="gender"]:visible', "Other");
-    await adminPage.press('input[name="phone"]:visible', "Enter");
-
-    /**
-     * selecting product
-     */
-    const productSelector =
-        ".grid > div.mt-2.flex > .cursor-pointer.text-emerald-600.transition-all";
-    const itemExists = await adminPage
-        .waitForSelector(productSelector, { timeout: 5000 })
-        .catch(() => null);
-
-    if (itemExists) {
-        const items = await adminPage.$$(productSelector);
-        const randomItem = items[Math.floor(Math.random() * items.length)];
-        await randomItem.click();
-        await adminPage.click("button.primary-button:visible");
-    } else {
-        await adminPage.click(
-            "p.flex.flex-col.gap-1.text-base.font-semibold + button.secondary-button"
-        );
-        await adminPage
-            .getByRole("textbox", { name: "Search by name" })
-            .fill("arct");
-
-        const searchResult = await adminPage
-            .waitForSelector(
-                "button.cursor-pointer.text-sm.text-blue-600.transition-all",
-                { timeout: 5000 }
-            )
-            .catch(() => null);
-
-        if (searchResult) {
-            const cartBtns = await adminPage.$$(
-                ".grid.place-content-start.gap-2.text-right > button.text-blue-600"
-            );
-            const inputQty = await adminPage.$$('input[name="qty"]:visible');
-
-            for (let i = 0; i < cartBtns.length; i++) {
-                const shouldClick = Math.random() < 0.5 || cartBtns.length < 2;
-                if (shouldClick) {
-                    const qty = Math.floor(Math.random() * 9) + 2;
-                    await inputQty[i].scrollIntoViewIfNeeded();
-                    await inputQty[i].fill(qty.toString());
-                    await cartBtns[i].click();
-                    break;
-                }
-            }
-        }
-    }
-
-    const toastSelector =
-        ".flex.items-center.break-all.text-sm > .icon-toast-done";
-    const iconExists = await adminPage
-        .waitForSelector(toastSelector, { timeout: 5000 })
-        .catch(() => null);
-
-    if (iconExists) {
-        const icons = await adminPage.$$(
-            ".flex.items-center.break-all.text-sm + .cursor-pointer.underline"
-        );
-        await icons[0].click();
-    } else {
-        const uncheckedOptions = await adminPage.$$(
-            'input[type="checkbox"]:not(:checked) + label, input[type="radio"]:not(:checked) + label'
-        );
-        for (let checkbox of uncheckedOptions) {
-            await checkbox.click();
-        }
-
-        await adminPage.click(
-            ".flex.items-center.justify-between > button.primary-button:visible"
-        );
-
-        const iconAfterRetry = await adminPage
-            .waitForSelector(toastSelector, { timeout: 5000 })
-            .catch(() => null);
-        if (iconAfterRetry) {
-            const icons = await adminPage.$$(
-                ".flex.items-center.break-all.text-sm + .cursor-pointer.underline"
-            );
-            await icons[0].click();
-        }
-    }
-
-    /**
-     * Billing address selection or creation
-     */
-    const billingRadios = await adminPage.$$('input[name="billing.id"]');
-    if (billingRadios.length > 0) {
-        const addressLabels = await adminPage.$$(
-            `input[name="billing.id"] + label`
-        );
-        const randomIndex = Math.floor(Math.random() * billingRadios.length);
-        await addressLabels[randomIndex].click();
-    } else {
-        await adminPage.click(
-            "p.text-base.font-medium.text-gray-600 + p.cursor-pointer.text-blue-600.transition-all"
-        );
-        if ((await address(adminPage)) !== "done") return;
-    }
-
-    const useForShipping = await adminPage.$(
-        'input[name="billing.use_for_shipping"]'
-    );
-    const shouldUseBilling = Math.floor(Math.random() * 20) % 3 !== 1;
-    const isShippingChecked = await useForShipping?.isChecked();
-
-    if (shouldUseBilling !== isShippingChecked) {
-        await adminPage.click('input[name="billing.use_for_shipping"] + label');
-    }
-
-    /**
-     * Shipping address logic (if different from billing)
-     */
-    if (!shouldUseBilling) {
-        const shippingRadios = await adminPage.$$('input[name="shipping.id"]');
-        if (shippingRadios.length > 0) {
-            const shippingLabels = await adminPage.$$(
-                `input[name="shipping.id"] + label`
-            );
-            const randomIndex = Math.floor(
-                Math.random() * shippingRadios.length
-            );
-            await shippingLabels[randomIndex].click();
-        } else {
-            await adminPage.click(
-                "p.text-base.font-medium.text-gray-600 + p.cursor-pointer.text-blue-600.transition-all:visible"
-            );
-
-            await adminPage.fill(
-                'input[name="shipping.company_name"]',
-                generateLastName()
-            );
-            await adminPage.fill(
-                'input[name="shipping.first_name"]',
-                generateFirstName()
-            );
-            await adminPage.fill(
-                'input[name="shipping.last_name"]',
-                generateLastName()
-            );
-            await adminPage.fill(
-                'input[name="shipping.email"]',
-                generateEmail()
-            );
-            await adminPage.fill(
-                'input[name="shipping.address.[0]"]',
-                generateFirstName()
-            );
-            await adminPage.selectOption(
-                'select[name="shipping.country"]',
-                "IN"
-            );
-            await adminPage.selectOption('select[name="shipping.state"]', "UP");
-            await adminPage.fill(
-                'input[name="shipping.city"]',
-                generateLastName()
-            );
-            await adminPage.fill('input[name="shipping.postcode"]', "201301");
-            await adminPage.fill(
-                'input[name="shipping.phone"]',
-                generatePhoneNumber()
-            );
-            await adminPage.press('input[name="shipping.phone"]', "Enter");
-        }
-    }
-
-    /**
-     * shipping method
-     */
-    await adminPage.click(
-        ".mt-4.flex.justify-end > button.primary-button:visible"
-    );
-
-    const shippingMethods = await adminPage
-        .waitForSelector('input[name="shipping_method"] + label', {
-            timeout: 10000,
-        })
-        .catch(() => null);
-
-    if (shippingMethods) {
-        const options = await adminPage.$$(
-            'input[name="shipping_method"] + label'
-        );
-        await options[Math.floor(Math.random() * options.length)].click();
-    }
-
-    const paymentMethods = await adminPage
-        .waitForSelector('input[name="payment_method"] + label', {
-            timeout: 10000,
-        })
-        .catch(() => null);
-
-    if (paymentMethods) {
-        const radios = await adminPage.$$(
-            'input[name="payment_method"] + label'
-        );
-        await radios[1].click();
-
-        const nextBtn = await adminPage.$$(
-            "button.primary-button.w-max.px-11.py-3"
-        );
-        await nextBtn[nextBtn.length - 1].click();
-    }
-
-    await expect(adminPage.getByText("Order Items")).toBeVisible();
+    return {
+        firstName: generateFirstName(),
+        lastName: `${generateLastName()}${stamp}`,
+        email: `order-${stamp}@example.com`,
+        phone: generatePhoneNumber(),
+        gender: "Other",
+    };
 }
 
-test.describe("sales management", () => {
-    test("should be able to create orders", async ({ adminPage }) => {
-        await generateOrder(adminPage);
+async function createSimpleProduct(
+    productCreatePage: ProductCreatePage,
+    allowRma = false,
+): Promise<string> {
+    const name = `Simple ${uniqueStamp()}`;
+
+    await productCreatePage.createSimpleProduct({
+        name,
+        productNumber: generateSKU(),
+        shortDescription: generateDescription(),
+        description: generateDescription(),
+        price: "199",
+        weight: "1",
+        inventory: "100",
+        allowRma,
     });
 
-    test("should be comment on order", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/orders");
+    return name;
+}
 
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
+test.describe("order management", () => {
+    test.setTimeout(240000);
 
-        const lorem100 = generateDescription(200);
-        adminPage.fill('textarea[name="comment"]', lorem100);
-        await adminPage
-            .locator('span.icon-uncheckbox.cursor-pointer[role="button"]')
-            .click();
+    let orderViewPage: OrderViewPage;
+    let orderCreatePage: OrderCreatePage;
+    let invoicesPage: InvoicesPage;
+    let productName: string;
+    let orderId: string;
 
-        await adminPage.getByRole("button", { name: "Submit Comment" }).click();
-        await expect(adminPage.locator("#app")).toContainText(
-            "Comment added successfully."
-        );
-    });
+    test.beforeEach(async ({ adminPage }) => {
+        orderViewPage = new OrderViewPage(adminPage);
+        orderCreatePage = new OrderCreatePage(adminPage);
+        invoicesPage = new InvoicesPage(adminPage);
 
-    test("should be able to reorder", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/orders");
-        await adminPage.waitForTimeout(3000);
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage.getByRole("link", { name: " Reorder" }).click();
+        const customer = buildCustomer();
+        const customersPage = new CustomersPage(adminPage);
 
-        await expect(adminPage.getByText("Cart Items")).toBeVisible();
-        await adminPage.locator("label.icon-radio-normal").first().click();
-        await adminPage.getByRole("button", { name: "Proceed" }).click();
-        await adminPage.getByText("Free Shipping$0.00Free").click();
-        await adminPage
-            .locator("label")
-            .filter({ hasText: "Cash On Delivery" })
-            .click();
-        await adminPage.getByRole("button", { name: "Place Order" }).click();
-        await expect(adminPage.locator("#app")).toContainText("Pending");
-    });
+        productName = await createSimpleProduct(new ProductCreatePage(adminPage));
 
-    test("should be able to create invoice", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/orders");
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await new CustomerDetailsPage(adminPage).addAddress({
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            email: customer.email,
+            street: "Sector 62",
+            city: "Noida",
+            postcode: "201301",
+            phone: customer.phone,
+        });
 
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage
-            .waitForSelector(
-                "div.transparent-button.px-1 > .icon-sales.text-2xl:visible"
-            )
-            .catch(() => null);
-
-        await adminPage.click(
-            "div.transparent-button.px-1 > .icon-sales.text-2xl:visible"
-        );
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-        await expect(adminPage.locator("#app")).toContainText(
-            "Invoice created successfully"
+        orderId = await orderCreatePage.placeOrderForCustomer(
+            customer.email,
+            productName,
         );
     });
 
-    test("should be create shipment", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/orders");
-
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        const exists = await adminPage
-            .waitForSelector(
-                "div.transparent-button.px-1 > .icon-ship.text-2xl:visible",
-                { timeout: 1000 }
-            )
-            .catch(() => null);
-
-        await adminPage.click(
-            "div.transparent-button.px-1 > .icon-ship.text-2xl:visible"
-        );
-
-        await adminPage.fill(
-            'input[name="shipment[carrier_title]"]',
-            generateName()
-        );
-        await adminPage.fill(
-            'input[name="shipment[track_number]"]',
-            generateRandomNumericString()
-        );
-
-        await adminPage
-            .locator('[id="shipment\\[source\\]"]')
-            .selectOption("1");
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Shipment created successfully"
-        );
+    test.afterEach(async ({ adminPage }) => {
+        await new ProductListPage(adminPage).deleteProductsIfPresent([productName]);
     });
 
-    test("should be able to create refund", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/orders");
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage
-            .waitForSelector(
-                "div.transparent-button.px-1 > .icon-cancel.text-2xl:visible",
-                { timeout: 1000 }
-            )
-            .catch(() => null);
+    test("should place an order from the admin and list it as pending", async () => {
+        await orderViewPage.expectStatus("Pending");
+        await orderViewPage.expectItemListed(productName);
+        await orderViewPage.expectListedWithStatus(orderId, "Pending");
+    });
 
-        await adminPage
-            .locator("div.transparent-button.px-1 > .icon-cancel.text-2xl")
-            .click();
-        await adminPage
-            .waitForSelector(
-                'input[type="text"].w-full.rounded-md.border.px-3.text-sm.text-gray-600.transition-all:visible',
-                { timeout: 1000 }
-            )
-            .catch(() => null);
+    test("should keep a comment added to an order", async () => {
+        const comment = `${generateName()} ${uniqueStamp()}`;
 
-        const itemQty = await adminPage.$$(
-            'input[type="text"].w-full.rounded-md.border.px-3.text-sm.text-gray-600.transition-all:visible'
-        );
-        let i = 1;
-        for (let element of itemQty) {
-            await element.scrollIntoViewIfNeeded();
+        await orderViewPage.open(orderId);
+        await orderViewPage.addComment(comment);
 
-            if (i > itemQty.length - 2) {
-                let rand = Math.floor(Math.random() * 2000);
-                await element.fill(rand.toString());
+        await orderViewPage.reload();
+        await orderViewPage.expectCommentListed(comment);
+    });
+
+    test("should move the order to processing once it is invoiced", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.createInvoice();
+
+        await orderViewPage.expectStatus("Processing");
+        await invoicesPage.expectInvoiceForOrder(orderId, "Paid");
+    });
+
+    test("should complete the order once the invoiced items are shipped", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.createInvoice();
+        await orderViewPage.createShipment(generateName(), `${uniqueStamp()}`);
+
+        await orderViewPage.expectStatus("Completed");
+    });
+
+    test("should close the order once the invoice is refunded", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.createInvoice();
+        await orderViewPage.refundAllItems();
+
+        await orderViewPage.expectStatus("Closed");
+    });
+
+    test("should cancel a pending order and stop offering cancellation", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.cancelOrder();
+
+        await orderViewPage.expectStatus("Canceled");
+        await orderViewPage.expectCancelNotOffered();
+        await orderViewPage.expectListedWithStatus(orderId, "Canceled");
+    });
+
+    test("should reorder an order into a new pending order", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.startReorder();
+
+        const reorderId = await orderCreatePage.completeReorder();
+
+        expect(reorderId).not.toBe(orderId);
+        await orderViewPage.expectStatus("Pending");
+        await orderViewPage.expectItemListed(productName);
+    });
+
+    test("should mark an invoice as overdue through the mass action", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.createInvoice();
+        await invoicesPage.markInvoiceForOrder(orderId, "Overdue");
+
+        await invoicesPage.expectInvoiceForOrder(orderId, "Overdue");
+    });
+
+    test("should print and resend an invoice", async () => {
+        await orderViewPage.open(orderId);
+        await orderViewPage.createInvoice();
+        await invoicesPage.openInvoiceForOrder(orderId);
+
+        expect(await invoicesPage.printInvoice()).toMatch(/\.pdf$/);
+
+        await invoicesPage.sendDuplicateInvoice();
+    });
+});
+
+test.describe("rma management", () => {
+    test.setTimeout(300000);
+
+    let reasonsPage: RmaReasonsPage;
+    let reasonTitle: string;
+
+    test.beforeEach(async ({ adminPage }) => {
+        reasonsPage = new RmaReasonsPage(adminPage);
+        reasonTitle = `Reason ${uniqueStamp()}`;
+
+        await reasonsPage.createReason(reasonTitle);
+    });
+
+    test.afterEach(async () => {
+        await reasonsPage.deleteReasonsIfPresent([reasonTitle]);
+    });
+
+    for (const { title, status } of [
+        { title: "approve a return request and refund the item", status: "Approved" },
+        { title: "decline a return request", status: "Request Declined" },
+    ] as const) {
+        test(`should let the admin ${title}`, async ({ adminPage, shopPage }) => {
+            const productName = await createSimpleProduct(
+                new ProductCreatePage(adminPage),
+                true,
+            );
+            const shop = new RmaShopPage(shopPage);
+            const rmaPage = new RmaManagePage(adminPage);
+            const orderViewPage = new OrderViewPage(adminPage);
+
+            try {
+                await shop.registerAndAddAddress();
+                const orderId = await shop.placeOrder(productName);
+
+                await orderViewPage.open(orderId);
+                await orderViewPage.createInvoice();
+
+                await shop.requestReturn(orderId, reasonTitle);
+
+                await rmaPage.openRequestForOrder(orderId);
+                await rmaPage.expectStatus("Pending Review");
+                await rmaPage.updateStatus(status);
+                await rmaPage.expectStatus(status);
+
+                if (status === "Approved") {
+                    await rmaPage.refundItems();
+                    await rmaPage.expectRequestListed(orderId, "Refunded");
+                } else {
+                    await rmaPage.expectRequestListed(orderId, "Request Declined");
+                }
+            } finally {
+                await new ProductListPage(adminPage).deleteProductsIfPresent([productName]);
             }
+        });
+    }
 
-            if (i > itemQty.length - 3) {
-                continue;
-            }
+    test("should list a newly created rma reason", async () => {
+        await reasonsPage.expectReasonListed(reasonTitle);
+    });
 
-            const currentValue = await element.inputValue();
+    test("should list a newly created rma rule", async ({ adminPage }) => {
+        const rulesPage = new RmaRulesPage(adminPage);
+        const name = `Rule ${uniqueStamp()}`;
 
-            const maxQty = parseInt(currentValue, 10);
-            const qty = Math.floor(Math.random() * (maxQty - 1)) + 1;
+        try {
+            await rulesPage.createRule(name, "15");
 
-            await element.fill(qty.toString());
-
-            i++;
+            await rulesPage.expectRuleListed(name, "15");
+        } finally {
+            await rulesPage.deleteRulesIfPresent([name]);
         }
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        await expect(
-            adminPage.locator("p", { hasText: "Refund created successfully" })
-        ).toBeVisible();
     });
 
-    test("should be create mail invoice", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/invoices");
+    test("should list a newly created rma custom field", async ({ adminPage }) => {
+        const customFieldsPage = new RmaCustomFieldsPage(adminPage);
+        const field: RmaCustomFieldData = {
+            label: `Field ${uniqueStamp()}`,
+            code: `field_${uniqueStamp()}`,
+            type: "text",
+        };
 
-        await adminPage.waitForSelector(
-            ".cursor-pointer.rounded-md.text-2xl.transition-all.icon-view"
-        );
-        await adminPage
-            .locator(
-                ".cursor-pointer.rounded-md.text-2xl.transition-all.icon-view"
-            )
-            .first()
-            .click();
+        try {
+            await customFieldsPage.createCustomField(field);
 
-        await adminPage
-            .getByRole("button", { name: " Send Duplicate Invoice" })
-            .click();
-        await adminPage
-            .getByRole("button", { name: "Send", exact: true })
-            .click();
-        await expect(adminPage.locator("#app")).toContainText(
-            "Invoice sent successfully"
-        );
+            await customFieldsPage.expectCustomFieldListed(field);
+        } finally {
+            await customFieldsPage.deleteCustomFieldsIfPresent([field.label]);
+        }
     });
 
-    test("should be able to print invoice", async ({ adminPage }) => {
-        await adminPage.goto("admin/sales/invoices");
-
-        await adminPage.waitForSelector(
-            ".cursor-pointer.rounded-md.text-2xl.transition-all.icon-view"
-        );
-        await adminPage
-            .locator(
-                ".cursor-pointer.rounded-md.text-2xl.transition-all.icon-view"
-            )
-            .first()
-            .click();
-
-        const downloadPromise = adminPage.waitForEvent("download");
-        await adminPage.getByRole("link", { name: " Print" }).click();
-        const download = await downloadPromise;
-    });
-
-    test("should be able to cancel order", async ({ adminPage }) => {
-        /**
-         * create order
-         */
-        await generateOrder(adminPage);
-        await adminPage.waitForTimeout(3000);
-
-        /**
-         * Should Cancel a Order
-         */
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage.locator(".icon-cancel").click();
-        await adminPage
-            .getByRole("button", { name: "Agree", exact: true })
-            .click();
-        await expect(adminPage.locator("#app")).toContainText(
-            "Order cancelled successfully"
-        );
-    });
-
-    test("should be able to create transaction", async ({ adminPage }) => {
-        /**
-         * create order
-         */
-        await generateOrder(adminPage);
-        await adminPage.waitForTimeout(3000);
-
-        /**
-         * Create Transaction
-         */
-        await adminPage.goto("admin/sales/orders");
-        await adminPage.waitForTimeout(3000);
-        await adminPage.reload();
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage.locator(".transparent-button > .icon-sales").click();
-        await adminPage.locator("#can_create_transaction").nth(1).click();
-        await adminPage.getByRole("button", { name: "Create Invoice" }).click();
-
-        /**
-         * Go to transaction page
-         */
-        await adminPage.goto("admin/sales/transactions");
-        await expect(adminPage.getByText("Paid").first()).toBeVisible();
-    });
-
-    test("support mass status Change  to Paid for Invoices", async ({
+    test("should keep the chosen options of a multiselect custom field on the request", async ({
         adminPage,
+        shopPage,
     }) => {
-        await generateOrder(adminPage);
-        await adminPage.waitForTimeout(5000);
-
-        /**
-         * create invoice
-         */
-        await adminPage.goto("admin/sales/orders");
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await adminPage.locator(".row > div:nth-child(4) > a").first().click();
-        await adminPage
-            .waitForSelector(
-                "div.transparent-button.px-1 > .icon-sales.text-2xl:visible"
-            )
-            .catch(() => null);
-
-        await adminPage.click(
-            "div.transparent-button.px-1 > .icon-sales.text-2xl:visible"
+        const customFieldsPage = new RmaCustomFieldsPage(adminPage);
+        const chosen = [`damaged${uniqueStamp()}`, `late${uniqueStamp()}`];
+        const field: RmaCustomFieldData = {
+            label: `Field ${uniqueStamp()}`,
+            code: `field_${uniqueStamp()}`,
+            type: "multiselect",
+            options: chosen,
+        };
+        const productName = await createSimpleProduct(
+            new ProductCreatePage(adminPage),
+            true,
         );
+        const shop = new RmaShopPage(shopPage);
+        const rmaPage = new RmaManagePage(adminPage);
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
-        await expect(adminPage.locator("#app")).toContainText(
-            "Invoice created successfully"
-        );
+        try {
+            await customFieldsPage.createCustomField(field);
 
-        /**
-         * Go to invoice page
-         */
-        await adminPage.goto("admin/sales/invoices");
+            await shop.registerAndAddAddress();
 
-        const checkboxes = await adminPage.locator('.icon-uncheckbox')
-        await checkboxes.first().click();
-        await adminPage.getByRole("button", { name: "Select Action " }).click();
-        await adminPage.getByRole('link', { name: 'Update Status ' }).hover();
-        await adminPage.getByRole("link", { name: "Paid" }).click();
-        await adminPage.getByRole("button", { name: "Agree", exact: true }).click();
+            const orderId = await shop.placeOrder(productName);
 
-        await expect(adminPage.locator("#app")).toContainText("Paid");
-        await expect(adminPage.getByText('Selected invoice updated successfully')).toBeVisible();
+            await new OrderViewPage(adminPage).open(orderId);
+            await new OrderViewPage(adminPage).createInvoice();
+
+            await shop.requestReturn(orderId, reasonTitle, chosen);
+
+            await rmaPage.openRequestForOrder(orderId);
+            await rmaPage.expectAdditionalField(field.label, chosen.join(","));
+        } finally {
+            await customFieldsPage.deleteCustomFieldsIfPresent([field.label]);
+            await new ProductListPage(adminPage).deleteProductsIfPresent([
+                productName,
+            ]);
+        }
     });
 
- test("support mass status Change to overdue for Invoices", async ({
-        adminPage,
-    }) => {
+    test("should list a newly created rma status", async ({ adminPage }) => {
+        const statusesPage = new RmaStatusesPage(adminPage);
+        const title = `Status ${uniqueStamp()}`;
 
-        /**
-         * Go to invoice page
-         */
-        await adminPage.goto("admin/sales/invoices");
+        try {
+            await statusesPage.createStatus(title);
 
-        const checkboxes = await adminPage.locator('.icon-uncheckbox')
-        await checkboxes.first().click();
-        await adminPage.getByRole("button", { name: "Select Action " }).click();
-        await adminPage.getByRole('link', { name: 'Update Status ' }).hover();
-        await adminPage.getByRole("link", { name: "Overdue" }).click();
-        await adminPage.getByRole("button", { name: "Agree", exact: true }).click();
-
-        await expect(adminPage.locator("#app")).toContainText("Overdue");
-        await expect(adminPage.getByText('Selected invoice updated successfully')).toBeVisible();
+            await statusesPage.expectStatusListed(title);
+        } finally {
+            await statusesPage.deleteStatusesIfPresent([title]);
+        }
     });
 });

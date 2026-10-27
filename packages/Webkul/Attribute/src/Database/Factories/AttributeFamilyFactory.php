@@ -16,16 +16,14 @@ class AttributeFamilyFactory extends Factory
 
     /**
      * Define the model's default state.
-     *
-     * @throws \Exception
      */
     public function definition(): array
     {
         return [
-            'name'            => $this->faker->word(),
-            'code'            => $this->faker->word(),
+            'name' => $this->faker->word(),
+            'code' => $this->faker->unique()->lexify('family_??????????'),
             'is_user_defined' => random_int(0, 1),
-            'status'          => 0,
+            'status' => 0,
         ];
     }
 }

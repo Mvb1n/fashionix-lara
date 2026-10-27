@@ -15,7 +15,7 @@
         <x-shop::layouts.account.navigation />
     </div>
 
-    <div class="mx-4 flex-auto">
+    <div class="flex-auto mx-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <!-- Back Button -->
@@ -23,7 +23,7 @@
                     class="grid md:hidden"
                     href="{{ route('shop.customers.account.index') }}"
                 >
-                    <span class="icon-arrow-left rtl:icon-arrow-right text-2xl"></span>
+                    <span class="text-2xl icon-arrow-left rtl:icon-arrow-right"></span>
                 </a>
     
                 <h2 class="text-2xl font-medium max-md:text-xl max-sm:text-base ltr:ml-2.5 md:ltr:ml-0 rtl:mr-2.5 md:rtl:mr-0">
@@ -44,11 +44,11 @@
 
             {!! view_render_event('bagisto.shop.customers.account.addresses.list.before', ['addresses' => $addresses]) !!}
 
-            <div class="mt-[60px] grid grid-cols-2 gap-5 max-1060:grid-cols-[1fr] max-md:mt-5">
+            <div class="mt-15 grid grid-cols-2 gap-5 max-1060:grid-cols-[1fr] max-md:mt-5">
                 @foreach ($addresses as $address)
-                    <div class="rounded-xl border border-zinc-200 p-5 max-md:flex-wrap">
+                    <div class="p-5 border rounded-xl border-zinc-200 max-md:flex-wrap">
                         <div class="flex justify-between">
-                            <p class="text-base font-medium">
+                            <p class="text-base font-medium" v-pre>
                                 {{ $address->first_name }} {{ $address->last_name }}
 
                                 @if ($address->company_name)
@@ -73,7 +73,7 @@
                                         </button>
                                     </x-slot>
 
-                                    <x-slot:menu class="!py-1 max-sm:!py-0">
+                                    <x-slot:menu class="py-1! max-sm:py-0!">
                                         <x-shop::dropdown.menu.item>
                                             <a href="{{ route('shop.customers.account.addresses.edit', $address->id) }}">
                                                 <p class="w-full">
@@ -92,18 +92,17 @@
                                                 @csrf
                                             </form>
 
-                                            <a 
-                                                href="javascript:void(0);"                                                
+                                            <button 
+                                                type="button"
+                                                class="w-full text-left"
                                                 @click="$emitter.emit('open-confirm-modal', {
                                                     agree: () => {
                                                         $refs['addressDelete'].submit()
                                                     }
                                                 })"
                                             >
-                                                <p class="w-full">
-                                                    @lang('shop::app.customers.account.addresses.index.delete')
-                                                </p>
-                                            </a>
+                                                @lang('shop::app.customers.account.addresses.index.delete')
+                                            </button>
                                         </x-shop::dropdown.menu.item>
 
                                         @if (! $address->default_address)
@@ -118,18 +117,17 @@
 
                                                 </form>
 
-                                                <a 
-                                                    href="javascript:void(0);"                                                
+                                                <button 
+                                                    type="button"
+                                                    class="w-full text-left"
                                                     @click="$emitter.emit('open-confirm-modal', {
                                                         agree: () => {
                                                             $refs['setAsDefault'].submit()
                                                         }
                                                     })"
                                                 >
-                                                    <button>
-                                                        @lang('shop::app.customers.account.addresses.index.set-as-default')
-                                                    </button>
-                                                </a>
+                                                    @lang('shop::app.customers.account.addresses.index.set-as-default')
+                                                </button>
                                             </x-shop::dropdown.menu.item>
                                         @endif
                                     </x-slot>
@@ -137,7 +135,7 @@
                             </div>
                         </div>
 
-                        <p class="mt-6 text-zinc-500 max-md:mt-5 max-md:text-sm">
+                        <p class="mt-6 text-zinc-500 max-md:mt-5 max-md:text-sm" v-pre>
                             {{ $address->address }},
 
                             {{ $address->city }}, 
@@ -152,9 +150,9 @@
 
         @else
             <!-- Address Empty Page -->
-            <div class="m-auto grid w-full place-content-center items-center justify-items-center py-32 text-center">
+            <div class="grid items-center w-full py-32 m-auto text-center place-content-center justify-items-center">
                 <img 
-                    class="max-md:h-[100px] max-md:w-[100px]"
+                    class="max-md:h-25 max-md:w-25"
                     src="{{ bagisto_asset('images/no-address.png') }}" 
                     alt="Empty Address" 
                     title=""

@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\Helpers\Reporting;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Webkul\Sales\Repositories\InvoiceRepository;
@@ -34,13 +35,13 @@ class Sale extends AbstractReporting
     {
         return [
             'previous' => $previous = $this->getTotalOrders($this->lastStartDate, $this->lastEndDate),
-            'current'  => $current = $this->getTotalOrders($this->startDate, $this->endDate),
+            'current' => $current = $this->getTotalOrders($this->startDate, $this->endDate),
             'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Returns previous orders over time
+     * Returns previous orders over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -51,7 +52,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current orders over time
+     * Returns current orders over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -62,10 +63,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Retrieves total orders
+     * Retrieves total orders.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      */
     public function getTotalOrders($startDate, $endDate): int
     {
@@ -77,10 +78,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns orders over time
+     * Returns orders over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -101,7 +102,7 @@ class Sale extends AbstractReporting
     {
         return [
             'previous' => $previous = $this->getTotalOrders(now()->subDay()->startOfDay(), now()->subDay()->endOfDay()),
-            'current'  => $current = $this->getTotalOrders(now()->today(), now()->endOfDay()),
+            'current' => $current = $this->getTotalOrders(now()->today(), now()->endOfDay()),
             'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
@@ -127,10 +128,10 @@ class Sale extends AbstractReporting
     public function getTotalSalesProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getTotalSales($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getTotalSales($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getTotalSales($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getTotalSales($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
@@ -140,10 +141,10 @@ class Sale extends AbstractReporting
     public function getSubTotalSalesProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getSubTotalSales($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getSubTotalSales($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getSubTotalSales($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getSubTotalSales($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
@@ -153,18 +154,18 @@ class Sale extends AbstractReporting
     public function getTodaySalesProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getTotalSales(now()->subDay()->startOfDay(), now()->subDay()->endOfDay()),
-            'current'         => $current = $this->getTotalSales(now()->today(), now()->endOfDay()),
+            'previous' => $previous = $this->getTotalSales(now()->subDay()->startOfDay(), now()->subDay()->endOfDay()),
+            'current' => $current = $this->getTotalSales(now()->today(), now()->endOfDay()),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Retrieves total sales
+     * Retrieves total sales.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      */
     public function getTotalSales($startDate, $endDate): float
     {
@@ -176,10 +177,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Retrieves sub total sales
+     * Retrieves sub total sales.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      */
     public function getSubTotalSales($startDate, $endDate): float
     {
@@ -191,7 +192,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns previous sales over time
+     * Returns previous sales over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -202,7 +203,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current sales over time
+     * Returns current sales over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -213,10 +214,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns sales over time
+     * Returns sales over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -236,18 +237,18 @@ class Sale extends AbstractReporting
     public function getAverageSalesProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getAverageSales($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getAverageSales($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getAverageSales($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getAverageSales($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Retrieves average sales
+     * Retrieves average sales.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @return array
      */
     public function getAverageSales($startDate, $endDate): ?float
@@ -260,7 +261,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns previous average sales over time
+     * Returns previous average sales over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -271,7 +272,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current average sales over time
+     * Returns current average sales over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -282,10 +283,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns average sales over time
+     * Returns average sales over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -305,18 +306,18 @@ class Sale extends AbstractReporting
     public function getRefundsProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getRefunds($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getRefunds($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getRefunds($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getRefunds($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Retrieves refunds
+     * Retrieves refunds.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @return array
      */
     public function getRefunds($startDate, $endDate): float
@@ -329,7 +330,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns previous refunds over time
+     * Returns previous refunds over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -340,7 +341,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current refunds over time
+     * Returns current refunds over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -351,10 +352,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns refunds over time
+     * Returns refunds over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -374,18 +375,18 @@ class Sale extends AbstractReporting
     public function getTaxCollectedProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getTaxCollected($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getTaxCollected($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getTaxCollected($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getTaxCollected($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Retrieves tax collected
+     * Retrieves tax collected.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @return array
      */
     public function getTaxCollected($startDate, $endDate): float
@@ -398,7 +399,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns previous tax collected over time
+     * Returns previous tax collected over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -409,7 +410,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current tax collected over time
+     * Returns current tax collected over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -420,10 +421,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns tax collected over time
+     * Returns tax collected over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -438,7 +439,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns top tax categories
+     * Returns top tax categories.
      *
      * @param  int  $limit
      */
@@ -455,7 +456,7 @@ class Sale extends AbstractReporting
             ->whereIn('orders.channel_id', $this->channelIds)
             ->whereBetween('order_items.created_at', [$this->startDate, $this->endDate])
             ->whereNotNull('tax_category_id')
-            ->groupBy('tax_category_id')
+            ->groupBy('tax_categories.id', 'tax_categories.name')
             ->orderByDesc('total')
             ->limit($limit)
             ->get();
@@ -467,18 +468,18 @@ class Sale extends AbstractReporting
     public function getShippingCollectedProgress(): array
     {
         return [
-            'previous'        => $previous = $this->getShippingCollected($this->lastStartDate, $this->lastEndDate),
-            'current'         => $current = $this->getShippingCollected($this->startDate, $this->endDate),
+            'previous' => $previous = $this->getShippingCollected($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getShippingCollected($this->startDate, $this->endDate),
             'formatted_total' => core()->formatBasePrice($current),
-            'progress'        => $this->getPercentageChange($previous, $current),
+            'progress' => $this->getPercentageChange($previous, $current),
         ];
     }
 
     /**
-     * Retrieves shipping collected
+     * Retrieves shipping collected.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      */
     public function getShippingCollected($startDate, $endDate): float
     {
@@ -490,7 +491,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns previous shipping collected over time
+     * Returns previous shipping collected over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -501,7 +502,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns current shipping collected over time
+     * Returns current shipping collected over time.
      *
      * @param  string  $period
      * @param  bool  $includeEmpty
@@ -512,10 +513,10 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns shipping collected over time
+     * Returns shipping collected over time.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $period
      * @param  bool  $includeEmpty
      */
@@ -530,7 +531,7 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Returns top shipping methods
+     * Returns top shipping methods.
      *
      * @param  int  $limit
      */
@@ -543,14 +544,99 @@ class Sale extends AbstractReporting
             ->whereIn('channel_id', $this->channelIds)
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->whereNotNull('shipping_method')
-            ->groupBy('shipping_method')
+            ->groupBy('shipping_method', 'shipping_title')
             ->orderByDesc('total')
             ->limit($limit)
             ->get();
     }
 
     /**
-     * Returns top payment methods
+     * Retrieves coupon discount and its progress.
+     */
+    public function getCouponDiscountProgress(): array
+    {
+        return [
+            'previous' => $previous = $this->getCouponDiscount($this->lastStartDate, $this->lastEndDate),
+            'current' => $current = $this->getCouponDiscount($this->startDate, $this->endDate),
+            'formatted_total' => core()->formatBasePrice($current),
+            'progress' => $this->getPercentageChange($previous, $current),
+        ];
+    }
+
+    /**
+     * Retrieves coupon discount.
+     *
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
+     */
+    public function getCouponDiscount($startDate, $endDate): float
+    {
+        return $this->orderRepository
+            ->resetModel()
+            ->whereIn('channel_id', $this->channelIds)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('coupon_code')
+            ->sum(DB::raw('base_discount_invoiced - base_discount_refunded'));
+    }
+
+    /**
+     * Returns orders that used a coupon code.
+     */
+    public function getCouponOrders(): Collection
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        return $this->orderRepository
+            ->resetModel()
+            ->leftJoin('cart_rule_coupons', 'orders.coupon_code', '=', 'cart_rule_coupons.code')
+            ->select(
+                'orders.id',
+                'orders.increment_id',
+                'orders.coupon_code',
+                'orders.customer_email',
+                'orders.created_at',
+                DB::raw("MAX({$tablePrefix}cart_rule_coupons.cart_rule_id) as cart_rule_id"),
+                DB::raw("({$tablePrefix}orders.base_grand_total_invoiced - {$tablePrefix}orders.base_grand_total_refunded) as base_total"),
+                DB::raw("({$tablePrefix}orders.base_discount_invoiced - {$tablePrefix}orders.base_discount_refunded) as base_discount_total")
+            )
+            ->whereIn('orders.channel_id', $this->channelIds)
+            ->whereBetween('orders.created_at', [$this->startDate, $this->endDate])
+            ->whereNotNull('orders.coupon_code')
+            ->where('orders.coupon_code', '!=', '')
+            ->groupBy('orders.id')
+            ->orderByDesc('orders.created_at')
+            ->get();
+    }
+
+    /**
+     * Returns top coupons used.
+     *
+     * @param  int  $limit
+     */
+    public function getTopCoupons($limit = null): Collection
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        return $this->orderRepository
+            ->resetModel()
+            ->leftJoin('cart_rule_coupons', 'orders.coupon_code', '=', 'cart_rule_coupons.code')
+            ->select('orders.coupon_code')
+            ->addSelect(DB::raw("MAX({$tablePrefix}cart_rule_coupons.cart_rule_id) as cart_rule_id"))
+            ->addSelect(DB::raw('COUNT(*) as total'))
+            ->addSelect(DB::raw("SUM({$tablePrefix}orders.base_grand_total_invoiced - {$tablePrefix}orders.base_grand_total_refunded) as base_total"))
+            ->addSelect(DB::raw("SUM({$tablePrefix}orders.base_discount_invoiced - {$tablePrefix}orders.base_discount_refunded) as base_discount_total"))
+            ->whereIn('orders.channel_id', $this->channelIds)
+            ->whereBetween('orders.created_at', [$this->startDate, $this->endDate])
+            ->whereNotNull('orders.coupon_code')
+            ->where('orders.coupon_code', '!=', '')
+            ->groupBy('orders.coupon_code')
+            ->orderByDesc('total')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Returns top payment methods.
      *
      * @param  int  $limit
      */
@@ -564,7 +650,7 @@ class Sale extends AbstractReporting
             ->addSelect(DB::raw('SUM(base_grand_total) as base_total'))
             ->whereIn('orders.channel_id', $this->channelIds)
             ->whereBetween('orders.created_at', [$this->startDate, $this->endDate])
-            ->groupBy('method')
+            ->groupBy('method', 'method_title')
             ->orderByDesc('total')
             ->limit($limit)
             ->get();
@@ -579,19 +665,20 @@ class Sale extends AbstractReporting
     }
 
     /**
-     * Retrieves total unique cart users
+     * Retrieves total unique cart users.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @return array
      */
     public function getTotalUniqueOrdersUsers($startDate, $endDate): int
     {
         return $this->orderRepository
             ->resetModel()
+            ->select('customer_email', 'customer_id')
             ->whereIn('channel_id', $this->channelIds)
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy(DB::raw('CONCAT(customer_email, "-", customer_id)'))
+            ->groupBy('customer_email', 'customer_id')
             ->get()
             ->count();
     }
@@ -599,8 +686,8 @@ class Sale extends AbstractReporting
     /**
      * Returns over time stats.
      *
-     * @param  \Carbon\Carbon  $startDate
-     * @param  \Carbon\Carbon  $endDate
+     * @param  Carbon  $startDate
+     * @param  Carbon  $endDate
      * @param  string  $valueColumn
      * @param  string  $period
      */

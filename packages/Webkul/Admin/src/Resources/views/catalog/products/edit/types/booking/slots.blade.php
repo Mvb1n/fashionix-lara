@@ -35,7 +35,7 @@
                 <template v-if="slots['same_for_week'].length || Object.keys(slots['same_for_week']).length">
                     <div class="flex flex-wrap gap-x-2.5">
                         <div
-                            class="flex min-h-[38px] flex-wrap items-center gap-1 dark:border-gray-800"
+                            class="flex min-h-9.5 flex-wrap items-center gap-1 dark:border-gray-800"
                             v-for="(data, index) in slots['same_for_week']"
                         >
                             <!-- Hidden Inputs -->
@@ -52,7 +52,7 @@
                             />
 
                             <!-- Panel Details -->
-                            <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded">
+                            <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded-sm">
                                 @{{ data.from }} - @{{ data.to }}
 
                                 <span
@@ -83,7 +83,7 @@
                     </p>
 
                     <div class="flex items-center justify-between grid-cols-2">
-                        <div class="flex min-h-[38px] flex-wrap items-center gap-1 dark:border-gray-800">
+                        <div class="flex min-h-9.5 flex-wrap items-center gap-1 dark:border-gray-800">
                             <template
                                 v-if="slots['different_for_week'][dayIndex]?.length"
                                 v-for="(item, itemIndex) in slots['different_for_week'][dayIndex]"
@@ -102,7 +102,7 @@
                                 />
 
                                 <!-- Panel Details -->
-                                <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded">
+                                <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded-sm">
                                     @{{ item.from }} - @{{ item.to }}
 
                                     <span
@@ -225,58 +225,72 @@
         type="text/x-template"
         id="v-slot-item-template"
     >
-        <div class="flex gap-2.5">
-            <!-- From -->
-            <input
-                type="hidden"
-                :name="controlName + '[id]'"
-            />
-
-            <!-- From -->
-            <x-admin::form.control-group class="w-full">
-                <x-admin::form.control-group.label class="hidden">
-                    @lang('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')
-                </x-admin::form.control-group.label>
-
-                <x-admin::form.control-group.control
-                    type="time"
-                    ::id="controlName + '[from]'"
-                    ::name="controlName + '[from]'"
-                    rules="required"
-                    :label="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')"
-                    :placeholder="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')"
-                />
-
-                <x-admin::form.control-group.error ::control-name="controlName + '[from]'" />
-            </x-admin::form.control-group>
-
-            <!-- To -->
-            <x-admin::form.control-group class="w-full">
-                <x-admin::form.control-group.label class="hidden">
-                    @lang('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')
-                </x-admin::form.control-group.label>
-
-                <x-admin::form.control-group.control
-                    type="time"
-                    ::id="controlName + '[to]'"
-                    ::name="controlName + '[to]'"
-                    rules="required"
-                    :label="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')"
-                    :placeholder="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')"
-                />
-
-                <!-- Form Avoiding object value in last input field -->
-                <x-admin::form.control-group.control type="hidden" />
-
-                <x-admin::form.control-group.error ::control-name="controlName + '[to]'" />
-            </x-admin::form.control-group>
-
-            <!-- Delete Icon -->
+        <div class="grid gap-1">
             <div
-                class="icon-delete w-fit cursor-pointer p-1.5 text-2xl transition-all"
-                @click="remove"
+                class="flex gap-2.5"
+                :index="index"
             >
+                <!-- From -->
+                <input
+                    type="hidden"
+                    :name="controlName + '[id]'"
+                />
+
+                <!-- From -->
+                <x-admin::form.control-group class="w-full mb-0!">
+                    <x-admin::form.control-group.label class="hidden">
+                        @lang('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')
+                    </x-admin::form.control-group.label>
+
+                    <x-admin::form.control-group.control
+                        type="time"
+                        ::id="controlName + '[from]'"
+                        ::name="controlName + '[from]'"
+                        rules="required"
+                        :label="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')"
+                        :placeholder="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.from')"
+                        @input="slotItem.error = ''"
+                    />
+
+                    <x-admin::form.control-group.error ::control-name="controlName + '[from]'" />
+                </x-admin::form.control-group>
+
+                <!-- To -->
+                <x-admin::form.control-group class="w-full mb-0!">
+                    <x-admin::form.control-group.label class="hidden">
+                        @lang('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')
+                    </x-admin::form.control-group.label>
+
+                    <x-admin::form.control-group.control
+                        type="time"
+                        ::id="controlName + '[to]'"
+                        ::name="controlName + '[to]'"
+                        rules="required"
+                        :label="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')"
+                        :placeholder="trans('admin::app.catalog.products.edit.types.booking.slots.modal.slot.to')"
+                        @input="slotItem.error = ''"
+                    />
+
+                    <!-- Form Avoiding object value in last input field -->
+                    <x-admin::form.control-group.control type="hidden" />
+
+                    <x-admin::form.control-group.error ::control-name="controlName + '[to]'" />
+                </x-admin::form.control-group>
+
+                <!-- Delete Icon -->
+                <div
+                    class="icon-delete w-fit cursor-pointer p-1.5 text-2xl transition-all"
+                    @click="remove"
+                >
+                </div>
             </div>
+
+            <p
+                v-if="slotItem.error"
+                class="text-xs italic text-red-600"
+                v-text="slotItem.error"
+            >
+            </p>
         </div>
     </script>
 
@@ -284,7 +298,7 @@
         app.component('v-slots', {
             template: '#v-slots-template',
 
-            props: ['bookingType', 'bookingProduct', 'sameSlotAllDays'],
+            props: ['bookingType', 'bookingProduct', 'sameSlotAllDays', 'allowSlotOverlap', 'minSlotMinutes'],
 
             data() {
                 return {
@@ -324,22 +338,38 @@
                 if (this.bookingProduct.same_slot_all_days) {
                     this.slots['same_for_week'] = slots ?? this.slots['same_for_week'];
                 } else {
-                    this.slots['different_for_week'] = Object.values(slots).slice(0, 7);
+                    /**
+                     * When `same_slot_all_days` is No, `slots` is keyed by
+                     * day-of-week (0=Sunday .. 6=Saturday). If some days have
+                     * no slots configured, Laravel/MySQL stores the JSON as a
+                     * sparse object (e.g. `{"2": [...]}`) which `Object.values`
+                     * would densify into `[[...]]` — causing Tuesday's slots
+                     * to render under Sunday and shifting every subsequent
+                     * day. Rebuild a 7-entry dense array by indexing each
+                     * entry by its original numeric key instead.
+                     */
+                    const dense = [[], [], [], [], [], [], []];
+
+                    for (const key of Object.keys(slots)) {
+                        const index = parseInt(key, 10);
+
+                        if (index >= 0 && index <= 6) {
+                            dense[index] = slots[key] ?? [];
+                        }
+                    }
+
+                    this.slots['different_for_week'] = dense;
                 }
 
                 this.slots['different_for_week'].forEach((slot, index) => {
                     if (this.slotSpansTwoDays(slot)) {
                         const secondDaySlot = { ...slot, from: '00:00' };
-                        
+
                         this.slots['different_for_week'].splice(index + 1, 0, secondDaySlot);
-                        
+
                         index++;
                     }
                 });
-
-                if (slots.length > 7) {
-                    this.slots['different_for_week'] = this.slots['different_for_week'].concat(slots.slice(7));
-                }
             },
 
             methods: {
@@ -360,12 +390,14 @@
                         this.field['same_for_week'].push({
                             'from': '',
                             'to': '',
+                            'error': '',
                         });
                     } else {
                         this.field['different_for_week'][this.currentIndex].push({
                             'id': '',
                             'from': '',
                             'to': '',
+                            'error': '',
                         });
                     }
                 },
@@ -389,7 +421,89 @@
 
                     formData.forEach((value, key) => (formDataObj[key] = value));
 
+                    const slotType = parseInt(this.sameSlotAllDays) ? 'same_for_week' : 'different_for_week';
+
+                    const fieldList = slotType === 'same_for_week'
+                        ? this.field['same_for_week']
+                        : (this.field['different_for_week'][this.currentIndex] || []);
+
+                    /**
+                     * Validate every field row first so we can show per-row
+                     * errors inline. Only insert into the saved slot list when
+                     * every row passes.
+                     */
+                    let hasError = false;
+
+                    fieldList.forEach((slotItem, i) => {
+                        const fromKey = slotType === 'same_for_week'
+                            ? `booking[slots][${i}][from]`
+                            : `booking[slots][${this.currentIndex}][${i}][from]`;
+
+                        const toKey = slotType === 'same_for_week'
+                            ? `booking[slots][${i}][to]`
+                            : `booking[slots][${this.currentIndex}][${i}][to]`;
+
+                        const fromValue = formDataObj[fromKey];
+                        const toValue = formDataObj[toKey];
+
+                        slotItem.error = '';
+
+                        if (! fromValue || ! toValue) {
+                            return; // vee-validate handles required
+                        }
+
+                        const validationMessage = this.validateSlotRow(slotType, slotItem, fromValue, toValue);
+
+                        if (validationMessage) {
+                            slotItem.error = validationMessage;
+
+                            hasError = true;
+                        }
+                    });
+
+                    if (hasError) {
+                        return;
+                    }
+
                     this.slotData(formDataObj);
+                },
+
+                /**
+                 * Returns an error string if the given from/to values would fail
+                 * time-ordering, minimum-duration, or overlap rules; otherwise
+                 * returns an empty string.
+                 */
+                validateSlotRow(slotType, slotItem, fromValue, toValue) {
+                    if (fromValue >= toValue) {
+                        return "@lang('admin::app.catalog.products.edit.types.booking.validations.time-validation')";
+                    }
+
+                    if (! this.meetsMinimumDuration(fromValue, toValue)) {
+                        return "@lang('admin::app.catalog.products.edit.types.booking.validations.slot-window-too-short-field')"
+                            .replace(/:duration/g, parseInt(this.minSlotMinutes) || 0);
+                    }
+
+                    if (! parseInt(this.allowSlotOverlap)) {
+                        const existingSlots = slotType === 'same_for_week'
+                            ? Object.values(this.slots[slotType] || {})
+                            : (this.slots[slotType][this.currentIndex] || []);
+
+                        const siblingFieldSlots = (slotType === 'same_for_week'
+                            ? this.field['same_for_week']
+                            : (this.field['different_for_week'][this.currentIndex] || []))
+                            .filter(row => row !== slotItem && row.from && row.to);
+
+                        const candidate = { from: fromValue, to: toValue };
+
+                        if (
+                            this.isOverlapping(candidate, existingSlots)
+                            || this.isOverlapping(candidate, siblingFieldSlots)
+                        ) {
+                            return "@lang('admin::app.catalog.products.edit.types.booking.validations.overlap-validation')";
+                        }
+                    }
+
+                    return '';
                 },
 
                 slotData(params) {
@@ -413,29 +527,14 @@
 
                 insertTimeSlot(key, fromValue, toValue, id) {
                     if (! fromValue || ! toValue) return;
-                    
-                    if (! this.isValidSlot(fromValue, toValue)) return;
-                    
+
                     const slot = { id, to: toValue, from: fromValue };
-
-                    let existingSlots = key === 'same_for_week'
-                        ? Object.values(this.slots[key] || [])
-                        : this.slots[key][this.currentIndex] || [];
-
-                    if (this.isOverlapping(slot, existingSlots)) {
-                        this.$emitter.emit('add-flash', {
-                            type: 'error',
-                            message: "@lang('admin::app.catalog.products.edit.types.booking.validations.overlap-validation')",
-                        });
-                        
-                        return;
-                    }
 
                     if (key === 'same_for_week') {
                         this.slots[key] = this.slots[key] || {};
 
-                        const nextIndex = Object.keys(this.slots[key]).length 
-                            ? Math.max(...Object.keys(this.slots[key]).map(Number)) + 1 
+                        const nextIndex = Object.keys(this.slots[key]).length
+                            ? Math.max(...Object.keys(this.slots[key]).map(Number)) + 1
                             : 0;
 
                         this.slots[key][nextIndex] = slot;
@@ -469,16 +568,28 @@
                 },
 
                 isValidSlot(from, to) {
-                    if (from >= to) {
-                        this.$emitter.emit('add-flash', {
-                            type: 'error',
-                            message: "@lang('admin::app.catalog.products.edit.types.booking.validations.time-validation')",
-                        });
-                        
-                        return false;
+                    return from < to;
+                },
+
+                meetsMinimumDuration(from, to) {
+                    const minMinutes = parseInt(this.minSlotMinutes) || 0;
+
+                    if (minMinutes <= 0) {
+                        return true;
                     }
-                    
-                    return true;
+
+                    const toMinutes = timeString => {
+                        const [h, m] = timeString.split(':').map(n => parseInt(n, 10) || 0);
+                        return h * 60 + m;
+                    };
+
+                    let duration = toMinutes(to) - toMinutes(from);
+
+                    if (duration <= 0) {
+                        duration += 24 * 60;
+                    }
+
+                    return duration >= minMinutes;
                 },
 
                 isOverlapping(newSlot, existingSlots) {
@@ -491,8 +602,8 @@
 
         app.component('v-slot-item', {
             template: '#v-slot-item-template',
-    
-            props: ['controlName', 'slotItem'],
+
+            props: ['index', 'controlName', 'slotItem'],
 
             methods: {
                 remove() {

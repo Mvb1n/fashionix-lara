@@ -5,6 +5,7 @@ namespace Webkul\DataTransfer\Helpers\Importers\Customer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Validator;
+use Webkul\Core\Rules\PhoneNumber;
 use Webkul\Customer\Repositories\CustomerGroupRepository;
 use Webkul\Customer\Repositories\CustomerRepository;
 use Webkul\DataTransfer\Contracts\ImportBatch as ImportBatchContract;
@@ -63,9 +64,9 @@ class Importer extends AbstractImporter
      * @var string[]
      */
     protected array $messages = [
-        self::ERROR_EMAIL_NOT_FOUND_FOR_DELETE  => 'data_transfer::app.importers.customers.validation.errors.email-not-found',
-        self::ERROR_DUPLICATE_EMAIL             => 'data_transfer::app.importers.customers.validation.errors.duplicate-email',
-        self::ERROR_DUPLICATE_PHONE             => 'data_transfer::app.importers.customers.validation.errors.duplicate-phone',
+        self::ERROR_EMAIL_NOT_FOUND_FOR_DELETE => 'data_transfer::app.importers.customers.validation.errors.email-not-found',
+        self::ERROR_DUPLICATE_EMAIL => 'data_transfer::app.importers.customers.validation.errors.duplicate-email',
+        self::ERROR_DUPLICATE_PHONE => 'data_transfer::app.importers.customers.validation.errors.duplicate-phone',
         self::ERROR_INVALID_CUSTOMER_GROUP_CODE => 'data_transfer::app.importers.customers.validation.errors.invalid-customer-group',
     ];
 
@@ -95,6 +96,11 @@ class Importer extends AbstractImporter
      * Phones storage.
      */
     protected array $phones = [];
+
+    /**
+     * Customers can be validated in windows — see ValidatesInChunks.
+     */
+    protected bool $chunkedValidationSupported = true;
 
     /**
      * Create a new helper instance.
@@ -133,13 +139,61 @@ class Importer extends AbstractImporter
     }
 
     /**
-     * Validate data.
+     * Load the existing customers, which every row is checked against.
      */
-    public function validateData(): void
+    protected function prepareForValidation(): void
     {
         $this->customerStorage->init();
+    }
 
-        parent::validateData();
+    /*
+    |--------------------------------------------------------------------------
+    | Chunked / queued validation
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function captureValidationState(): array
+    {
+        return [
+            'emails' => $this->emails,
+            'phones' => $this->phones,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function restoreValidationState(array $state): void
+    {
+        $this->emails = $state['emails'] ?? [];
+
+        $this->phones = $state['phones'] ?? [];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function fileUniqueColumns(): array
+    {
+        return [
+            'email' => self::ERROR_DUPLICATE_EMAIL,
+            'phone' => self::ERROR_DUPLICATE_PHONE,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function duplicateValueMessage(string $column, string $value, array $context): ?string
+    {
+        $code = $column === 'email'
+            ? self::ERROR_DUPLICATE_EMAIL
+            : self::ERROR_DUPLICATE_PHONE;
+
+        return sprintf(trans($this->messages[$code]), $value);
     }
 
     /**
@@ -183,17 +237,17 @@ class Importer extends AbstractImporter
          */
         $validator = Validator::make($rowData, [
             'customer_group_code' => 'required',
-            'first_name'          => 'required|string',
-            'last_name'           => 'required|string',
-            'gender'              => 'required:in,Male,Female,Other',
-            'email'               => 'required|email',
-            'date_of_birth'       => [
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
+            'gender' => 'required|in:Male,Female,Other',
+            'email' => 'required|email',
+            'date_of_birth' => [
                 'required',
                 'date_format:Y-m-d',
                 'before:today',
                 'regex:/^\d{4}-\d{2}-\d{2}$/',
             ],
-            'phone'               => 'regex:/^\+?[0-9]{7,15}$/',
+            'phone' => ['nullable', new PhoneNumber],
         ]);
 
         if ($validator->fails()) {
@@ -258,7 +312,7 @@ class Importer extends AbstractImporter
         $batch = $this->importBatchRepository->update([
             'state' => Import::STATE_PROCESSED,
 
-            'summary'      => [
+            'summary' => [
                 'created' => $this->getCreatedItemsCount(),
                 'updated' => $this->getUpdatedItemsCount(),
                 'deleted' => $this->getDeletedItemsCount(),
@@ -334,15 +388,29 @@ class Importer extends AbstractImporter
 
         $attributes = Arr::except($rowData, ['customer_group_code']);
 
+        /**
+         * An email is only unique within a channel, and the table's unique index
+         * spans the pair. Left null it matches nothing, since MySQL counts nulls in
+         * a unique index as distinct.
+         */
+        $channelId = core()->getCurrentChannel()->id;
+
         if ($this->isEmailExist($rowData['email'])) {
-            $customers['update'][$rowData['email']] = array_merge($attributes, [
+            /**
+             * Keyed by the id the email already belongs to, not the email: the email
+             * alone is not what the table is keyed on.
+             */
+            $customers['update'][$this->customerStorage->get($rowData['email'])] = array_merge($attributes, [
                 'customer_group_id' => $customerGroupId,
+                'channel_id' => $channelId,
+                'updated_at' => now(),
             ]);
         } else {
             $customers['insert'][$rowData['email']] = array_merge($attributes, [
                 'customer_group_id' => $customerGroupId,
-                'created_at'        => $rowData['created_at'] ?? now(),
-                'updated_at'        => $rowData['updated_at'] ?? now(),
+                'channel_id' => $channelId,
+                'created_at' => $rowData['created_at'] ?? now(),
+                'updated_at' => $rowData['updated_at'] ?? now(),
             ]);
         }
     }
@@ -355,10 +423,13 @@ class Importer extends AbstractImporter
         if (! empty($customers['update'])) {
             $this->updatedItemsCount += count($customers['update']);
 
-            $this->customerRepository->upsert(
-                $customers['update'],
-                $this->masterAttributeCode
-            );
+            /**
+             * By id rather than upserted: an upsert has to recognise the existing
+             * row from the values given it, and writes a new one when it cannot.
+             */
+            foreach ($customers['update'] as $id => $attributes) {
+                $this->customerRepository->update($attributes, $id);
+            }
         }
 
         if (! empty($customers['insert'])) {

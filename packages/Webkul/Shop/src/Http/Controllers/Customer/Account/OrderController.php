@@ -2,6 +2,8 @@
 
 namespace Webkul\Shop\Http\Controllers\Customer\Account;
 
+use Illuminate\Http\Response;
+use Illuminate\View\View;
 use Webkul\Checkout\Facades\Cart;
 use Webkul\Core\Traits\PDFHandler;
 use Webkul\Sales\Repositories\InvoiceRepository;
@@ -26,7 +28,7 @@ class OrderController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -41,13 +43,13 @@ class OrderController extends Controller
      * Show the view for the specified resource.
      *
      * @param  int  $id
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function view($id)
     {
         $order = $this->orderRepository->findOneWhere([
             'customer_id' => auth()->guard('customer')->id(),
-            'id'          => $id,
+            'id' => $id,
         ]);
 
         abort_if(! $order, 404);
@@ -58,18 +60,34 @@ class OrderController extends Controller
     /**
      * Reorder action for the specified resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function reorder(int $id)
     {
-        $order = $this->orderRepository->findOrFail($id);
+        $order = $this->orderRepository->findOneWhere([
+            'customer_id' => auth()->guard('customer')->id(),
+            'id' => $id,
+        ]);
+
+        abort_if(! $order, 404);
+
+        $skippedBooking = false;
 
         foreach ($order->items as $item) {
+            if ($item->type === 'booking') {
+                $skippedBooking = true;
+
+                continue;
+            }
+
             try {
                 Cart::addProduct($item->product, $item->additional);
             } catch (\Exception $e) {
-                // do nothing
             }
+        }
+
+        if ($skippedBooking) {
+            session()->flash('info', trans('shop::app.customers.account.orders.view.reorder-booking-skipped'));
         }
 
         return redirect()->route('shop.checkout.cart.index');
@@ -79,7 +97,7 @@ class OrderController extends Controller
      * Print and download the for the specified resource.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function printInvoice($id)
     {
@@ -89,8 +107,10 @@ class OrderController extends Controller
             })
             ->firstOrFail();
 
+        $orderCurrencyCode = $invoice->order->order_currency_code;
+
         return $this->downloadPDF(
-            view('shop::customers.account.orders.pdf', compact('invoice'))->render(),
+            view('shop::customers.account.orders.pdf', compact('invoice', 'orderCurrencyCode'))->render(),
             'invoice-'.$invoice->created_at->format('d-m-Y')
         );
     }
@@ -99,7 +119,7 @@ class OrderController extends Controller
      * Cancel action for the specified resource.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function cancel($id)
     {
@@ -116,9 +136,9 @@ class OrderController extends Controller
         $result = $this->orderRepository->cancel($order);
 
         if ($result) {
-            session()->flash('success', trans('shop::app.customers.account.orders.view.cancel-success', ['name' => trans('admin::app.customers.account.orders.order')]));
+            session()->flash('success', trans('shop::app.customers.account.orders.view.cancel-success', ['name' => trans('shop::app.customers.account.orders.order')]));
         } else {
-            session()->flash('error', trans('shop::app.customers.account.orders.view.cancel-error', ['name' => trans('admin::app.customers.account.orders.order')]));
+            session()->flash('error', trans('shop::app.customers.account.orders.view.cancel-error', ['name' => trans('shop::app.customers.account.orders.order')]));
         }
 
         return redirect()->back();

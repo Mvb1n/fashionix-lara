@@ -1,438 +1,267 @@
-import { test, expect } from "../../setup";
+import { test } from "../../setup";
 import {
+    CustomersPage,
+    type CustomerData,
+} from "../../pages/admin/customers/CustomersPage";
+import {
+    CustomerDetailsPage,
+    type CustomerAddressData,
+} from "../../pages/admin/customers/CustomerDetailsPage";
+import {
+    generateDescription,
     generateFirstName,
     generateLastName,
-    generateEmail,
-    randomElement,
     generatePhoneNumber,
-    generateFullName,
-    generateDescription,
+    uniqueStamp,
 } from "../../utils/faker";
 
-async function createCustomer(adminPage) {
-    await adminPage.goto("admin/customers");
-    await adminPage.waitForSelector("button.primary-button:visible", {
-        state: "visible",
-    });
+function buildCustomer(overrides: Partial<CustomerData> = {}): CustomerData {
+    const stamp = uniqueStamp();
 
-    await adminPage.click("button.primary-button:visible");
+    return {
+        firstName: generateFirstName(),
+        lastName: `${generateLastName()}${stamp}`,
+        email: `customer-${stamp}@example.com`,
+        phone: generatePhoneNumber(),
+        gender: "Other",
+        ...overrides,
+    };
+}
 
-    await adminPage.fill(
-        'input[name="first_name"]:visible',
-        generateFirstName()
-    );
-    await adminPage.fill('input[name="last_name"]:visible', generateLastName());
-    await adminPage.fill('input[name="email"]:visible', generateEmail());
-    await adminPage.selectOption(
-        'select[name="gender"]:visible',
-        randomElement(["Male", "Female", "Other"])
-    );
+function buildAddress(): CustomerAddressData {
+    const stamp = uniqueStamp();
 
-    await adminPage.press('input[name="phone"]:visible', "Enter");
-
-    await expect(
-        adminPage.getByText("Customer created successfully")
-    ).toBeVisible();
+    return {
+        firstName: generateFirstName(),
+        lastName: generateLastName(),
+        email: `address-${stamp}@example.com`,
+        street: `${stamp} Sector 62`,
+        city: "Noida",
+        postcode: "201301",
+        phone: generatePhoneNumber(),
+    };
 }
 
 test.describe("customer management", () => {
-    test("should be create customer", async ({ adminPage }) => {
-        await createCustomer(adminPage);
+    let customersPage: CustomersPage;
+    let detailsPage: CustomerDetailsPage;
+    let created: string[];
+
+    test.beforeEach(async ({ adminPage }) => {
+        customersPage = new CustomersPage(adminPage);
+        detailsPage = new CustomerDetailsPage(adminPage);
+        created = [];
     });
 
-    test("should be able to edit customer", async ({ adminPage }) => {
-        /**
-         * Creating a customer first.
-         */
-        await createCustomer(adminPage);
-
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
-
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
-
-        await adminPage.waitForSelector(
-            'div[class="flex cursor-pointer items-center justify-between gap-1.5 px-2.5 text-blue-600 transition-all hover:underline"]:visible',
-            { state: "visible" }
-        );
-        const createBtn = await adminPage.$$(
-            'div[class="flex cursor-pointer items-center justify-between gap-1.5 px-2.5 text-blue-600 transition-all hover:underline"]:visible'
-        );
-        await createBtn[0].click();
-
-        await adminPage.fill(
-            'input[name="first_name"]:visible',
-            generateFirstName()
-        );
-        await adminPage.fill(
-            'input[name="last_name"]:visible',
-            generateLastName()
-        );
-        const email = generateEmail();
-        await adminPage.fill('input[name="email"]:visible', generateEmail());
-        await adminPage.fill(
-            'input[name="phone"]:visible',
-            generatePhoneNumber()
-        );
-        await adminPage.selectOption('select[name="gender"]:visible', "Other");
-
-        await adminPage.press('input[name="phone"]:visible', "Enter");
-
-        await expect(
-            adminPage.getByText("Customer Updated Successfully")
-        ).toBeVisible();
+    test.afterEach(async () => {
+        await customersPage.deleteCustomersIfPresent(created);
     });
 
-    test("should be add address", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+    test("should create a customer and list it as active", async () => {
+        const customer = buildCustomer();
+        created.push(customer.email);
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
+        await customersPage.createCustomer(customer);
+
+        await customersPage.expectCustomerListed(
+            customer.email,
+            `${customer.firstName} ${customer.lastName}`,
         );
-        await iconRight[0].click();
-
-        await adminPage.waitForSelector(
-            'div[class="flex cursor-pointer items-center justify-between gap-1.5 px-2.5 text-blue-600 transition-all hover:underline"]:visible'
-        );
-        const createBtn = await adminPage.$$(
-            'div[class="flex cursor-pointer items-center justify-between gap-1.5 px-2.5 text-blue-600 transition-all hover:underline"]:visible'
-        );
-        await createBtn[1].click();
-
-        await adminPage.fill('input[name="company_name"]', generateFullName());
-        await adminPage.fill('input[name="first_name"]', generateFirstName());
-        await adminPage.fill('input[name="last_name"]', generateLastName());
-        await adminPage.fill('input[name="email"]', generateEmail());
-        await adminPage.fill('input[name="address[0]"]', generateFirstName());
-        await adminPage.selectOption('select[name="country"]', "IN");
-        await adminPage.selectOption('select[name="state"]', "UP");
-        await adminPage.fill('input[name="city"]', generateLastName());
-        await adminPage.fill('input[name="postcode"]', "201301");
-        await adminPage.fill('input[name="phone"]', generatePhoneNumber());
-        await adminPage.press('input[name="phone"]', "Enter");
-
-        await expect(
-            adminPage.getByText("Address Created Successfully")
-        ).toBeVisible();
     });
 
-    test("should be able to edit address", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+    test("should reject a customer without its required fields", async () => {
+        await customersPage.submitEmptyCreateForm();
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
+        await customersPage.expectValidationError(
+            "The First Name field is required",
         );
-        await iconRight[0].click();
-
-        await adminPage.waitForSelector(
-            'div[class="flex cursor-pointer items-center justify-between gap-1.5 px-2.5 text-blue-600 transition-all hover:underline"]:visible'
+        await customersPage.expectValidationError(
+            "The Last Name field is required",
         );
-
-        const createBtn = await adminPage.$$(
-            'p[class="cursor-pointer text-blue-600 transition-all hover:underline"]:visible'
-        );
-
-        // if (createBtn.length == 0) {
-        //     throw new Error("No address found for edit");
-        // }
-
-        await createBtn[0].click();
-
-        await adminPage.fill('input[name="company_name"]', generateLastName());
-        await adminPage.fill('input[name="first_name"]', generateFirstName());
-        await adminPage.fill('input[name="last_name"]', generateLastName());
-        await adminPage.fill('input[name="email"]', generateEmail());
-        await adminPage.fill('input[name="address[0]"]', generateFirstName());
-        await adminPage.selectOption('select[name="country"]', "IN");
-        await adminPage.selectOption('select[name="state"]', "UP");
-        await adminPage.fill('input[name="city"]', generateLastName());
-        await adminPage.fill('input[name="postcode"]', "201301");
-        await adminPage.fill('input[name="phone"]', generatePhoneNumber());
-        await adminPage.press('input[name="phone"]', "Enter");
-
-        await expect(
-            adminPage.getByText("Address Updated Successfully")
-        ).toBeVisible();
+        await customersPage.expectValidationError("The Email field is required");
+        await customersPage.expectValidationError("The Gender field is required");
     });
 
-    test("should be set default address", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+    test("should reject a customer whose email is already registered", async () => {
+        const existing = buildCustomer();
+        const duplicate = buildCustomer({ email: existing.email });
+        created.push(existing.email);
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
+        await customersPage.createCustomer(existing);
+        await customersPage.attemptCreateCustomer(duplicate);
+
+        await customersPage.expectValidationError(
+            "The email has already been taken.",
         );
-        await iconRight[0].click();
-
-        await adminPage.waitForSelector(
-            'button.flex:has-text("Set as Default"):visible'
+        await customersPage.expectCustomerListed(
+            existing.email,
+            `${existing.firstName} ${existing.lastName}`,
         );
-
-        const createBtn = await adminPage.$$(
-            'button.flex:has-text("Set as Default"):visible'
-        );
-
-        // if (createBtn.length == 0) {
-        //     throw new Error('No address found for edit');
-        // }
-
-        await createBtn[createBtn.length - 1].click();
-
-        await expect(
-            adminPage.getByText("Default Address Updated Successfully")
-        ).toBeVisible();
     });
 
-    test("should be able to delete address", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+    test("should update a customer profile and show the new name in the grid", async () => {
+        const customer = buildCustomer();
+        const changes = {
+            firstName: generateFirstName(),
+            lastName: `${generateLastName()}${uniqueStamp()}`,
+        };
+        created.push(customer.email);
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.updateProfile(changes);
+
+        await detailsPage.reload();
+        await detailsPage.expectCustomerName(
+            `${changes.firstName} ${changes.lastName}`,
         );
-        await iconRight[0].click();
-
-        await adminPage.waitForSelector(
-            'p[class="cursor-pointer text-red-600 transition-all hover:underline"]:visible'
+        await customersPage.expectCustomerListed(
+            customer.email,
+            `${changes.firstName} ${changes.lastName}`,
         );
-        await adminPage.locator("p.text-red-600").click();
-
-        await adminPage.click(
-            'button[type="button"].transparent-button + button[type="button"].primary-button'
-        );
-
-        await expect(
-            adminPage.getByText("Address Deleted Successfully")
-        ).toBeVisible();
     });
 
-    test("should be add note in customer", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible");
+    test("should add an address to a customer", async () => {
+        const customer = buildCustomer();
+        const address = buildAddress();
+        created.push(customer.email);
 
-        const Description = generateDescription();
-        /**
-         * edit customer profile
-         */
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
-        await adminPage.waitForTimeout(5000);
-        await adminPage.reload();
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.addAddress(address);
 
-        /**
-         * add note in Customer Profile
-         */
-        await adminPage.waitForSelector('textarea[name="note"]', {
-            state: "visible",
-        });
-        await adminPage.fill('textarea[name="note"]', Description);
-
-        await adminPage.click('input[name="customer_notified"] + span');
-
-        /**
-         * submit note
-         */
-        const submitBtn = adminPage.locator(
-            'button[type="submit"].secondary-button:visible'
-        );
-        await expect(submitBtn).toBeVisible({ timeout: 5000 });
-        await submitBtn.click();
-        await adminPage.waitForTimeout(5000);
-
-        /**
-         * check Note Created Successfully
-         */
-        // await expect(adminPage.getByText('Note Created Successfully Close')).toBeVisible({ timeout: 5000 });
-        await expect(adminPage.getByText(Description)).toBeVisible();
-
+        await detailsPage.reload();
+        await detailsPage.expectAddressShown(address);
     });
 
-    test("should be able to delete account", async ({ adminPage }) => {
-        await createCustomer(adminPage);
+    test("should update a customer address", async () => {
+        const customer = buildCustomer();
+        const address = buildAddress();
+        const newStreet = `${uniqueStamp()} Sector 18`;
+        created.push(customer.email);
 
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.addAddress(address);
+        await detailsPage.updateAddressStreet(address.street, newStreet);
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
-        await adminPage.waitForTimeout(3000);
-
-        await adminPage.click(".icon-cancel:visible");
-        await adminPage
-            .getByRole("button", { name: "Agree", exact: true })
-            .click();
-
-        await adminPage.waitForSelector("text=Customer Deleted Successfully", {
-            timeout: 3000,
-        });
-
-        await expect(
-            adminPage
-                .locator("#app")
-                .filter({ hasText: "Customer Deleted Successfully" })
-        ).toBeVisible();
+        await detailsPage.reload();
+        await detailsPage.expectAddressShown({ ...address, street: newStreet });
+        await detailsPage.expectAddressAbsent(address.street);
     });
 
-    test("should be able to create order", async ({ adminPage }) => {
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+    test("should mark a customer address as the default one", async () => {
+        const customer = buildCustomer();
+        const first = buildAddress();
+        const second = { ...buildAddress(), street: `${uniqueStamp()} Sector 15` };
+        created.push(customer.email);
 
-        await adminPage.waitForSelector("a.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "a.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.addAddress(first);
+        await detailsPage.addAddress(second);
+        await detailsPage.setDefaultAddress(second.street);
 
-        await adminPage.click(".icon-cart:visible");
-
-        await adminPage.click(
-            'button[type="button"].transparent-button + button[type="button"].primary-button'
-        );
-
-        await expect(adminPage.getByText("Cart Items").first()).toBeVisible();
+        await detailsPage.reload();
+        await detailsPage.expectDefaultAddress(second.street);
+        await detailsPage.expectNotDefaultAddress(first.street);
     });
 
-    test("should be able to mass delete the customers.", async ({
-        adminPage,
-    }) => {
-        /**
-         * Creating a customer first.
-         */
-        await createCustomer(adminPage);
+    test("should delete a customer address", async () => {
+        const customer = buildCustomer();
+        const address = buildAddress();
+        const untouched = { ...buildAddress(), street: `${uniqueStamp()} Sector 15` };
+        created.push(customer.email);
 
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.addAddress(address);
+        await detailsPage.addAddress(untouched);
+        await detailsPage.deleteAddress(address.street);
 
-        await adminPage.waitForSelector(".icon-uncheckbox:visible", {
-            state: "visible",
-        });
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-        await checkboxes[1].click();
-
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")',
-            { timeout: 1000 }
-        );
-        await selectActionButton.click();
-
-        await adminPage.click('a:has-text("Delete")', { timeout: 1000 });
-
-        await adminPage.waitForSelector("text=Are you sure", {
-            state: "visible",
-            timeout: 1000,
-        });
-
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        await expect(
-            adminPage.getByText("Selected data successfully deleted")
-        ).toBeVisible();
+        await detailsPage.reload();
+        await detailsPage.expectAddressAbsent(address.street);
+        await detailsPage.expectAddressShown(untouched);
     });
 
-    test("should be able to mass update the customers", async ({
-        adminPage,
-    }) => {
-        /**
-         * Creating a customer first.
-         */
-        await createCustomer(adminPage);
+    test("should add a note to a customer", async () => {
+        const customer = buildCustomer();
+        const note = `${generateDescription(60)} ${uniqueStamp()}`;
+        created.push(customer.email);
 
-        await adminPage.goto("admin/customers");
-        await adminPage.waitForSelector("button.primary-button:visible", {
-            state: "visible",
-        });
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.addNote(note);
 
-        await adminPage.waitForSelector(".icon-uncheckbox:visible", {
-            state: "visible",
-        });
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-        await checkboxes[1].click();
+        await detailsPage.reload();
+        await detailsPage.expectNoteShown(note);
+    });
 
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")',
-            { timeout: 1000 }
+    test("should delete a customer account", async () => {
+        const customer = buildCustomer();
+        const untouched = buildCustomer();
+        created.push(customer.email, untouched.email);
+
+        await customersPage.createCustomer(customer);
+        await customersPage.createCustomer(untouched);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.deleteAccount();
+
+        await customersPage.expectCustomerAbsent(customer.email);
+        await customersPage.expectCustomerListed(
+            untouched.email,
+            `${untouched.firstName} ${untouched.lastName}`,
         );
-        await selectActionButton.click();
+    });
 
-        await adminPage.hover('a:has-text("Update Status")', { timeout: 1000 });
-        await adminPage.waitForSelector(
-            'a:has-text("Active"), a:has-text("Inactive")',
-            { state: "visible", timeout: 1000 }
+    test("should start an order for a customer from its details page", async () => {
+        const customer = buildCustomer();
+        created.push(customer.email);
+
+        await customersPage.createCustomer(customer);
+        await customersPage.openCustomer(customer.email);
+        await detailsPage.createOrder();
+
+        await detailsPage.expectOrderCreationStarted();
+    });
+
+    test("should mass delete only the selected customers", async () => {
+        const first = buildCustomer();
+        const second = buildCustomer();
+        const untouched = buildCustomer();
+        created.push(first.email, second.email, untouched.email);
+
+        await customersPage.createCustomer(first);
+        await customersPage.createCustomer(second);
+        await customersPage.createCustomer(untouched);
+        await customersPage.massDeleteCustomers([first.email, second.email]);
+
+        await customersPage.expectCustomerAbsent(first.email);
+        await customersPage.expectCustomerAbsent(second.email);
+        await customersPage.expectCustomerListed(
+            untouched.email,
+            `${untouched.firstName} ${untouched.lastName}`,
         );
-        await adminPage.click('a:has-text("Active")');
+    });
 
-        await adminPage.waitForSelector("text=Are you sure", {
-            state: "visible",
-            timeout: 1000,
-        });
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
+    test("should deactivate selected customers through the mass action", async () => {
+        const first = buildCustomer();
+        const untouched = buildCustomer();
+        created.push(first.email, untouched.email);
+
+        await customersPage.createCustomer(first);
+        await customersPage.createCustomer(untouched);
+        await customersPage.massUpdateStatus([first.email], "Inactive");
+
+        await customersPage.expectCustomerListed(
+            first.email,
+            `${first.firstName} ${first.lastName}`,
+            "Inactive",
         );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        await expect(
-            adminPage.getByText("Selected Customers successfully updated")
-        ).toBeVisible();
+        await customersPage.expectCustomerListed(
+            untouched.email,
+            `${untouched.firstName} ${untouched.lastName}`,
+            "Active",
+        );
     });
 });

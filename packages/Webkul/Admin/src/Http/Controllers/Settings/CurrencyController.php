@@ -3,6 +3,9 @@
 namespace Webkul\Admin\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Settings\CurrencyDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Core\Enums\CurrencyPositionEnum;
@@ -21,7 +24,7 @@ class CurrencyController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -42,9 +45,12 @@ class CurrencyController extends Controller
         $this->validate(request(), [
             'code' => ['required', 'min:3', 'max:3', 'unique:currencies,code', new Code],
             'name' => 'required',
+            ...$this->getFormatRules(),
         ]);
 
-        $this->currencyRepository->create(request()->only([
+        Event::dispatch('core.currency.create.before');
+
+        $currency = $this->currencyRepository->create(request()->only([
             'code',
             'name',
             'symbol',
@@ -53,6 +59,8 @@ class CurrencyController extends Controller
             'decimal_separator',
             'currency_position',
         ]));
+
+        Event::dispatch('core.currency.create.after', $currency);
 
         return new JsonResponse([
             'message' => trans('admin::app.settings.currencies.index.create-success'),
@@ -78,9 +86,12 @@ class CurrencyController extends Controller
 
         $this->validate(request(), [
             'name' => 'required',
+            ...$this->getFormatRules(),
         ]);
 
-        $this->currencyRepository->update(request()->only([
+        Event::dispatch('core.currency.update.before', $id);
+
+        $currency = $this->currencyRepository->update(request()->only([
             'name',
             'symbol',
             'decimal',
@@ -88,6 +99,8 @@ class CurrencyController extends Controller
             'decimal_separator',
             'currency_position',
         ]), $id);
+
+        Event::dispatch('core.currency.update.after', $currency);
 
         return new JsonResponse([
             'message' => trans('admin::app.settings.currencies.index.update-success'),
@@ -120,5 +133,19 @@ class CurrencyController extends Controller
                 'message' => trans('admin::app.settings.currencies.index.delete-failed'),
             ], 500);
         }
+    }
+
+    /**
+     * Get the rules for how a currency formats a price, whose symbol and separators are written into pages.
+     */
+    protected function getFormatRules(): array
+    {
+        return [
+            'symbol' => ['nullable', 'string', 'not_regex:/[<>"\'`&]/'],
+            'decimal' => ['nullable', 'integer', 'between:0,9'],
+            'group_separator' => ['nullable', 'regex:/^[,.\' ]$/'],
+            'decimal_separator' => ['nullable', 'regex:/^[,.]+$/'],
+            'currency_position' => ['nullable', Rule::enum(CurrencyPositionEnum::class)],
+        ];
     }
 }

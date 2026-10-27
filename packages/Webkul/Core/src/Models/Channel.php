@@ -44,6 +44,7 @@ class Channel extends TranslatableModel implements ChannelContract
      */
     protected $casts = [
         'home_seo' => 'array',
+        'is_maintenance_on' => 'boolean',
     ];
 
     /**
@@ -56,6 +57,7 @@ class Channel extends TranslatableModel implements ChannelContract
         'description',
         'maintenance_mode_text',
         'home_seo',
+        'logo_alt',
     ];
 
     /**
@@ -67,7 +69,7 @@ class Channel extends TranslatableModel implements ChannelContract
     }
 
     /**
-     * Get the default locale
+     * Get the default locale.
      */
     public function default_locale(): BelongsTo
     {
@@ -75,19 +77,11 @@ class Channel extends TranslatableModel implements ChannelContract
     }
 
     /**
-     * Get the channel locales.
+     * Get the channel currencies.
      */
     public function currencies(): BelongsToMany
     {
         return $this->belongsToMany(CurrencyProxy::modelClass(), 'channel_currencies');
-    }
-
-    /**
-     * Get the channel inventory sources.
-     */
-    public function inventory_sources(): BelongsToMany
-    {
-        return $this->belongsToMany(InventorySourceProxy::modelClass(), 'channel_inventory_sources');
     }
 
     /**
@@ -99,11 +93,33 @@ class Channel extends TranslatableModel implements ChannelContract
     }
 
     /**
+     * Get the channel inventory sources.
+     */
+    public function inventory_sources(): BelongsToMany
+    {
+        return $this->belongsToMany(InventorySourceProxy::modelClass(), 'channel_inventory_sources');
+    }
+
+    /**
      * Get the root category.
      */
     public function root_category(): BelongsTo
     {
         return $this->belongsTo(CategoryProxy::modelClass(), 'root_category_id');
+    }
+
+    /**
+     * The given locale code when the channel has that locale, otherwise the channel's default locale code.
+     *
+     * @param  string|null  $localeCode
+     */
+    public function resolveLocaleCode($localeCode): string
+    {
+        if ($this->locales->contains('code', $localeCode)) {
+            return $localeCode;
+        }
+
+        return $this->default_locale->code;
     }
 
     /**
@@ -127,6 +143,16 @@ class Channel extends TranslatableModel implements ChannelContract
     }
 
     /**
+     * Get the logo file name, without the directory and the extension.
+     *
+     * @return string
+     */
+    public function getLogoFileNameAttribute()
+    {
+        return pathinfo((string) $this->logo, PATHINFO_FILENAME);
+    }
+
+    /**
      * Get favicon image url.
      */
     public function favicon_url()
@@ -147,7 +173,17 @@ class Channel extends TranslatableModel implements ChannelContract
     }
 
     /**
-     * Create a new factory instance for the model
+     * Get the favicon file name, without the directory and the extension.
+     *
+     * @return string
+     */
+    public function getFaviconFileNameAttribute()
+    {
+        return pathinfo((string) $this->favicon, PATHINFO_FILENAME);
+    }
+
+    /**
+     * Create a new factory instance for the model.
      */
     protected static function newFactory(): Factory
     {

@@ -33,6 +33,8 @@
 
                     isMediaLoading: true,
 
+                    placeholderUrl: @js(product_image()->getPlaceholderUrl('large')),
+
                     media: {
                         images: @json(product_image()->getGalleryImages($product)),
 
@@ -42,7 +44,9 @@
                     baseFile: {
                         type: '',
 
-                        path: ''
+                        path: '',
+
+                        alt: "{{ $product->name }}"
                     },
 
                     activeIndex: 0,
@@ -60,6 +64,8 @@
 
                         if (JSON.stringify(newImages) !== JSON.stringify(oldImages) && selectedImage?.large_image_url) {
                             this.baseFile.path = selectedImage.large_image_url;
+
+                            this.baseFile.alt = selectedImage.alt;
                         }
                     },
                 },
@@ -71,6 +77,8 @@
                     this.baseFile.type = 'image';
 
                     this.baseFile.path = this.media.images[0].large_image_url;
+
+                    this.baseFile.alt = this.media.images[0].alt;
                 } else if (this.media.videos.length) {
 
                     this.baseFile.type = 'video';
@@ -89,8 +97,10 @@
                 attachments() {
                     return [...this.media.images, ...this.media.videos].map(media => ({
                         url: media.type === 'videos' ? media.video_url : media.original_image_url,
-                        
+
                         type: media.type === 'videos' ? 'video' : 'image',
+
+                        alt: media.alt ?? "{{ $product->name }}",
                     }));
                 },
             },
@@ -102,6 +112,14 @@
                 
                 onMediaLoad() {
                     this.isMediaLoading = false;
+                },
+
+                onMediaError(event) {
+                    this.isMediaLoading = false;
+
+                    if (event?.target && event.target.src !== this.placeholderUrl) {
+                        event.target.src = this.placeholderUrl;
+                    }
                 },
 
                 change(media, index) {
@@ -117,6 +135,8 @@
                         this.baseFile.type = 'image';
 
                         this.baseFile.path = media.large_image_url;
+
+                        this.baseFile.alt = media.alt;
                     }
 
                     if (index > this.activeIndex) {

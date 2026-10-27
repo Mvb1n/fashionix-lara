@@ -14,7 +14,7 @@
         type="text/x-template"
         id="v-datagrid-filter-template"
     >
-        <!-- Empty slot for right toolbar before -->
+        <!-- Empty Slot For Right Toolbar Before -->
         <slot name="right-toolbar-left-before"></slot>
 
         <slot
@@ -42,8 +42,8 @@
                     <x-slot:toggle>
                         <div>
                             <div
-                                class="relative inline-flex w-full max-w-max cursor-pointer select-none appearance-none items-center justify-between gap-x-1 rounded-md border bg-white px-1 py-1.5 text-center text-gray-600 transition-all marker:shadow hover:border-gray-400 focus:outline-none focus:ring-2 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 ltr:pl-3 ltr:pr-5 rtl:pl-5 rtl:pr-3"
-                                :class="{'[&>*]:text-blue-600 border-blue-600 [&>*]:dark:text-white': hasAnyAppliedColumn() }"
+                                class="relative inline-flex w-full max-w-max cursor-pointer select-none appearance-none items-center justify-between gap-x-1 rounded-md border bg-white px-1 py-1.5 text-center text-gray-600 transition-all marker:shadow-sm hover:border-gray-400 focus:outline-hidden focus:ring-2 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 ltr:pl-3 ltr:pr-5 rtl:pl-5 rtl:pr-3"
+                                :class="{'*:text-blue-600 border-blue-600 *:dark:text-white': hasAnyAppliedColumn() }"
                             >
                                 <span class="icon-filter text-2xl"></span>
 
@@ -58,7 +58,7 @@
                                 </span>
                             </div>
 
-                            <div class="z-10 hidden w-full divide-y divide-gray-100 rounded bg-white shadow dark:bg-gray-900">
+                            <div class="z-10 hidden w-full divide-y divide-gray-100 rounded-sm bg-white shadow-sm dark:bg-gray-900">
                             </div>
                         </div>
                     </x-slot>
@@ -88,11 +88,11 @@
                         </div>
                     </x-slot>
 
-                    <x-slot:content class="!p-0">
+                    <x-slot:content class="p-0!">
                         <template v-if="! isShowSavedFilters">
                             <!-- Quick Filters Accordion -->
                             <x-admin::accordion
-                                class="select-none rounded-none !border-none !shadow-none"
+                                class="select-none rounded-none border-none! shadow-none!"
                                 v-if="savedFilters.available.length > 0"
                             >
                                 <x-slot:header class="px-4">
@@ -101,8 +101,8 @@
                                     </p>
                                 </x-slot>
 
-                                <x-slot:content class="border-b !p-0 dark:border-gray-800">
-                                    <div class="grid !p-0">
+                                <x-slot:content class="border-b p-0! dark:border-gray-800">
+                                    <div class="grid p-0!">
                                         <!-- Listing of Quick Filters (Saved Filters) -->
                                         <div v-for="(filter,index) in savedFilters.available">
                                             <div
@@ -113,7 +113,7 @@
                                                 <span class="text-xs font-medium text-gray-800 dark:text-white">@{{ filter.name }}</span>
 
                                                 <span
-                                                    class="icon-cross rounded p-1.5 text-lg hover:bg-gray-200 dark:hover:bg-gray-800"
+                                                    class="icon-cross rounded-sm p-1.5 text-lg hover:bg-gray-200 dark:hover:bg-gray-800"
                                                     @click.stop="deleteSavedFilter(filter)"
                                                 >
                                                 </span>
@@ -124,14 +124,14 @@
                             </x-admin::accordion>
 
                             <!-- Filters Accordion -->
-                            <x-admin::accordion class="select-none !rounded-none !border-none !shadow-none">
+                            <x-admin::accordion class="select-none rounded-none! border-none! shadow-none!">
                                 <x-slot:header class="px-4">
                                     <p class="text-base font-semibold text-gray-800 dark:text-white">
                                         @lang('admin::app.components.datagrid.toolbar.filter.custom-filters')
                                     </p>
 
                                     <div
-                                        v-if="hasAnyAppliedColumn() || isFilterDirty"
+                                        v-if="hasAnyAppliedColumn() || filters.columns.length > 0"
                                         class="cursor-pointer text-xs font-medium leading-6 text-blue-600 transition-all hover:underline ltr:ml-20 rtl:mr-20"
                                         @click="removeAllAppliedFilters()"
                                     >
@@ -139,7 +139,7 @@
                                     </div>
                                 </x-slot>
 
-                                <x-slot:content class="!p-4">
+                                <x-slot:content class="p-4!">
                                     <!-- All Filters -->
                                     <div v-for="column in available.columns">
                                         <div v-if="column.filterable">
@@ -168,11 +168,11 @@
                                                     </div>
 
                                                     <div class="mb-2 mt-1.5">
-                                                        <x-admin::dropdown>
+                                                        <x-admin::dropdown :fit-toggle="true">
                                                             <x-slot:toggle>
                                                                 <button
                                                                     type="button"
-                                                                    class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center leading-6 text-gray-600 transition-all marker:shadow hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                                                    class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center leading-6 text-gray-600 transition-all marker:shadow-sm hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                                                 >
                                                                     <!-- If Allow Multiple Values -->
                                                                     <span
@@ -194,13 +194,38 @@
                                                                 </button>
                                                             </x-slot>
 
-                                                            <x-slot:menu class="max-h-[200px] overflow-auto">
-                                                                <x-admin::dropdown.menu.item
-                                                                    v-for="option in column.filterable_options"
-                                                                    v-text="option.label"
-                                                                    @click="addFilter(option.value, column)"
+                                                            <x-slot:menu class="py-0!">
+                                                                <!-- Search Box (Fixed header, shown once the option list is long enough to warrant it.) -->
+                                                                <li
+                                                                    v-if="isFilterSearchable(column)"
+                                                                    class="border-b bg-white p-2 dark:border-gray-800 dark:bg-gray-900"
+                                                                    @click.stop
                                                                 >
-                                                                </x-admin::dropdown.menu.item>
+                                                                    <input
+                                                                        type="text"
+                                                                        v-model="filterSearch[column.index]"
+                                                                        placeholder="@lang('admin::app.components.datagrid.toolbar.search.title')"
+                                                                        class="w-full rounded-md border bg-white px-2.5 py-1.5 text-sm text-gray-600 transition-all focus:border-gray-400 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                                    >
+                                                                </li>
+
+                                                                <!-- Only the options scroll, so they never slip above the fixed search header. -->
+                                                                <div class="max-h-60 overflow-auto py-4">
+                                                                    <x-admin::dropdown.menu.item
+                                                                        v-for="option in filterOptions(column)"
+                                                                        class="truncate"
+                                                                        v-text="option.label"
+                                                                        @click="addFilter(option.value, column)"
+                                                                    >
+                                                                    </x-admin::dropdown.menu.item>
+
+                                                                    <li
+                                                                        v-if="! filterOptions(column).length"
+                                                                        class="px-5 py-2 text-sm text-gray-400 dark:text-gray-500"
+                                                                    >
+                                                                        @lang('admin::app.components.datagrid.filters.dropdown.searchable.no-results')
+                                                                    </li>
+                                                                </div>
                                                             </x-slot>
                                                         </x-admin::dropdown>
                                                     </div>
@@ -209,7 +234,7 @@
                                                         <!-- If Allow Multiple Values -->
                                                         <template v-if="column.allow_multiple_values">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-for="appliedColumnValue in getAppliedColumnValues(column.index)"
                                                             >
                                                                 <!-- Retrieving the label from the options based on the applied column value. -->
@@ -271,7 +296,7 @@
                                                                 type="date"
                                                                 :name="`${column.index}[from]`"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="`${column.index}[from]`"
                                                                 @change="addFilter(
@@ -287,7 +312,7 @@
                                                                 type="date"
                                                                 :name="`${column.index}[to]`"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="`${column.index}[from]`"
                                                                 @change="addFilter(
@@ -300,7 +325,7 @@
 
                                                         <div class="mb-4 flex flex-wrap gap-2">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-if="findAppliedColumn(column.index)"
                                                             >
                                                                 <span>
@@ -345,7 +370,7 @@
                                                                 type="date"
                                                                 :name="column.index"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="column.index"
                                                                 @change="addFilter($event, column)"
@@ -354,7 +379,7 @@
 
                                                         <div class="mb-4 flex flex-wrap gap-2">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-if="findAppliedColumn(column.index)"
                                                             >
                                                                 <span>
@@ -414,7 +439,7 @@
                                                                 type="datetime-local"
                                                                 :name="`${column.index}[from]`"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="`${column.index}[from]`"
                                                                 @change="addFilter(
@@ -430,7 +455,7 @@
                                                                 type="datetime-local"
                                                                 :name="`${column.index}[to]`"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="`${column.index}[from]`"
                                                                 @change="addFilter(
@@ -443,7 +468,7 @@
 
                                                         <div class="mb-4 flex flex-wrap gap-2">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-if="findAppliedColumn(column.index)"
                                                             >
                                                                 <span>
@@ -488,7 +513,7 @@
                                                                 type="datetime-local"
                                                                 :name="column.index"
                                                                 value=""
-                                                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                                                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                                                 :placeholder="column.label"
                                                                 :ref="column.index"
                                                                 @change="addFilter($event, column)"
@@ -497,7 +522,7 @@
 
                                                         <div class="mb-4 flex flex-wrap gap-2">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-if="findAppliedColumn(column.index)"
                                                             >
                                                                 <span>
@@ -513,6 +538,128 @@
                                                         </div>
                                                     </div>
                                                 </template>
+                                            </div>
+
+                                            <!-- Integer / Decimal -->
+                                            <div v-else-if="['integer', 'decimal'].includes(column.type) && column.filterable_type !== 'dropdown'">
+                                                <div class="flex items-center justify-between">
+                                                    <p
+                                                        class="text-xs font-medium text-gray-800 dark:text-white"
+                                                        v-text="column.label"
+                                                    >
+                                                    </p>
+
+                                                    <div
+                                                        class="flex items-center gap-x-1.5"
+                                                        @click="removeAppliedColumnAllValues(column.index)"
+                                                    >
+                                                        <p
+                                                            class="cursor-pointer text-xs font-medium leading-6 text-blue-600"
+                                                            v-if="hasAnyAppliedColumnValues(column.index)"
+                                                        >
+                                                            @lang('admin::app.components.datagrid.filters.custom-filters.clear-all')
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-2 mt-1.5 grid gap-1.5">
+                                                    <x-admin::dropdown :fit-toggle="true">
+                                                        <x-slot:toggle>
+                                                            <button
+                                                                type="button"
+                                                                class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                                            >
+                                                                <span
+                                                                    class="text-sm"
+                                                                    v-text="numericOperators.find((operator) => operator.value === filterOperator[column.index])?.label"
+                                                                >
+                                                                </span>
+
+                                                                <span class="icon-sort-down text-2xl"></span>
+                                                            </button>
+                                                        </x-slot>
+
+                                                        <x-slot:menu>
+                                                            <x-admin::dropdown.menu.item
+                                                                v-for="operator in numericOperators"
+                                                                v-text="operator.label"
+                                                                @click="filterOperator[column.index] = operator.value; applyNumericFilter(column)"
+                                                            >
+                                                            </x-admin::dropdown.menu.item>
+                                                        </x-slot>
+                                                    </x-admin::dropdown>
+
+                                                    <div
+                                                        class="grid grid-cols-2 gap-1.5"
+                                                        v-if="filterOperator[column.index] === 'between'"
+                                                    >
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            class="block w-full rounded-md border bg-white px-2 py-1.5 text-sm leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                            v-model="filterValue[column.index]"
+                                                            placeholder="@lang('admin::app.components.datagrid.filters.number-options.from')"
+                                                            @keyup.enter="applyNumericFilter(column)"
+                                                            @change="applyNumericFilter(column)"
+                                                        />
+
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            class="block w-full rounded-md border bg-white px-2 py-1.5 text-sm leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                            v-model="filterValueMax[column.index]"
+                                                            placeholder="@lang('admin::app.components.datagrid.filters.number-options.to')"
+                                                            @keyup.enter="applyNumericFilter(column)"
+                                                            @change="applyNumericFilter(column)"
+                                                        />
+                                                    </div>
+
+                                                    <div class="relative" v-else>
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            class="block w-full rounded-md border bg-white px-2 py-1.5 text-sm leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 ltr:pr-11 rtl:pl-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            v-model="filterValue[column.index]"
+                                                            :placeholder="column.label"
+                                                            @keyup.enter="applyNumericFilter(column)"
+                                                            @change="applyNumericFilter(column)"
+                                                        />
+
+                                                        <transition
+                                                            enter-active-class="transition duration-200 ease-out"
+                                                            enter-from-class="opacity-0 ltr:translate-x-2 rtl:-translate-x-2"
+                                                            enter-to-class="opacity-100 translate-x-0"
+                                                            leave-active-class="transition duration-150 ease-in"
+                                                            leave-from-class="opacity-100 translate-x-0"
+                                                            leave-to-class="opacity-0 ltr:translate-x-2 rtl:-translate-x-2"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                class="absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-blue-700 bg-blue-600 text-gray-50 transition-all hover:opacity-90 ltr:right-1.5 rtl:left-1.5"
+                                                                v-show="filterValue[column.index]"
+                                                                :aria-label="'@lang('admin::app.components.datagrid.toolbar.filter.apply-filters-btn')'"
+                                                                @click="applyNumericFilter(column)"
+                                                            >
+                                                                <span class="icon-arrow-left rtl:icon-arrow-right text-lg text-white!"></span>
+                                                            </button>
+                                                        </transition>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-4 flex flex-wrap gap-2">
+                                                    <p
+                                                        class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                        v-if="getAppliedColumnValues(column.index) !== ''"
+                                                    >
+                                                        <span v-text="getAppliedColumnValues(column.index)"></span>
+
+                                                        <span
+                                                            class="icon-cross cursor-pointer text-lg text-white ltr:ml-1.5 rtl:mr-1.5"
+                                                            @click="removeAppliedColumnValue(column.index, getAppliedColumnValues(column.index))"
+                                                        >
+                                                        </span>
+                                                    </p>
+                                                </div>
                                             </div>
 
                                             <!-- Rest -->
@@ -540,11 +687,11 @@
                                                     </div>
 
                                                     <div class="mb-2 mt-1.5">
-                                                        <x-admin::dropdown>
+                                                        <x-admin::dropdown :fit-toggle="true">
                                                             <x-slot:toggle>
                                                                 <button
                                                                     type="button"
-                                                                    class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center leading-6 text-gray-600 transition-all marker:shadow hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                                                    class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center leading-6 text-gray-600 transition-all marker:shadow-sm hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                                                 >
                                                                     <!-- If Allow Multiple Values -->
                                                                     <span
@@ -566,13 +713,38 @@
                                                                 </button>
                                                             </x-slot>
 
-                                                            <x-slot:menu class="max-h-[200px] overflow-auto">
-                                                                <x-admin::dropdown.menu.item
-                                                                    v-for="option in column.filterable_options"
-                                                                    v-text="option.label"
-                                                                    @click="addFilter(option.value, column)"
+                                                            <x-slot:menu class="py-0!">
+                                                                <!-- Search box (fixed header, shown once the option list is long enough to warrant it) -->
+                                                                <li
+                                                                    v-if="isFilterSearchable(column)"
+                                                                    class="border-b bg-white p-2 dark:border-gray-800 dark:bg-gray-900"
+                                                                    @click.stop
                                                                 >
-                                                                </x-admin::dropdown.menu.item>
+                                                                    <input
+                                                                        type="text"
+                                                                        v-model="filterSearch[column.index]"
+                                                                        placeholder="@lang('admin::app.components.datagrid.toolbar.search.title')"
+                                                                        class="w-full rounded-md border bg-white px-2.5 py-1.5 text-sm text-gray-600 transition-all focus:border-gray-400 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                                                    >
+                                                                </li>
+
+                                                                <!-- Only the options scroll, so they never slip above the fixed search header -->
+                                                                <div class="max-h-60 overflow-auto py-4">
+                                                                    <x-admin::dropdown.menu.item
+                                                                        v-for="option in filterOptions(column)"
+                                                                        class="truncate"
+                                                                        v-text="option.label"
+                                                                        @click="addFilter(option.value, column)"
+                                                                    >
+                                                                    </x-admin::dropdown.menu.item>
+
+                                                                    <li
+                                                                        v-if="! filterOptions(column).length"
+                                                                        class="px-5 py-2 text-sm text-gray-400 dark:text-gray-500"
+                                                                    >
+                                                                        @lang('admin::app.components.datagrid.filters.dropdown.searchable.no-results')
+                                                                    </li>
+                                                                </div>
                                                             </x-slot>
                                                         </x-admin::dropdown>
                                                     </div>
@@ -581,7 +753,7 @@
                                                         <!-- If Allow Multiple Values -->
                                                         <template v-if="column.allow_multiple_values">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-for="appliedColumnValue in getAppliedColumnValues(column.index)"
                                                             >
                                                                 <!-- Retrieving the label from the options based on the applied column value. -->
@@ -619,22 +791,43 @@
                                                         </div>
                                                     </div>
 
-                                                    <!-- Text type Input field -->
-                                                    <div class="mb-2 mt-1.5 grid">
+                                                    <!-- Text Type Input Field -->
+                                                    <div class="relative mb-2 mt-1.5">
                                                         <input
                                                             type="text"
-                                                            class="block w-full rounded-md border bg-white px-2 py-1.5 text-sm leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                                            class="block w-full rounded-md border bg-white px-2 py-1.5 text-sm leading-6 text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400 ltr:pr-11 rtl:pl-11"
                                                             :name="column.index"
                                                             :placeholder="column.label"
-                                                            @change="addFilter($event, column)"
+                                                            v-model="filterValue[column.index]"
+                                                            @keyup.enter="applyTextFilter(column)"
+                                                            @change="applyTextFilter(column)"
                                                         />
+
+                                                        <transition
+                                                            enter-active-class="transition duration-200 ease-out"
+                                                            enter-from-class="opacity-0 ltr:translate-x-2 rtl:-translate-x-2"
+                                                            enter-to-class="opacity-100 translate-x-0"
+                                                            leave-active-class="transition duration-150 ease-in"
+                                                            leave-from-class="opacity-100 translate-x-0"
+                                                            leave-to-class="opacity-0 ltr:translate-x-2 rtl:-translate-x-2"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                class="absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-blue-700 bg-blue-600 text-gray-50 transition-all hover:opacity-90 ltr:right-1.5 rtl:left-1.5"
+                                                                v-show="filterValue[column.index]"
+                                                                :aria-label="'@lang('admin::app.components.datagrid.toolbar.filter.apply-filters-btn')'"
+                                                                @click="applyTextFilter(column)"
+                                                            >
+                                                                <span class="icon-arrow-left rtl:icon-arrow-right text-lg text-white!"></span>
+                                                            </button>
+                                                        </transition>
                                                     </div>
 
                                                     <div class="mb-4 flex flex-wrap gap-2">
                                                         <!-- If Allow Multiple Values -->
                                                         <template v-if="column.allow_multiple_values">
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-for="appliedColumnValue in getAppliedColumnValues(column.index)"
                                                             >
                                                                 <span v-text="appliedColumnValue"></span>
@@ -650,7 +843,7 @@
                                                         <!-- If Allow Single Value -->
                                                         <template v-else>
                                                             <p
-                                                                class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                 v-if="getAppliedColumnValues(column.index) !== ''"
                                                             >
                                                                 <span v-text="getAppliedColumnValues(column.index)"></span>
@@ -666,30 +859,6 @@
                                                 </template>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <!-- Buttons Panel -->
-                                    <div class="flex gap-2">
-                                        <!-- Apply Filter Button -->
-                                        <button
-                                            type="button"
-                                            class="secondary-button w-full"
-                                            @click="applyFilters"
-                                            :disabled="! isFilterDirty"
-                                        >
-                                            @lang('admin::app.components.datagrid.toolbar.filter.apply-filters-btn')
-                                        </button>
-
-                                        <!-- Save Filter Button -->
-                                        <button
-                                            type="button"
-                                            v-if="hasAnyColumn"
-                                            class="secondary-button w-full"
-                                            @click="isShowSavedFilters = ! isShowSavedFilters"
-                                            :disabled="isFilterDirty || ! filters.columns.length > 0"
-                                        >
-                                            @{{ applied.savedFilterId ? '@lang('admin::app.components.datagrid.toolbar.filter.update-filter')' : '@lang('admin::app.components.datagrid.toolbar.filter.save-filter')' }}
-                                        </button>
                                     </div>
                                 </x-slot>
                             </x-admin::accordion>
@@ -769,7 +938,7 @@
                                                             <div class="mb-4 flex flex-wrap gap-2">
                                                                 <!-- Date & Date Time Case -->
                                                                 <template v-if="column.type === 'date' || column.type === 'datetime'">
-                                                                    <p class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white">
+                                                                    <p class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white">
                                                                         <span>
                                                                             @{{ getFormattedDates(column) }}
                                                                         </span>
@@ -788,7 +957,7 @@
                                                                     <template v-if="column.allow_multiple_values">
                                                                         <p
                                                                             v-for="appliedColumnValue in column.value"
-                                                                            class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white"
+                                                                            class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white"
                                                                         >
                                                                             <span>
                                                                                 @{{ appliedColumnValue }}
@@ -804,7 +973,7 @@
 
                                                                     <!-- If Allow Single Value -->
                                                                     <template v-else>
-                                                                        <p class="flex items-center rounded bg-gray-600 px-2 py-1 font-semibold text-white">
+                                                                        <p class="flex items-center rounded-sm bg-gray-600 px-2 py-1 font-semibold text-white">
                                                                             <span>
                                                                                 @{{ column.value }}
                                                                             </span>
@@ -852,6 +1021,41 @@
                             </div>
                         </template>
                     </x-slot>
+
+                    <x-slot:footer class="p-0!">
+                        <transition
+                            enter-active-class="transition duration-300 ease-out"
+                            enter-from-class="translate-y-full opacity-0"
+                            enter-to-class="translate-y-0 opacity-100"
+                            leave-active-class="transition duration-300 ease-in"
+                            leave-from-class="translate-y-0 opacity-100"
+                            leave-to-class="translate-y-full opacity-0"
+                        >
+                            <div
+                                class="sticky bottom-0 flex gap-2 border-t border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+                                v-show="! isShowSavedFilters && (filters.columns.length > 0 || hasAnyAppliedColumn())"
+                            >
+                                <button
+                                    type="button"
+                                    class="secondary-button w-full"
+                                    :disabled="! isFilterDirty"
+                                    @click="applyFilters"
+                                >
+                                    @lang('admin::app.components.datagrid.toolbar.filter.apply-filters-btn')
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="secondary-button w-full"
+                                    v-if="hasAnyColumn"
+                                    :disabled="isFilterDirty || ! filters.columns.length > 0"
+                                    @click="isShowSavedFilters = ! isShowSavedFilters"
+                                >
+                                    @{{ applied.savedFilterId ? '@lang('admin::app.components.datagrid.toolbar.filter.update-filter')' : '@lang('admin::app.components.datagrid.toolbar.filter.save-filter')' }}
+                                </button>
+                            </div>
+                        </transition>
+                    </x-slot>
                 </x-admin::drawer>
             </template>
         </slot>
@@ -886,6 +1090,25 @@
                     isShowSavedFilters: false,
 
                     isFilterDirty: false,
+
+                    filterSearch: {},
+
+                    filterOperator: {},
+
+                    filterValue: {},
+
+                    filterValueMax: {},
+
+                    numericOperators: [
+                        { value: '=', label: @json(trans('admin::app.components.datagrid.filters.number-options.equals')) },
+                        { value: '>', label: @json(trans('admin::app.components.datagrid.filters.number-options.greater-than')) },
+                        { value: '>=', label: @json(trans('admin::app.components.datagrid.filters.number-options.greater-than-or-equal')) },
+                        { value: '<', label: @json(trans('admin::app.components.datagrid.filters.number-options.less-than')) },
+                        { value: '<=', label: @json(trans('admin::app.components.datagrid.filters.number-options.less-than-or-equal')) },
+                        { value: 'between', label: @json(trans('admin::app.components.datagrid.filters.number-options.between')) },
+                    ],
+
+                    searchableFilterThreshold: 6,
                 };
             },
 
@@ -893,6 +1116,12 @@
                 this.filters.columns = this.getAppliedColumns();
 
                 this.savedFilters.params.filters.columns = JSON.parse(JSON.stringify(this.filters.columns));
+
+                this.available.columns.forEach((column) => {
+                    if (['integer', 'decimal'].includes(column.type)) {
+                        this.filterOperator[column.index] = '=';
+                    }
+                });
 
                 this.getSavedFilters();
             },
@@ -904,6 +1133,36 @@
             },
 
             methods: {
+                /**
+                 * Whether a dropdown filter should offer a search box: true once its option count
+                 * passes the threshold, so long lists become searchable while short ones stay plain.
+                 *
+                 * @param {object} column
+                 * @returns {boolean}
+                 */
+                isFilterSearchable(column) {
+                    return (column.filterable_options?.length ?? 0) > this.searchableFilterThreshold;
+                },
+
+                /**
+                 * A dropdown filter's options narrowed by the term typed into its search box, matched
+                 * on the option label.
+                 *
+                 * @param {object} column
+                 * @returns {array}
+                 */
+                filterOptions(column) {
+                    const options = column.filterable_options ?? [];
+
+                    const term = (this.filterSearch[column.index] ?? '').trim().toLowerCase();
+
+                    if (! term) {
+                        return options;
+                    }
+
+                    return options.filter((option) => String(option.label).toLowerCase().includes(term));
+                },
+
                 /**
                  * Has any column.
                  *
@@ -961,7 +1220,9 @@
                         columns: [],
                     };
 
-                    this.isFilterDirty = true;
+                    this.isFilterDirty = false;
+
+                    this.applyFilters();
                 },
 
                 /**
@@ -991,7 +1252,7 @@
                         params._method = 'PUT';
                     }
 
-                    this.$axios.post(params.id ? `{{ route('admin.datagrid.saved_filters.update', '') }}/${params.id}` : "{{ route('admin.datagrid.saved_filters.store') }}", {
+                    this.$axios.post(params.id ? '{{ route('admin.datagrid.saved_filters.update', ':id') }}'.replace(':id', params.id) : "{{ route('admin.datagrid.saved_filters.store') }}", {
                         src: this.src,
                         applied,
                         ...params,
@@ -1016,10 +1277,13 @@
                             this.isShowSavedFilters = false;
                         })
                         .catch(error => {
-                            if (error.response.status == 422) {
+                            if (error.response?.status == 422) {
                                 setErrors(error.response.data.errors);
                             } else {
-                                this.$emitter.emit('add-flash', { type: 'error',  message: response.data.message });
+                                this.$emitter.emit('add-flash', {
+                                    type: 'error',
+                                    message: error.response?.data?.message ?? "@lang('admin::app.components.datagrid.index.action-error')",
+                                });
                             }
                         });
                 },
@@ -1048,7 +1312,7 @@
                 deleteSavedFilter(filter) {
                     this.$emitter.emit('open-confirm-modal', {
                         agree: () => {
-                            this.$axios.delete(`{{ route('admin.datagrid.saved_filters.destroy', '') }}/${filter.id}`)
+                            this.$axios.delete('{{ route('admin.datagrid.saved_filters.destroy', ':id') }}'.replace(':id', filter.id))
                                 .then(response => {
                                     this.applySavedFilter(null);
 
@@ -1057,7 +1321,10 @@
                                     this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
                                 })
                                 .catch(error => {
-                                    this.$emitter.emit('add-flash', { type: 'error', message: response.data.message });
+                                    this.$emitter.emit('add-flash', {
+                                        type: 'error',
+                                        message: error.response?.data?.message ?? "@lang('admin::app.components.datagrid.toolbar.filter.delete-error')",
+                                    });
                                 });
                         }
                     });
@@ -1117,6 +1384,57 @@
                             $event.target.value = '';
                         }
                     }
+                },
+
+                /**
+                 * Compose an operator based value for an integer or decimal column and apply it.
+                 * The backend decimal and integer column types parse strings like ">=50.20" and "50-100".
+                 *
+                 * @param {object} column
+                 * @returns {void}
+                 */
+                applyNumericFilter(column) {
+                    let operator = this.filterOperator[column.index] ?? '=';
+
+                    let value = (this.filterValue[column.index] ?? '').toString().trim();
+
+                    let composedValue = '';
+
+                    if (operator === 'between') {
+                        let maxValue = (this.filterValueMax[column.index] ?? '').toString().trim();
+
+                        if (value === '' || maxValue === '') {
+                            return;
+                        }
+
+                        composedValue = `${value}-${maxValue}`;
+                    } else {
+                        if (value === '') {
+                            return;
+                        }
+
+                        composedValue = `${operator}${value}`;
+                    }
+
+                    this.addFilter(composedValue, column);
+                },
+
+                /**
+                 * Apply a text column's typed value and clear the field so another can be added.
+                 *
+                 * @param {object} column
+                 * @returns {void}
+                 */
+                applyTextFilter(column) {
+                    let value = (this.filterValue[column.index] ?? '').toString().trim();
+
+                    if (value === '') {
+                        return;
+                    }
+
+                    this.addFilter(value, column);
+
+                    this.filterValue[column.index] = '';
                 },
 
                 /**

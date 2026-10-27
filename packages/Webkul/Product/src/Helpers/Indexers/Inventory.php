@@ -2,7 +2,9 @@
 
 namespace Webkul\Product\Helpers\Indexers;
 
+use Webkul\Core\Contracts\Channel;
 use Webkul\Core\Repositories\ChannelRepository;
+use Webkul\Product\Contracts\Product;
 use Webkul\Product\Repositories\ProductInventoryIndexRepository;
 use Webkul\Product\Repositories\ProductRepository;
 
@@ -16,14 +18,14 @@ class Inventory extends AbstractIndexer
     /**
      * Product instance.
      *
-     * @var \Webkul\Product\Contracts\Product
+     * @var Product
      */
     protected $product;
 
     /**
      * Channel instance.
      *
-     * @var \Webkul\Core\Contracts\Channel
+     * @var Channel
      */
     protected $channel;
 
@@ -50,8 +52,8 @@ class Inventory extends AbstractIndexer
     /**
      * Set current product
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
-     * @return \Webkul\Product\Helpers\Indexers\Inventory\Product
+     * @param  Product  $product
+     * @return Inventory\Product
      */
     public function setProduct($product)
     {
@@ -63,8 +65,8 @@ class Inventory extends AbstractIndexer
     /**
      * Set channel
      *
-     * @param  \Webkul\Core\Contracts\Channel  $channel
-     * @return \Webkul\Product\Helpers\Indexers\Inventory\Product
+     * @param  Channel  $channel
+     * @return Inventory\Product
      */
     public function setChannel($channel)
     {
@@ -80,26 +82,16 @@ class Inventory extends AbstractIndexer
      */
     public function reindexFull()
     {
-        while (true) {
-            $paginator = $this->productRepository
-                ->with([
-                    'inventories',
-                    'ordered_inventories',
-                    'inventory_indices',
-                ])
-                ->whereIn('type', ['simple', 'virtual'])
-                ->cursorPaginate($this->batchSize);
-
-            $this->reindexBatch($paginator->items());
-
-            if (! $cursor = $paginator->nextCursor()) {
-                break;
-            }
-
-            request()->query->add(['cursor' => $cursor->encode()]);
-        }
-
-        request()->query->remove('cursor');
+        $this->productRepository
+            ->with([
+                'inventories',
+                'ordered_inventories',
+                'inventory_indices',
+            ])
+            ->whereIn('type', ['simple', 'virtual'])
+            ->chunkById($this->batchSize, function ($products) {
+                $this->reindexBatch($products->all());
+            });
     }
 
     /**
@@ -164,7 +156,7 @@ class Inventory extends AbstractIndexer
     public function getIndices()
     {
         return [
-            'qty'        => $this->getQuantity(),
+            'qty' => $this->getQuantity(),
             'product_id' => $this->product->id,
             'channel_id' => $this->channel->id,
         ];

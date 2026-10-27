@@ -2,41 +2,23 @@
 
 namespace Webkul\Shop\CacheFilters;
 
+use Illuminate\Image\Image;
 use Illuminate\Support\Str;
-use Intervention\Image\Filters\FilterInterface;
-use Intervention\Image\Image;
 
-class Large implements FilterInterface
+class Large
 {
     /**
-     * Apply filter.
-     *
-     * @return \Intervention\Image\Image
+     * Apply the filter to the image, at the size the subject it is served for is shown at.
      */
-    public function applyFilter(Image $image)
+    public function applyFilter(Image $image): Image
     {
-        /**
-         * If the current url is product image
-         */
-        if (Str::contains(url()->current(), '/product')) {
-            $width = core()->getConfigData('catalog.products.cache_large_image.width') != ''
-                ? core()->getConfigData('catalog.products.cache_large_image.width')
-                : 560;
+        $url = url()->current();
 
-            $height = core()->getConfigData('catalog.products.cache_large_image.height') != ''
-                ? core()->getConfigData('catalog.products.cache_large_image.height')
-                : 610;
-
-            return $image->fit($width, $height);
-        } elseif (Str::contains(url()->current(), '/category')) {
-            return $image->fit(165, 165);
-        } elseif (Str::contains(url()->current(), '/attribute_option')) {
-            return $image->fit(330, 330);
-        }
-
-        /**
-         * Slider image dimensions
-         */
-        return $image->fit(1280, 467);
+        return match (true) {
+            Str::contains($url, '/products') => $image->cover(560, 610),
+            Str::contains($url, '/categories') => $image->cover(165, 165),
+            Str::contains($url, '/attribute-options') => $image->cover(330, 330),
+            default => $image->cover(1280, 467),
+        };
     }
 }

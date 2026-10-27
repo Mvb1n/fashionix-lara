@@ -7,7 +7,9 @@ use Illuminate\Support\Collection;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Checkout\Contracts\CartItem;
 use Webkul\Customer\Repositories\CustomerRepository;
+use Webkul\Product\Contracts\Product;
 use Webkul\Product\DataTypes\CartItemValidationResult;
+use Webkul\Product\Exceptions\InsufficientProductInventoryException;
 use Webkul\Product\Helpers\Indexers\Price\Simple as SimpleIndexer;
 use Webkul\Product\Repositories\ProductAttributeValueRepository;
 use Webkul\Product\Repositories\ProductBundleOptionProductRepository;
@@ -65,7 +67,7 @@ class Simple extends AbstractType
      *
      * @param  int  $id
      * @param  array  $attributes
-     * @return \Webkul\Product\Contracts\Product
+     * @return Product
      */
     public function update(array $data, $id, $attributes = [])
     {
@@ -95,31 +97,23 @@ class Simple extends AbstractType
     }
 
     /**
-     * Is customizable.
+     * Whether the product may carry customizable options, which a child of a configurable, grouped or
+     * bundle product may not.
      *
      * @return bool
      */
     public function isCustomizable()
     {
-        /**
-         * If the product is a child product of a configurable product, then it is not customizable.
-         */
         if ($this->product->parent) {
             return false;
         }
 
-        /**
-         * If the product is a child product of a grouped product, then it is not customizable.
-         */
         $associatedWithGroupedProduct = $this->productGroupedProductRepository->firstWhere('associated_product_id', $this->product->id);
 
         if ($associatedWithGroupedProduct) {
             return false;
         }
 
-        /**
-         * If the product is a child product of a bundle product, then it is not customizable.
-         */
         $associatedWithBundleProduct = $this->productBundleOptionProductRepository->firstWhere('product_id', $this->product->id);
 
         if ($associatedWithBundleProduct) {
@@ -167,7 +161,7 @@ class Simple extends AbstractType
     }
 
     /**
-     * Returns price indexer class for a specific product type
+     * Returns price indexer class for a specific product type.
      *
      * @return string
      */
@@ -181,6 +175,8 @@ class Simple extends AbstractType
      *
      * @param  array  $data
      * @return array
+     *
+     * @throws InsufficientProductInventoryException
      */
     public function prepareForCart($data)
     {
@@ -196,7 +192,7 @@ class Simple extends AbstractType
         $data = $this->getQtyRequest($data);
 
         if (! $this->haveSufficientQuantity($data['quantity'])) {
-            return trans('product::app.checkout.cart.inventory-warning');
+            throw new InsufficientProductInventoryException(trans('product::app.checkout.cart.inventory-warning'));
         }
 
         $price = $this->getFinalPrice();
@@ -204,28 +200,16 @@ class Simple extends AbstractType
         if (! empty($data['customizable_options'])) {
             $formattedCustomizableOptions = $this->formatRequestedCustomizableOptions($data['customizable_options']);
 
-            /**
-             * Check if the file extension is supported.
-             */
             foreach ($formattedCustomizableOptions->where('type', 'file') as $option) {
                 if (
                     isset($option['prices'][0]['label'])
-                    && $option['prices'][0]['label'] instanceof \Illuminate\Http\UploadedFile
+                    && $option['prices'][0]['label'] instanceof UploadedFile
+                    && ! $this->isCustomizableFileAllowed($option['prices'][0]['label'], $option['supported_file_extensions'])
                 ) {
-                    $extension = $option['prices'][0]['label']->getClientOriginalExtension();
-
-                    if (
-                        ! empty($option['supported_file_extensions'])
-                        && ! in_array(strtolower($extension), $option['supported_file_extensions'])
-                    ) {
-                        return trans('product::app.checkout.cart.invalid-file-extension');
-                    }
+                    return trans('product::app.checkout.cart.invalid-file-extension');
                 }
             }
 
-            /**
-             * Store the file in the storage.
-             */
             $formattedCustomizableOptions = $formattedCustomizableOptions->map(function ($option) use ($data) {
                 if ($option['type'] === 'file') {
                     $file = $option['prices'][0]['label'];
@@ -234,9 +218,7 @@ class Simple extends AbstractType
                         ! empty($file)
                         && $file instanceof UploadedFile
                     ) {
-                        $filePath = $file->store("carts/{$data['cart_id']}");
-
-                        $option['prices'][0]['label'] = $filePath;
+                        $option['prices'][0]['label'] = $this->storeCustomizableFile($file, $data['cart_id']);
                     } else {
                         $filePath = collect($data['formatted_customizable_options'] ?? [])
                             ->firstWhere('id', $option['id']);
@@ -255,23 +237,23 @@ class Simple extends AbstractType
 
         return [
             [
-                'product_id'          => $this->product->id,
-                'sku'                 => $this->product->sku,
-                'quantity'            => $data['quantity'],
-                'name'                => $this->product->name,
-                'price'               => $convertedPrice = core()->convertPrice($price),
-                'price_incl_tax'      => $convertedPrice,
-                'base_price'          => $price,
+                'product_id' => $this->product->id,
+                'sku' => $this->product->sku,
+                'quantity' => $data['quantity'],
+                'name' => $this->product->name,
+                'price' => $convertedPrice = core()->convertPrice($price),
+                'price_incl_tax' => $convertedPrice,
+                'base_price' => $price,
                 'base_price_incl_tax' => $price,
-                'total'               => $convertedPrice * $data['quantity'],
-                'total_incl_tax'      => $convertedPrice * $data['quantity'],
-                'base_total'          => $price * $data['quantity'],
+                'total' => $convertedPrice * $data['quantity'],
+                'total_incl_tax' => $convertedPrice * $data['quantity'],
+                'base_total' => $price * $data['quantity'],
                 'base_total_incl_tax' => $price * $data['quantity'],
-                'weight'              => (float) ($this->product->weight ?? 0),
-                'total_weight'        => (float) ($this->product->weight ?? 0) * $data['quantity'],
-                'base_total_weight'   => (float) ($this->product->weight ?? 0) * $data['quantity'],
-                'type'                => $this->product->type,
-                'additional'          => $this->getAdditionalOptions($data),
+                'weight' => (float) ($this->product->weight ?? 0),
+                'total_weight' => (float) ($this->product->weight ?? 0) * $data['quantity'],
+                'base_total_weight' => (float) ($this->product->weight ?? 0) * $data['quantity'],
+                'type' => $this->product->type,
+                'additional' => $this->getAdditionalOptions($data),
             ],
         ];
     }
@@ -296,7 +278,26 @@ class Simple extends AbstractType
          * and retrieve the formatted options from the database again, similar to how we handled the base price above.
          */
         if (! empty($item->additional['customizable_options'])) {
-            $formattedCustomizableOptions = $this->formatRequestedCustomizableOptions($item->additional['customizable_options']);
+            $customizableOptions = $item->additional['customizable_options'];
+
+            /**
+             * For file type options, the UploadedFile object is lost after JSON serialization/deserialization.
+             * We restore the file paths from the stored formatted customizable options so that the emptiness
+             * check in formatRequestedCustomizableOptions does not incorrectly skip non-required file options.
+             */
+            if (! empty($item->additional['formatted_customizable_options'])) {
+                foreach ($item->additional['formatted_customizable_options'] as $formattedOption) {
+                    if (
+                        $formattedOption['type'] === 'file'
+                        && isset($customizableOptions[$formattedOption['id']])
+                        && ! empty($formattedOption['prices'][0]['label'])
+                    ) {
+                        $customizableOptions[$formattedOption['id']][0] = $formattedOption['prices'][0]['label'];
+                    }
+                }
+            }
+
+            $formattedCustomizableOptions = $this->formatRequestedCustomizableOptions($customizableOptions);
 
             $basePrice += round($formattedCustomizableOptions->sum('total_price'), 4);
         }
@@ -357,13 +358,13 @@ class Simple extends AbstractType
                     $data['attributes'][] = [
                         'attribute_type' => $option['type'],
                         'attribute_name' => $option['label'][app()->getLocale()] ?? $option['label'][app()->getFallbackLocale()],
-                        'option_label'   => collect($option['prices'])->pluck('label')->join(', ', ' and '),
+                        'option_label' => collect($option['prices'])->pluck('label')->join(', ', ' and '),
                     ];
                 } else {
                     $data['attributes'][] = [
                         'attribute_type' => $option['type'],
                         'attribute_name' => $option['label'][app()->getLocale()] ?? $option['label'][app()->getFallbackLocale()],
-                        'option_label'   => $option['prices'][0]['label'],
+                        'option_label' => $option['prices'][0]['label'],
                     ];
                 }
             }
@@ -439,11 +440,11 @@ class Simple extends AbstractType
                     $optionPrice = $customizableOption->customizable_option_prices->first();
 
                     $formattedCustomizableOptions[] = [
-                        'id'          => $customizableOption->id,
-                        'type'        => $customizableOption->type,
-                        'label'       => $customizableOption->translations->pluck('label', 'locale')->toArray(),
-                        'prices'      => [[
-                            'id'    => $optionPrice->id,
+                        'id' => $customizableOption->id,
+                        'type' => $customizableOption->type,
+                        'label' => $customizableOption->translations->pluck('label', 'locale')->toArray(),
+                        'prices' => [[
+                            'id' => $optionPrice->id,
                             'label' => $requestedCustomizableOptions[$customizableOption->id][0],
                             'price' => $optionPrice->price,
                         ]],
@@ -471,11 +472,11 @@ class Simple extends AbstractType
                         ->whereIn('id', $requestedCustomizableOptions[$customizableOption->id]);
 
                     $formattedCustomizableOptions[] = [
-                        'id'          => $customizableOption->id,
-                        'type'        => $customizableOption->type,
-                        'label'       => $customizableOption->translations->pluck('label', 'locale')->toArray(),
-                        'prices'      => $optionPrices->map(fn ($price) => [
-                            'id'    => $price->id,
+                        'id' => $customizableOption->id,
+                        'type' => $customizableOption->type,
+                        'label' => $customizableOption->translations->pluck('label', 'locale')->toArray(),
+                        'prices' => $optionPrices->map(fn ($price) => [
+                            'id' => $price->id,
                             'label' => $price->label,
                             'price' => $price->price,
                         ])->values()->toArray(),
@@ -497,15 +498,15 @@ class Simple extends AbstractType
                      * file path.
                      */
                     $formattedCustomizableOptions[] = [
-                        'id'                        => $customizableOption->id,
-                        'type'                      => $customizableOption->type,
-                        'label'                     => $customizableOption->translations->pluck('label', 'locale')->toArray(),
+                        'id' => $customizableOption->id,
+                        'type' => $customizableOption->type,
+                        'label' => $customizableOption->translations->pluck('label', 'locale')->toArray(),
                         'supported_file_extensions' => collect(explode(',', $customizableOption->supported_file_extensions))
                             ->map(fn ($extension) => trim($extension))
                             ->filter(fn ($extension) => ! empty($extension))
                             ->toArray(),
-                        'prices'      => [[
-                            'id'    => $optionPrice->id,
+                        'prices' => [[
+                            'id' => $optionPrice->id,
                             'label' => $requestedCustomizableOptions[$customizableOption->id][0],
                             'price' => $optionPrice->price,
                         ]],

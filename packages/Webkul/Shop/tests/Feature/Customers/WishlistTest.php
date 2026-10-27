@@ -1,47 +1,36 @@
 <?php
 
-use Webkul\Customer\Models\Customer as ModelsCustomer;
+use Webkul\Customer\Models\Customer;
 use Webkul\Customer\Models\Wishlist;
-use Webkul\Faker\Helpers\Product as ProductFaker;
 
 use function Pest\Laravel\deleteJson;
 use function Pest\Laravel\get;
+use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
 
-it('should returns the wishlist index page', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->create();
-
-    $customer = ModelsCustomer::factory()->create();
-
-    Wishlist::factory()->create([
-        'channel_id'  => core()->getCurrentChannel()->id,
-        'product_id'  => $product->id,
+/**
+ * Put a product on the wishlist of the given customer on the current channel.
+ */
+function wishlistItemFor(Customer $customer, int $productId): Wishlist
+{
+    return Wishlist::factory()->create([
+        'channel_id' => core()->getCurrentChannel()->id,
+        'product_id' => $productId,
         'customer_id' => $customer->id,
     ]);
+}
 
-    // Act and Assert.
+// ============================================================================
+// Index
+// ============================================================================
+
+it('should return the wishlist page', function () {
+    $product = $this->createSimpleProduct();
+
+    $customer = Customer::factory()->create();
+
+    wishlistItemFor($customer, $product->id);
+
     $this->loginAsCustomer($customer);
 
     get(route('shop.customers.account.wishlist.index'))
@@ -49,228 +38,155 @@ it('should returns the wishlist index page', function () {
         ->assertSeeText(trans('shop::app.customers.account.wishlist.page-title'));
 });
 
-it('should returns all the wishlisted items', function () {
-    // Arrange.
-    $products = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->count(2)->create();
+it('should list the wishlisted items of the customer via the api', function () {
+    $product = $this->createSimpleProduct();
 
-    $customer = ModelsCustomer::factory()->create();
+    $customer = Customer::factory()->create();
 
-    $wishLists = [];
+    wishlistItemFor($customer, $product->id);
 
-    foreach ($products as $product) {
-        $wishLists[] = Wishlist::factory()->create([
-            'channel_id'  => core()->getCurrentChannel()->id,
-            'product_id'  => $product->id,
-            'customer_id' => $customer->id,
-        ]);
-    }
+    wishlistItemFor(Customer::factory()->create(), $product->id);
 
-    // Act and Assert.
     $this->loginAsCustomer($customer);
 
-    get(route('shop.api.customers.account.wishlist.index'))
-        ->assertOk();
-
-    foreach ($wishLists as $wishList) {
-        $this->assertModelWise([
-            Wishlist::class => [
-                [
-                    'id' => $wishList->id,
-                ],
-            ],
-        ]);
-    }
+    getJson(route('shop.api.customers.account.wishlist.index'))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.product.id', $product->id);
 });
 
-it('should fails the validation error when product id is not provide when add the products to the wishlist', function () {
-    // Act and Assert.
+// ============================================================================
+// Store
+// ============================================================================
+
+it('should fail validation when product id is missing on wishlist store', function () {
     $this->loginAsCustomer();
 
     postJson(route('shop.api.customers.account.wishlist.store'))
-        ->assertJsonValidationErrorFor('product_id')
-        ->assertUnprocessable();
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('product_id');
 });
 
-it('should add the products to the wishlist', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->create();
+it('should add a product to the wishlist', function () {
+    $product = $this->createSimpleProduct();
 
-    // Act and Assert.
-    $this->loginAsCustomer();
+    $customer = $this->loginAsCustomer();
 
     postJson(route('shop.api.customers.account.wishlist.store'), [
         'product_id' => $product->id,
     ])
         ->assertOk()
         ->assertJsonPath('data.message', trans('shop::app.customers.account.wishlist.success'));
+
+    $this->assertDatabaseHas('wishlist_items', [
+        'customer_id' => $customer->id,
+        'product_id' => $product->id,
+        'channel_id' => core()->getCurrentChannel()->id,
+    ]);
 });
 
-it('should move wishlisted product to the cart', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->create();
+it('should take a product off the wishlist when it is added a second time', function () {
+    $product = $this->createSimpleProduct();
 
-    $customer = ModelsCustomer::factory()->create();
+    $customer = $this->loginAsCustomer();
 
-    $wishList = Wishlist::factory()->create([
-        'channel_id'  => core()->getCurrentChannel()->id,
-        'product_id'  => $product->id,
+    postJson(route('shop.api.customers.account.wishlist.store'), ['product_id' => $product->id])->assertOk();
+
+    postJson(route('shop.api.customers.account.wishlist.store'), ['product_id' => $product->id])
+        ->assertOk()
+        ->assertJsonPath('data.message', trans('shop::app.customers.account.wishlist.removed'));
+
+    $this->assertDatabaseMissing('wishlist_items', [
         'customer_id' => $customer->id,
+        'product_id' => $product->id,
     ]);
+});
 
-    // Act and Assert.
+// ============================================================================
+// Remove
+// ============================================================================
+
+it('should remove a product from the wishlist', function () {
+    $product = $this->createSimpleProduct();
+
+    $customer = Customer::factory()->create();
+
+    $wishlistItem = wishlistItemFor($customer, $product->id);
+
     $this->loginAsCustomer($customer);
 
-    postJson(route('shop.api.customers.account.wishlist.move_to_cart', $wishList->id))
+    deleteJson(route('shop.api.customers.account.wishlist.destroy', $wishlistItem->id))
         ->assertOk()
-        ->assertJsonPath('message', trans('shop::app.customers.account.wishlist.moved-success'));
+        ->assertJsonPath('message', trans('shop::app.customers.account.wishlist.removed'));
+
+    $this->assertDatabaseMissing('wishlist_items', ['id' => $wishlistItem->id]);
 });
 
-it('should remove all wishlisted items', function () {
-    // Arrange.
-    $products = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->count(2)->create();
+it('should not remove the wishlist item of another customer', function () {
+    $wishlistItem = wishlistItemFor(Customer::factory()->create(), $this->createSimpleProduct()->id);
 
-    $customer = ModelsCustomer::factory()->create();
+    $this->loginAsCustomer();
 
-    $wishLists = [];
+    deleteJson(route('shop.api.customers.account.wishlist.destroy', $wishlistItem->id))
+        ->assertOk()
+        ->assertJsonPath('data.message', trans('shop::app.customers.account.wishlist.remove-fail'));
 
-    foreach ($products as $product) {
-        $wishLists[] = Wishlist::factory()->create([
-            'channel_id'  => core()->getCurrentChannel()->id,
-            'product_id'  => $product->id,
-            'customer_id' => $customer->id,
-        ]);
+    $this->assertDatabaseHas('wishlist_items', ['id' => $wishlistItem->id]);
+});
+
+it('should remove all products from the wishlist', function () {
+    $customer = Customer::factory()->create();
+
+    foreach (range(1, 2) as $index) {
+        wishlistItemFor($customer, $this->createSimpleProduct()->id);
     }
-
-    // Act and Assert.
 
     $this->loginAsCustomer($customer);
 
     deleteJson(route('shop.api.customers.account.wishlist.destroy_all'))
         ->assertOk()
         ->assertJsonPath('data.message', trans('shop::app.customers.account.wishlist.removed'));
+
+    $this->assertDatabaseMissing('wishlist_items', ['customer_id' => $customer->id]);
 });
 
-it('should remove specified wishlisted item', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5  => 'new',
-            6  => 'featured',
-            11 => 'price',
-            26 => 'guest_checkout',
-        ],
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-            'featured' => [
-                'boolean_value' => true,
-            ],
-            'price' => [
-                'float_value' => fake()->randomFloat(2, 1000, 5000),
-            ],
-            'guest_checkout' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))->getSimpleProductFactory()->create();
+// ============================================================================
+// Move To Cart
+// ============================================================================
 
-    $customer = ModelsCustomer::factory()->create();
+it('should move a wishlist item to the cart', function () {
+    $product = $this->createSimpleProduct();
 
-    $wishList = Wishlist::factory()->create([
-        'channel_id'  => core()->getCurrentChannel()->id,
-        'product_id'  => $product->id,
-        'customer_id' => $customer->id,
-    ]);
+    $customer = Customer::factory()->create();
 
-    // Act and  Assert
+    $wishlistItem = wishlistItemFor($customer, $product->id);
+
     $this->loginAsCustomer($customer);
 
-    deleteJson(route('shop.api.customers.account.wishlist.destroy', $wishList->id))
+    postJson(route('shop.api.customers.account.wishlist.move_to_cart', $wishlistItem->id), [
+        'quantity' => 2,
+    ])
         ->assertOk()
-        ->assertJsonPath('message', trans('shop::app.customers.account.wishlist.removed'));
+        ->assertJsonPath('message', trans('shop::app.customers.account.wishlist.moved-success'));
+
+    $this->assertDatabaseMissing('wishlist_items', ['id' => $wishlistItem->id]);
+
+    $this->assertCartHasProduct($product->id, 2);
+});
+
+it('should not move the wishlist item of another customer to the cart', function () {
+    $product = $this->createSimpleProduct();
+
+    $wishlistItem = wishlistItemFor(Customer::factory()->create(), $product->id);
+
+    $this->loginAsCustomer();
+
+    postJson(route('shop.api.customers.account.wishlist.move_to_cart', $wishlistItem->id), [
+        'quantity' => 1,
+    ])
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('wishlist_items', ['id' => $wishlistItem->id]);
+
+    $this->assertCartIsEmpty();
 });

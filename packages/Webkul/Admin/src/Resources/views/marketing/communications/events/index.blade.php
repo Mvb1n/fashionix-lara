@@ -51,6 +51,7 @@
             <x-admin::datagrid
                 :src="route('admin.marketing.communications.events.index')"
                 ref="datagrid"
+                :shimmer-columns="4"
             >
                 <template #body="{
                     isLoading,
@@ -61,7 +62,9 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="4"
+                        />
                     </template>
 
                     <template v-else>
@@ -184,7 +187,7 @@
 
                                 <x-admin::form.control-group.control
                                     type="textarea"
-                                    class="h-[100px]"
+                                    class="h-25"
                                     id="description"
                                     name="description"
                                     rules="required"
@@ -197,7 +200,7 @@
                             </x-admin::form.control-group>
 
                             <!-- Event Date -->
-                            <x-admin::form.control-group class="!mb-0">
+                            <x-admin::form.control-group class="mb-0!">
                                 <x-admin::form.control-group.label class="required">
                                     @lang('admin::app.marketing.communications.events.index.create.date')
                                 </x-admin::form.control-group.label>

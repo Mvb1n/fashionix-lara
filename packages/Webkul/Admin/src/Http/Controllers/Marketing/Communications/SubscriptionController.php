@@ -3,6 +3,7 @@
 namespace Webkul\Admin\Http\Controllers\Marketing\Communications;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Marketing\Communications\NewsLetterDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Core\Repositories\SubscribersListRepository;
@@ -19,7 +20,7 @@ class SubscriptionController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -38,7 +39,7 @@ class SubscriptionController extends Controller
         $subscriber = $this->subscribersListRepository->findOrFail($id);
 
         return new JsonResponse([
-            'data'  => $subscriber,
+            'data' => $subscriber,
         ]);
     }
 
@@ -50,7 +51,7 @@ class SubscriptionController extends Controller
     public function update()
     {
         $validatedData = $this->validate(request(), [
-            'id'            => 'required',
+            'id' => 'required',
             'is_subscribed' => 'required|in:0,1',
         ]);
 

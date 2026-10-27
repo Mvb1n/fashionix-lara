@@ -2,48 +2,51 @@
 
 namespace Webkul\CartRule\Repositories;
 
+use Webkul\CartRule\Contracts\CartRuleCoupon;
 use Webkul\Core\Eloquent\Repository;
 
 class CartRuleCouponRepository extends Repository
 {
     /**
+     * The characters a generated coupon code may draw on, by code format.
+     *
      * @var array
      */
     protected $charset = [
         'alphanumeric' => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
         'alphabetical' => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-        'numeric'      => '0123456789',
+        'numeric' => '0123456789',
     ];
 
     /**
-     * Specify Model class name
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\CartRule\Contracts\CartRuleCoupon';
+        return CartRuleCoupon::class;
     }
 
     /**
-     * Creates coupons for cart rule
+     * Creates coupons for cart rule.
      */
     public function generateCoupons(array $data, int $cartRuleId): void
     {
-        $cartRule = app('Webkul\CartRule\Repositories\CartRuleRepository')->findOrFail($cartRuleId);
+        $cartRule = app(CartRuleRepository::class)->findOrFail($cartRuleId);
 
         for ($i = 0; $i < $data['coupon_qty']; $i++) {
             parent::create([
-                'cart_rule_id'       => $cartRuleId,
-                'code'               => $data['code_prefix'].$this->getRandomString($data['code_format'], $data['code_length']).$data['code_suffix'],
-                'usage_limit'        => $cartRule->uses_per_coupon ?? 0,
+                'cart_rule_id' => $cartRuleId,
+                'code' => $data['code_prefix'].$this->getRandomString($data['code_format'], $data['code_length']).$data['code_suffix'],
+                'usage_limit' => $cartRule->uses_per_coupon ?? 0,
                 'usage_per_customer' => $cartRule->usage_per_customer ?? 0,
-                'is_primary'         => 0,
-                'expired_at'         => $cartRule->ends_till ?: null,
+                'is_primary' => 0,
+                'expired_at' => $cartRule->ends_till ?: null,
             ]);
         }
     }
 
     /**
-     * Creates coupons for cart rule
+     * Creates coupons for cart rule.
      */
     public function getRandomString(string $format, int $length): string
     {

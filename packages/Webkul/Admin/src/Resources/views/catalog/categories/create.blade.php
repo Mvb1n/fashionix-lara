@@ -45,7 +45,7 @@
                 {!! view_render_event('bagisto.admin.catalog.categories.create.card.general.before') !!}
 
                 <!-- General -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.catalog.categories.create.general')
                     </p>
@@ -75,7 +75,7 @@
                                 type="text"
                                 id="name"
                                 :class="[errors.length ? 'border border-red-600 hover:border-red-600' : '']"
-                                class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 name="name"
                                 v-bind="field"
                                 placeholder="{{ trans('admin::app.catalog.categories.create.name') }}"
@@ -111,7 +111,7 @@
                 {!! view_render_event('bagisto.admin.catalog.categories.create.card.description_images.before') !!}
 
                 <!-- Description and images -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.catalog.categories.create.description-and-images')
                     </p>
@@ -132,7 +132,6 @@
                                 :value="old('description')"
                                 :label="trans('admin::app.catalog.categories.create.description')"
                                 :tinymce="true"
-                                :prompt="core()->getConfigData('general.magic_ai.content_generation.category_description_prompt')"
                             />
 
                             <x-admin::form.control-group.error control-name="description" />
@@ -150,7 +149,11 @@
                                 @lang('admin::app.catalog.categories.create.logo-size')
                             </p>
 
-                            <x-admin::media.images name="logo_path" />
+                            <x-admin::media.images
+                                name="logo_path"
+                                meta-name="logo_meta"
+                                enable-seo="true"
+                            />
                         </div>
 
                         <!-- Add Banner -->
@@ -165,6 +168,8 @@
 
                             <x-admin::media.images
                                 name="banner_path"
+                                meta-name="banner_meta"
+                                enable-seo="true"
                                 width="220px"
                             />
                         </div>
@@ -176,13 +181,17 @@
                 {!! view_render_event('bagisto.admin.catalog.categories.create.card.seo.before') !!}
 
                 <!-- SEO Details -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.catalog.categories.create.seo-details')
                     </p>
 
                     <!-- SEO Title & Description Blade Component -->
-                    <x-admin::seo />
+                    <x-admin::seo
+                        meta-title-field="meta_title"
+                        url-key-field="slug"
+                        meta-description-field="meta_description"
+                    />
 
                     <div class="mt-8">
                         <!-- Meta Title -->
@@ -219,7 +228,7 @@
                                     type="text"
                                     id="slug"
                                     :class="[errors.length ? 'border border-red-600 hover:border-red-600' : '']"
-                                    class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                    class="flex min-h-9.75 w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                     name="slug"
                                     v-bind="field"
                                     placeholder="{{ trans('admin::app.catalog.categories.create.slug') }}"
@@ -246,7 +255,7 @@
                         </x-admin::form.control-group>
 
                         <!-- Meta Description -->
-                        <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label>
                                 @lang('admin::app.catalog.categories.create.meta-description')
                             </x-admin::form.control-group.label>
@@ -267,7 +276,7 @@
             </div>
 
             <!-- Right Section -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2">
+            <div class="flex w-90 max-w-full flex-col gap-2">
                 <!-- Settings -->
 
                 {!! view_render_event('bagisto.admin.catalog.categories.create.card.accordion.settings.before') !!}
@@ -361,7 +370,7 @@
 
                     <x-slot:content>
                         @foreach ($attributes as $attribute)
-                            <x-admin::form.control-group class="!mb-2 flex select-none items-center gap-2.5 last:!mb-0">
+                            <x-admin::form.control-group class="mb-2! flex select-none items-center gap-2.5 last:mb-0!">
                                 <x-admin::form.control-group.control
                                     type="checkbox"
                                     :id="$attribute->name ?? $attribute->admin_name"
@@ -376,6 +385,7 @@
                                 <label
                                     class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300"
                                     for="{{ $attribute->name ?? $attribute->admin_name }}"
+                                    v-pre
                                 >
                                     {{ $attribute->name ?? $attribute->admin_name }}
                                 </label>

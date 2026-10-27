@@ -4,6 +4,7 @@ namespace Webkul\Attribute\Repositories;
 
 use Illuminate\Container\Container;
 use Illuminate\Support\Str;
+use Webkul\Attribute\Contracts\AttributeFamily;
 use Webkul\Core\Eloquent\Repository;
 
 class AttributeFamilyRepository extends Repository
@@ -22,15 +23,17 @@ class AttributeFamilyRepository extends Repository
     }
 
     /**
-     * Specify Model class name
+     * Specify the model class name.
      */
     public function model(): string
     {
-        return 'Webkul\Attribute\Contracts\AttributeFamily';
+        return AttributeFamily::class;
     }
 
     /**
-     * @return \Webkul\Attribute\Contracts\AttributeFamily
+     * Create an attribute family with its groups and their attributes.
+     *
+     * @return AttributeFamily
      */
     public function create(array $data)
     {
@@ -60,8 +63,10 @@ class AttributeFamilyRepository extends Repository
     }
 
     /**
+     * Update an attribute family, replacing the groups and attributes it holds.
+     *
      * @param  int  $id
-     * @return \Webkul\Attribute\Contracts\AttributeFamily
+     * @return AttributeFamily
      */
     public function update(array $data, $id)
     {
@@ -123,6 +128,8 @@ class AttributeFamilyRepository extends Repository
     }
 
     /**
+     * The id and name of every attribute family, for a select control.
+     *
      * @return array
      */
     public function getPartial()
@@ -137,7 +144,7 @@ class AttributeFamilyRepository extends Repository
                 || $attributeFamily->name != ''
             ) {
                 $trimmed[$key] = [
-                    'id'   => $attributeFamily->id,
+                    'id' => $attributeFamily->id,
                     'code' => $attributeFamily->code,
                     'name' => $attributeFamily->name,
                 ];

@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Intervention\Image\ImageManager;
 use Webkul\Attribute\Repositories\AttributeFamilyRepository;
 use Webkul\Attribute\Repositories\AttributeOptionRepository;
 use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\BookingProduct\Repositories\BookingProductRepository;
 use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\Core\Repositories\ChannelRepository;
 use Webkul\Core\Rules\Decimal;
@@ -24,10 +24,12 @@ use Webkul\Customer\Repositories\CustomerGroupRepository;
 use Webkul\DataTransfer\Contracts\ImportBatch as ImportBatchContract;
 use Webkul\DataTransfer\Helpers\Import;
 use Webkul\DataTransfer\Helpers\Importers\AbstractImporter;
+use Webkul\DataTransfer\Helpers\Importers\Concerns\DownloadsImages;
 use Webkul\DataTransfer\Repositories\ImportBatchRepository;
 use Webkul\Inventory\Repositories\InventorySourceRepository;
-use Webkul\Product\Jobs\ElasticSearch\DeleteIndex as DeleteIndexJob;
-use Webkul\Product\Jobs\ElasticSearch\UpdateCreateIndex as UpdateCreateElasticSearchIndexJob;
+use Webkul\Product\Helpers\Indexers\Flat as FlatIndexer;
+use Webkul\Product\Jobs\Search\DeleteProducts as DeleteSearchIndexJob;
+use Webkul\Product\Jobs\Search\IndexProducts as IndexSearchJob;
 use Webkul\Product\Jobs\UpdateCreateInventoryIndex as UpdateCreateInventoryIndexJob;
 use Webkul\Product\Jobs\UpdateCreatePriceIndex as UpdateCreatePriceIndexJob;
 use Webkul\Product\Models\Product as ProductModel;
@@ -43,6 +45,8 @@ use Webkul\Product\Repositories\ProductRepository;
 
 class Importer extends AbstractImporter
 {
+    use DownloadsImages;
+
     /**
      * Product type simple
      */
@@ -74,6 +78,11 @@ class Importer extends AbstractImporter
     const PRODUCT_TYPE_GROUPED = 'grouped';
 
     /**
+     * Product type booking
+     */
+    const PRODUCT_TYPE_BOOKING = 'booking';
+
+    /**
      * Error code for invalid product type
      */
     const ERROR_INVALID_TYPE = 'invalid_product_type';
@@ -99,14 +108,32 @@ class Importer extends AbstractImporter
     const ERROR_SUPER_ATTRIBUTE_CODE_NOT_FOUND = 'attribute_family_code_not_found';
 
     /**
+     * Error code for an image named as a file while the import expects links
+     */
+    const ERROR_IMAGE_NOT_URL = 'image_not_url';
+
+    /**
+     * Error code for an image named as a link while the import expects files
+     */
+    const ERROR_IMAGE_NOT_FILE = 'image_not_file';
+
+    /**
+     * Error code for an image that is not where the import expects to find it
+     */
+    const ERROR_IMAGE_NOT_FOUND = 'image_not_found';
+
+    /**
      * Error message templates
      */
     protected array $messages = [
-        self::ERROR_INVALID_TYPE                   => 'data_transfer::app.importers.products.validation.errors.invalid-type',
-        self::ERROR_SKU_NOT_FOUND_FOR_DELETE       => 'data_transfer::app.importers.products.validation.errors.sku-not-found',
-        self::ERROR_DUPLICATE_URL_KEY              => 'data_transfer::app.importers.products.validation.errors.duplicate-url-key',
-        self::ERROR_INVALID_ATTRIBUTE_FAMILY_CODE  => 'data_transfer::app.importers.products.validation.errors.invalid-attribute-family',
+        self::ERROR_INVALID_TYPE => 'data_transfer::app.importers.products.validation.errors.invalid-type',
+        self::ERROR_SKU_NOT_FOUND_FOR_DELETE => 'data_transfer::app.importers.products.validation.errors.sku-not-found',
+        self::ERROR_DUPLICATE_URL_KEY => 'data_transfer::app.importers.products.validation.errors.duplicate-url-key',
+        self::ERROR_INVALID_ATTRIBUTE_FAMILY_CODE => 'data_transfer::app.importers.products.validation.errors.invalid-attribute-family',
         self::ERROR_SUPER_ATTRIBUTE_CODE_NOT_FOUND => 'data_transfer::app.importers.products.validation.errors.super-attribute-not-found',
+        self::ERROR_IMAGE_NOT_URL => 'data_transfer::app.importers.products.validation.errors.image-not-url',
+        self::ERROR_IMAGE_NOT_FILE => 'data_transfer::app.importers.products.validation.errors.image-not-file',
+        self::ERROR_IMAGE_NOT_FOUND => 'data_transfer::app.importers.products.validation.errors.image-not-found',
     ];
 
     /**
@@ -160,9 +187,26 @@ class Importer extends AbstractImporter
     protected array $urlKeys = [];
 
     /**
+     * How many of the accumulated url keys have already been cross-checked
+     * against the database. Url keys are recorded in row order, so this doubles
+     * as the offset of the first key a window still has to check.
+     */
+    protected int $checkedUrlKeys = 0;
+
+    /**
+     * Products can be validated in windows — see ValidatesInChunks.
+     */
+    protected bool $chunkedValidationSupported = true;
+
+    /**
      * Urls keys storage
      */
     protected array $productFlatColumns = [];
+
+    /**
+     * Default value of every attribute that is also a flat column, keyed by column
+     */
+    protected ?array $flatColumnDefaults = null;
 
     /**
      * Is linking required
@@ -193,6 +237,7 @@ class Importer extends AbstractImporter
         'configurable_variants',
         'bundle_options',
         'associated_skus',
+        'booking_options',
     ];
 
     /**
@@ -218,7 +263,9 @@ class Importer extends AbstractImporter
         protected ProductBundleOptionProductRepository $productBundleOptionProductRepository,
         protected ProductCustomerGroupPriceRepository $productCustomerGroupPriceRepository,
         protected ProductGroupedProductRepository $productGroupedProductRepository,
-        protected SKUStorage $skuStorage
+        protected BookingProductRepository $bookingProductRepository,
+        protected SKUStorage $skuStorage,
+        protected FlatIndexer $flatIndexer
     ) {
         parent::__construct($importBatchRepository);
 
@@ -252,6 +299,14 @@ class Importer extends AbstractImporter
     }
 
     /**
+     * Load the existing catalogue's SKUs, which every row is checked against.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->skuStorage->init();
+    }
+
+    /**
      * Save validated batches
      */
     protected function saveValidatedBatches(): self
@@ -259,8 +314,6 @@ class Importer extends AbstractImporter
         $source = $this->getSource();
 
         $source->rewind();
-
-        $this->skuStorage->init();
 
         while ($source->valid()) {
             try {
@@ -358,13 +411,13 @@ class Importer extends AbstractImporter
             || ($this->urlKeys[$rowData['url_key']]['sku'] == $rowData['sku'])
         ) {
             $this->urlKeys[$rowData['url_key']] = [
-                'sku'        => $rowData['sku'],
+                'sku' => $rowData['sku'],
                 'row_number' => $rowNumber,
             ];
         } else {
             $message = sprintf(
                 trans($this->messages[self::ERROR_DUPLICATE_URL_KEY]),
-                'url_key',
+                $rowData['url_key'],
                 $this->urlKeys[$rowData['url_key']]['sku']
             );
 
@@ -385,13 +438,13 @@ class Importer extends AbstractImporter
 
         if ($rowData['type'] == self::PRODUCT_TYPE_BUNDLE) {
             $validationRules = [
-                'bundle_options.*.name'     => 'sometimes|required',
-                'bundle_options.*.type'     => 'sometimes|required|in:select,radio,checkbox,multiselect',
+                'bundle_options.*.name' => 'sometimes|required',
+                'bundle_options.*.type' => 'sometimes|required|in:select,radio,checkbox,multiselect',
                 'bundle_options.*.required' => 'sometimes|required|boolean',
-                'bundle_options.*.sku'      => 'sometimes|required',
-                'bundle_options.*.price'    => ['sometimes', 'required', new Decimal],
-                'bundle_options.*.qty'      => 'sometimes|required|integer',
-                'bundle_options.*.default'  => 'sometimes|required|boolean',
+                'bundle_options.*.sku' => 'sometimes|required',
+                'bundle_options.*.price' => ['sometimes', 'required', new Decimal],
+                'bundle_options.*.qty' => 'sometimes|required|integer',
+                'bundle_options.*.default' => 'sometimes|required|boolean',
             ];
 
             $options = explode('|', $rowData['bundle_options'] ?? '');
@@ -435,8 +488,8 @@ class Importer extends AbstractImporter
              */
             $validationRules = [
                 'customer_group_prices.*.group' => 'sometimes|required',
-                'customer_group_prices.*.qty'   => 'sometimes|required|integer',
-                'customer_group_prices.*.type'  => 'sometimes|required|in:fixed,discount',
+                'customer_group_prices.*.qty' => 'sometimes|required|integer',
+                'customer_group_prices.*.type' => 'sometimes|required|in:fixed,discount',
                 'customer_group_prices.*.price' => ['sometimes', 'required', new Decimal],
             ];
 
@@ -497,6 +550,8 @@ class Importer extends AbstractImporter
             }
         }
 
+        $this->validateImages($rowData, $rowNumber);
+
         return ! $this->errorHelper->isRowInvalid($rowNumber);
     }
 
@@ -506,11 +561,11 @@ class Importer extends AbstractImporter
     public function getValidationRules(array $rowData): array
     {
         $rules = [
-            'sku'                => ['required', new Slug],
-            'url_key'            => ['required'],
+            'sku' => ['required', new Slug],
+            'url_key' => ['required'],
             'special_price_from' => ['nullable', 'date'],
-            'special_price_to'   => ['nullable', 'date', 'after_or_equal:special_price_from'],
-            'special_price'      => ['nullable', new Decimal, 'lt:price'],
+            'special_price_to' => ['nullable', 'date', 'after_or_equal:special_price_from'],
+            'special_price' => ['nullable', new Decimal, 'lt:price'],
         ];
 
         $attributes = $this->getProductTypeFamilyAttributes($rowData['type'], $rowData['attribute_family_code']);
@@ -549,6 +604,10 @@ class Importer extends AbstractImporter
                 array_push($validations, function ($field, $value, $fail) use ($attribute, $rowData) {
                     $product = $this->skuStorage->get($rowData['sku']);
 
+                    if (! $product) {
+                        return;
+                    }
+
                     $count = $this->productAttributeValueRepository
                         ->where($attribute->column_name, $rowData[$attribute->code])
                         ->where('attribute_id', '=', $attribute->id)
@@ -556,7 +615,7 @@ class Importer extends AbstractImporter
                         ->count('product_attribute_values.id');
 
                     if ($count) {
-                        $fail(__('admin::app.catalog.products.index.already-taken', ['name' => ':attribute']));
+                        $fail(trans('admin::app.catalog.products.index.already-taken', ['name' => ':attribute']));
                     }
                 });
             }
@@ -576,19 +635,31 @@ class Importer extends AbstractImporter
             return;
         }
 
+        $urlKeysByLowerCase = [];
+
+        foreach (array_keys($this->urlKeys) as $urlKey) {
+            $urlKeysByLowerCase[mb_strtolower((string) $urlKey)] = $urlKey;
+        }
+
         $products = $this->productRepository
             ->resetScope()
             ->select('products.id', 'product_attribute_values.text_value as url_key', 'products.sku')
             ->leftJoin('product_attribute_values', 'products.id', 'product_attribute_values.product_id')
             ->leftJoin('attributes', 'product_attribute_values.attribute_id', 'attributes.id')
             ->where('attributes.code', 'url_key')
-            ->where('product_attribute_values.text_value', array_keys($this->urlKeys))
+            ->whereIn(DB::raw('LOWER('.DB::getTablePrefix().'product_attribute_values.text_value)'), array_keys($urlKeysByLowerCase))
             ->whereNotIn('products.sku', Arr::pluck($this->urlKeys, 'sku'))
             ->get();
 
         foreach ($products as $product) {
+            $urlKey = $urlKeysByLowerCase[mb_strtolower((string) $product->url_key)] ?? null;
+
+            if ($urlKey === null) {
+                continue;
+            }
+
             $this->skipRow(
-                $this->urlKeys[$product->url_key]['row_number'],
+                $this->urlKeys[$urlKey]['row_number'],
                 self::ERROR_DUPLICATE_URL_KEY,
                 'url_key',
                 sprintf(
@@ -598,6 +669,113 @@ class Importer extends AbstractImporter
                 )
             );
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chunked / queued validation
+    |--------------------------------------------------------------------------
+    |
+    | Url keys are the one thing product validation carries across rows: the
+    | first row to claim a key keeps it, and any later row using it for a
+    | different sku is rejected. That is invisible from inside a single window,
+    | so it is snapshotted between windows on the chunked path and cross-checked
+    | in the merge on the queued one.
+    |
+    */
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function captureValidationState(): array
+    {
+        return [
+            'url_keys' => $this->urlKeys,
+            'checked_url_keys' => $this->checkedUrlKeys,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function restoreValidationState(array $state): void
+    {
+        $this->urlKeys = $state['url_keys'] ?? [];
+
+        $this->checkedUrlKeys = (int) ($state['checked_url_keys'] ?? 0);
+    }
+
+    /**
+     * Cross-check this window's url keys against the catalogue in one query.
+     *
+     * Only the keys this window added: earlier ones were checked by the window
+     * that introduced them.
+     */
+    protected function afterChunkValidated(): void
+    {
+        $pending = array_slice($this->urlKeys, $this->checkedUrlKeys, null, true);
+
+        if (empty($pending)) {
+            return;
+        }
+
+        $accumulated = $this->urlKeys;
+
+        $this->urlKeys = $pending;
+
+        $this->checkForDuplicateUrlKeys();
+
+        $this->urlKeys = $accumulated;
+
+        $this->checkedUrlKeys = count($accumulated);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function fileUniqueColumns(): array
+    {
+        return [
+            'url_key' => self::ERROR_DUPLICATE_URL_KEY,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function uniqueRowContext(array $rowData): array
+    {
+        return [
+            'sku' => $rowData['sku'] ?? null,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function duplicateValueMessage(string $column, string $value, array $context): ?string
+    {
+        return sprintf(
+            trans($this->messages[self::ERROR_DUPLICATE_URL_KEY]),
+            $value,
+            $context['sku'] ?? ''
+        );
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function releaseBatchMemory(): void
+    {
+        parent::releaseBatchMemory();
+
+        $this->urlKeys = [];
+
+        $this->checkedUrlKeys = 0;
+
+        $this->typeFamilyValidationRules = [];
+
+        gc_collect_cycles();
     }
 
     /**
@@ -619,7 +797,7 @@ class Importer extends AbstractImporter
         $batch = $this->importBatchRepository->update([
             'state' => Import::STATE_PROCESSED,
 
-            'summary'      => [
+            'summary' => [
                 'created' => $this->getCreatedItemsCount(),
                 'updated' => $this->getUpdatedItemsCount(),
                 'deleted' => $this->getDeletedItemsCount(),
@@ -649,6 +827,8 @@ class Importer extends AbstractImporter
 
         $bundleOptions = [];
 
+        $bookingData = [];
+
         $links = [];
 
         foreach ($batch->data as $rowData) {
@@ -668,6 +848,11 @@ class Importer extends AbstractImporter
             $this->prepareBundleOptions($rowData, $bundleOptions);
 
             /**
+             * Prepare booking data
+             */
+            $this->prepareBookingData($rowData, $bookingData);
+
+            /**
              * Prepare products association for related, cross sell and up sell
              */
             $this->prepareLinks($rowData, $links);
@@ -678,6 +863,8 @@ class Importer extends AbstractImporter
         $this->saveGroupAssociations($groupAssociations);
 
         $this->saveBundleOptions($bundleOptions);
+
+        $this->saveBookingData($bookingData);
 
         $this->saveLinks($links);
 
@@ -834,6 +1021,14 @@ class Importer extends AbstractImporter
                     ];
 
                     break;
+
+                case self::PRODUCT_TYPE_BOOKING:
+                    $productIdsToIndex = [
+                        ...$productIdsToIndex,
+                        ...$productIds,
+                    ];
+
+                    break;
             }
         }
 
@@ -842,7 +1037,7 @@ class Importer extends AbstractImporter
         Bus::chain([
             new UpdateCreateInventoryIndexJob($productIdsToIndex),
             new UpdateCreatePriceIndexJob($productIdsToIndex),
-            new UpdateCreateElasticSearchIndexJob($productIdsToIndex),
+            new IndexSearchJob($productIdsToIndex),
         ])->onConnection('sync')->dispatch();
 
         /**
@@ -898,7 +1093,7 @@ class Importer extends AbstractImporter
             Storage::deleteDirectory($imageDirectory);
         }
 
-        DeleteIndexJob::dispatch($idsToDelete)->onConnection('sync');
+        DeleteSearchIndexJob::dispatch($idsToDelete)->onConnection('sync');
 
         return true;
     }
@@ -1001,17 +1196,17 @@ class Importer extends AbstractImporter
 
         if ($this->isSKUExist($rowData['sku'])) {
             $products['update'][$rowData['sku']] = [
-                'type'                => $rowData['type'],
-                'sku'                 => $rowData['sku'],
+                'type' => $rowData['type'],
+                'sku' => $rowData['sku'],
                 'attribute_family_id' => $attributeFamilyId,
             ];
         } else {
             $products['insert'][$rowData['sku']] = [
-                'type'                => $rowData['type'],
-                'sku'                 => $rowData['sku'],
+                'type' => $rowData['type'],
+                'sku' => $rowData['sku'],
                 'attribute_family_id' => $attributeFamilyId,
-                'created_at'          => $rowData['created_at'] ?? now(),
-                'updated_at'          => $rowData['updated_at'] ?? now(),
+                'created_at' => $rowData['created_at'] ?? now(),
+                'updated_at' => $rowData['updated_at'] ?? now(),
             ];
         }
     }
@@ -1051,8 +1246,8 @@ class Importer extends AbstractImporter
 
             foreach ($newProducts as $product) {
                 $this->skuStorage->set($product->sku, [
-                    'id'                  => $product->id,
-                    'type'                => $product->type,
+                    'id' => $product->id,
+                    'type' => $product->type,
                     'attribute_family_id' => $product->attribute_family_id,
                 ]);
             }
@@ -1076,9 +1271,9 @@ class Importer extends AbstractImporter
             parse_str(str_replace(',', '&', $price), $attributes);
 
             $customerGroupPrices[$rowData['sku']][] = [
-                'qty'               => $attributes['qty'],
-                'value_type'        => $attributes['type'],
-                'value'             => $attributes['price'],
+                'qty' => $attributes['qty'],
+                'value_type' => $attributes['type'],
+                'value' => $attributes['price'],
                 'customer_group_id' => $customerGroups->where('code', $attributes['group'])->first()?->id,
             ];
         }
@@ -1163,7 +1358,7 @@ class Importer extends AbstractImporter
 
             foreach ($categoryIds as $categoryId) {
                 $productCategories[] = [
-                    'product_id'  => $product['id'],
+                    'product_id' => $product['id'],
                     'category_id' => $categoryId,
                 ];
             }
@@ -1239,10 +1434,10 @@ class Importer extends AbstractImporter
             $attributeTypeValues = array_fill_keys(array_values($attribute->attributeTypeFields), null);
 
             $attributeValues[$rowData['sku']][] = array_merge($attributeTypeValues, [
-                'attribute_id'          => $attribute->id,
+                'attribute_id' => $attribute->id,
                 $attribute->column_name => $value,
-                'channel'               => $attribute->value_per_channel ? $rowData['channel'] : null,
-                'locale'                => $attribute->value_per_locale ? $rowData['locale'] : null,
+                'channel' => $attribute->value_per_channel ? $rowData['channel'] : null,
+                'locale' => $attribute->value_per_locale ? $rowData['locale'] : null,
             ]);
         }
     }
@@ -1296,7 +1491,7 @@ class Importer extends AbstractImporter
 
             $inventories[$rowData['sku']][] = [
                 'source' => $inventorySource,
-                'qty'    => $qty,
+                'qty' => $qty,
             ];
         }
     }
@@ -1327,9 +1522,9 @@ class Importer extends AbstractImporter
 
                 $productInventories[] = [
                     'inventory_source_id' => $inventorySource->id,
-                    'product_id'          => $product['id'],
-                    'qty'                 => $inventory['qty'],
-                    'vendor_id'           => 0,
+                    'product_id' => $product['id'],
+                    'qty' => $inventory['qty'],
+                    'vendor_id' => 0,
                 ];
             }
         }
@@ -1354,13 +1549,6 @@ class Importer extends AbstractImporter
         }
 
         /**
-         * Skip the image upload if product is already created
-         */
-        if ($this->skuStorage->has($rowData['sku'])) {
-            return;
-        }
-
-        /**
          * Reset the sku images data to prevent
          * data duplication in case of multiple locales
          */
@@ -1368,18 +1556,144 @@ class Importer extends AbstractImporter
 
         $imageNames = array_map('trim', explode(',', $rowData['images']));
 
-        foreach ($imageNames as $key => $image) {
-            $path = 'import/'.$this->import->images_directory_path.'/'.$image;
+        /**
+         * Links were fetched in their own phase, before any row was written, so
+         * they are resolved from that manifest rather than over the network here
+         * — a queued batch must never wait on someone else's server.
+         */
+        $manifest = $this->import->image_source == Import::IMAGE_SOURCE_URL
+            ? ($this->readImageManifest() ?? [])
+            : [];
 
-            if (! Storage::disk('local')->has($path)) {
+        foreach ($imageNames as $image) {
+            $resolved = $this->resolveImage($image, $manifest);
+
+            if (is_null($resolved)) {
                 continue;
             }
 
-            $imagesData[$rowData['sku']][] = [
-                'name' => $image,
-                'path' => Storage::disk('local')->path($path),
-            ];
+            $imagesData[$rowData['sku']][] = $resolved;
         }
+    }
+
+    /**
+     * Check a row's images against the source the import was set up with.
+     *
+     * The sources name images in two incompatible ways — a link, or a file name —
+     * and nothing downstream can tell a wrong choice from a missing picture: both
+     * resolve to nothing and the product imports without it.
+     */
+    protected function validateImages(array $rowData, int $rowNumber): void
+    {
+        if (empty($rowData['images'])) {
+            return;
+        }
+
+        $expectsUrls = $this->import->image_source === Import::IMAGE_SOURCE_URL;
+
+        foreach (array_filter(array_map('trim', explode(',', $rowData['images']))) as $image) {
+            if ($this->isRemoteImage($image) !== $expectsUrls) {
+                $code = $expectsUrls
+                    ? self::ERROR_IMAGE_NOT_URL
+                    : self::ERROR_IMAGE_NOT_FILE;
+
+                $this->skipRow(
+                    $rowNumber,
+                    $code,
+                    'images',
+                    sprintf(trans($this->messages[$code]), $image)
+                );
+
+                continue;
+            }
+
+            /**
+             * A link is only checked for shape here; whether the host answers is
+             * settled in the download phase, which records a failure per image
+             * rather than failing the row.
+             */
+            if (
+                ! $expectsUrls
+                && ! $this->resolveImage($image, [])
+            ) {
+                $this->skipRow(
+                    $rowNumber,
+                    self::ERROR_IMAGE_NOT_FOUND,
+                    'images',
+                    sprintf(trans($this->messages[self::ERROR_IMAGE_NOT_FOUND]), $image)
+                );
+            }
+        }
+    }
+
+    /**
+     * Locate one image, according to where this import said its images live.
+     *
+     * A reference that cannot be found is skipped rather than failing the row:
+     * one missing picture should not cost the product its import.
+     */
+    protected function resolveImage(string $image, array $manifest): ?array
+    {
+        return match ($this->import->image_source) {
+            Import::IMAGE_SOURCE_URL => $this->resolveDownloadedImage($manifest, $image),
+            Import::IMAGE_SOURCE_UPLOAD => $this->resolveUploadedImage($image),
+            default => $this->resolveDirectoryImage($image),
+        };
+    }
+
+    /**
+     * An image unpacked from the archive uploaded with this import. It lives
+     * under the import's own folder on the private disk.
+     */
+    protected function resolveUploadedImage(string $image): ?array
+    {
+        $path = 'imports/'.$this->import->id.'/images/'.$image;
+
+        return $this->resolveDiskImage('private', $path, $image);
+    }
+
+    /**
+     * An image placed on the server by hand, under `storage/app/import`.
+     */
+    protected function resolveDirectoryImage(string $image): ?array
+    {
+        $path = 'import/'.$this->import->images_directory_path.'/'.$image;
+
+        return $this->resolveDiskImage('local', $path, $image);
+    }
+
+    /**
+     * An image fetched during the download phase. One that failed to download is
+     * skipped, so the product still imports without it.
+     */
+    protected function resolveDownloadedImage(array $manifest, string $url): ?array
+    {
+        $entry = $manifest[$url] ?? null;
+
+        if (
+            ! $entry
+            || ($entry['status'] ?? null) !== 'downloaded'
+        ) {
+            return null;
+        }
+
+        return $this->resolveDiskImage('private', $entry['path'], $entry['name']);
+    }
+
+    /**
+     * Turn a path on a disk into what saveImages() needs — an absolute
+     * filesystem path plus a name — or null when the file is not there.
+     */
+    protected function resolveDiskImage(string $disk, string $path, string $name): ?array
+    {
+        if (! Storage::disk($disk)->has($path)) {
+            return null;
+        }
+
+        return [
+            'name' => $name,
+            'path' => Storage::disk($disk)->path($path),
+        ];
     }
 
     /**
@@ -1391,6 +1705,40 @@ class Importer extends AbstractImporter
             return;
         }
 
+        $productIds = [];
+
+        foreach ($imagesData as $sku => $images) {
+            if (empty($images)) {
+                continue;
+            }
+
+            $product = $this->skuStorage->get($sku);
+
+            $productIds[] = $product['id'];
+        }
+
+        /**
+         * Remove existing images (DB rows + files) for products being updated
+         * so that the CSV becomes the source of truth for the image set.
+         */
+        if (! empty($productIds)) {
+            $existingImages = $this->productImageRepository
+                ->getModel()
+                ->newQuery()
+                ->where('type', 'images')
+                ->whereIn('product_id', $productIds)
+                ->get();
+
+            foreach ($existingImages as $existingImage) {
+                Storage::delete($existingImage->path);
+            }
+
+            $this->productImageRepository->deleteWhere([
+                ['type', '=', 'images'],
+                ['product_id', 'IN', $productIds],
+            ]);
+        }
+
         $productImages = [];
 
         foreach ($imagesData as $sku => $images) {
@@ -1399,20 +1747,20 @@ class Importer extends AbstractImporter
             foreach ($images as $key => $image) {
                 $file = new UploadedFile($image['path'], $image['name']);
 
-                $image = (new ImageManager)->make($file)->encode('webp');
+                $encoded = image_manager()->fromUpload($file)->toWebp()->toBytes();
 
                 $imageDirectory = $this->productImageRepository->getProductDirectory((object) $product);
 
                 $path = $imageDirectory.'/'.Str::random(40).'.webp';
 
                 $productImages[] = [
-                    'type'       => 'images',
-                    'path'       => $path,
+                    'type' => 'images',
+                    'path' => $path,
                     'product_id' => $product['id'],
-                    'position'   => $key + 1,
+                    'position' => $key + 1,
                 ];
 
-                Storage::put($path, $image);
+                Storage::put($path, (string) $encoded);
             }
         }
 
@@ -1435,15 +1783,35 @@ class Importer extends AbstractImporter
                 continue;
             }
 
-            $data[$column] = $rowData[$column] ?? null;
+            /**
+             * Same fallback as the flat indexer, so a column the file left out reads off the
+             * flat table as the default rather than as an empty value.
+             */
+            $data[$column] = $rowData[$column] ?? $this->getFlatColumnDefaults()[$column] ?? null;
         }
 
         $data = array_merge($data, [
-            'locale'  => $rowData['locale'],
+            'locale' => $rowData['locale'],
             'channel' => $rowData['channel'],
         ]);
 
         $flatData[] = $data;
+    }
+
+    /**
+     * Return the default value of every attribute that is also a flat column, keyed by column.
+     */
+    public function getFlatColumnDefaults(): array
+    {
+        if (! is_null($this->flatColumnDefaults)) {
+            return $this->flatColumnDefaults;
+        }
+
+        return $this->flatColumnDefaults = $this->attributes
+            ->whereNotNull('default_value')
+            ->whereIn('code', $this->getProductFlatColumns())
+            ->pluck('default_value', 'code')
+            ->toArray();
     }
 
     /**
@@ -1457,7 +1825,7 @@ class Importer extends AbstractImporter
             $product = $this->skuStorage->get($attributes['sku']);
 
             $products[] = array_merge($attributes, [
-                'product_id'          => $product['id'],
+                'product_id' => $product['id'],
                 'attribute_family_id' => $product['attribute_family_id'],
             ]);
         }
@@ -1469,6 +1837,14 @@ class Importer extends AbstractImporter
                 'channel',
                 'locale',
             ],
+        );
+
+        /**
+         * The batch has written its inventories and images by now, so the columns derived from
+         * them can be filled. The file itself never carries them.
+         */
+        $this->flatIndexer->refreshDerivedColumns(
+            array_values(array_unique(array_column($products, 'product_id')))
         );
     }
 
@@ -1524,8 +1900,10 @@ class Importer extends AbstractImporter
                 $variant = $this->skuStorage->get($variantSku);
 
                 $parentAssociations[] = [
-                    'sku'       => $variantSku,
+                    'sku' => $variantSku,
                     'parent_id' => $product['id'],
+                    'type' => $variant['type'] ?? 'simple',
+                    'attribute_family_id' => $variant['attribute_family_id'] ?? $product['attribute_family_id'],
                 ];
 
                 foreach ($variantSuperAttributes as $superAttributeCode => $optionLabel) {
@@ -1538,11 +1916,11 @@ class Importer extends AbstractImporter
                     $attributeTypeValues = array_fill_keys(array_values($attribute->attributeTypeFields), null);
 
                     $attributeTypeValues = array_merge($attributeTypeValues, [
-                        'product_id'            => $variant['id'],
-                        'attribute_id'          => $attribute->id,
+                        'product_id' => $variant['id'],
+                        'attribute_id' => $attribute->id,
                         $attribute->column_name => $attributeOption->id,
-                        'channel'               => null,
-                        'locale'                => null,
+                        'channel' => null,
+                        'locale' => null,
                     ]);
 
                     $attributeTypeValues['unique_id'] = implode('|', array_filter([
@@ -1562,7 +1940,7 @@ class Importer extends AbstractImporter
                 $attribute = $this->attributes->where('code', $attributeCode)->first();
 
                 $superAttributes[] = [
-                    'product_id'   => $product['id'],
+                    'product_id' => $product['id'],
                     'attribute_id' => $attribute->id,
                 ];
             }
@@ -1642,9 +2020,9 @@ class Importer extends AbstractImporter
                 }
 
                 $associatedProducts[] = [
-                    'qty'                   => $qty,
-                    'sort_order'            => $sortOrder++,
-                    'product_id'            => $product['id'],
+                    'qty' => $qty,
+                    'sort_order' => $sortOrder++,
+                    'product_id' => $product['id'],
                     'associated_product_id' => $associatedProduct['id'],
                 ];
             }
@@ -1682,14 +2060,14 @@ class Importer extends AbstractImporter
                 $productSortOrder = 0;
 
                 $bundleOptions[$rowData['sku']][$rowData['locale']][$attributes['name']]['attributes'] = [
-                    'type'        => $attributes['type'],
+                    'type' => $attributes['type'],
                     'is_required' => $attributes['required'],
-                    'sort_order'  => $optionSortOrder++,
+                    'sort_order' => $optionSortOrder++,
                 ];
             }
 
             $bundleOptions[$rowData['sku']][$rowData['locale']][$attributes['name']]['skus'][$attributes['sku']] = [
-                'qty'        => $attributes['qty'],
+                'qty' => $attributes['qty'],
                 'is_default' => $attributes['default'],
                 'sort_order' => $productSortOrder++,
             ];
@@ -1734,18 +2112,18 @@ class Importer extends AbstractImporter
 
                 if (! $bundleOption) {
                     $bundleOption = $this->productBundleOptionRepository->create([
-                        'product_id'  => $product['id'],
-                        'type'        => $option['attributes']['type'],
+                        'product_id' => $product['id'],
+                        'type' => $option['attributes']['type'],
                         'is_required' => $option['attributes']['is_required'],
-                        'sort_order'  => $option['attributes']['sort_order'],
+                        'sort_order' => $option['attributes']['sort_order'],
                     ]);
                 } else {
                     $upsertData['options'][] = [
-                        'id'          => $bundleOption->id,
-                        'product_id'  => $product['id'],
-                        'type'        => $option['attributes']['type'],
+                        'id' => $bundleOption->id,
+                        'product_id' => $product['id'],
+                        'type' => $option['attributes']['type'],
                         'is_required' => $option['attributes']['is_required'],
-                        'sort_order'  => $option['attributes']['sort_order'],
+                        'sort_order' => $option['attributes']['sort_order'],
                     ];
                 }
 
@@ -1756,10 +2134,10 @@ class Importer extends AbstractImporter
 
                     $upsertData['products'][] = [
                         'product_bundle_option_id' => $bundleOption->id,
-                        'product_id'               => $associatedProduct['id'],
-                        'qty'                      => $optionProduct['qty'],
-                        'is_default'               => $optionProduct['is_default'],
-                        'sort_order'               => $optionProduct['sort_order'],
+                        'product_id' => $associatedProduct['id'],
+                        'qty' => $optionProduct['qty'],
+                        'is_default' => $optionProduct['is_default'],
+                        'sort_order' => $optionProduct['sort_order'],
                     ];
                 }
             }
@@ -1779,8 +2157,8 @@ class Importer extends AbstractImporter
 
                     $upsertData['translations'][] = [
                         'product_bundle_option_id' => $bundleOptionId,
-                        'label'                    => $optionName,
-                        'locale'                   => $locale,
+                        'label' => $optionName,
+                        'locale' => $locale,
                     ];
                 }
             }
@@ -1813,14 +2191,318 @@ class Importer extends AbstractImporter
     }
 
     /**
+     * Prepare booking data from current batch.
+     * The `booking_options` column uses the same pipe/key=value convention as bundle_options.
+     *
+     * Layout (pipe-separated sections):
+     *  Section A (required, first): product-level config
+     *      type=default|appointment|event|rental|table,qty=<int>,location=<text>,
+     *      show_location=0|1,available_every_week=0|1,
+     *      available_from=YYYY-MM-DD[ HH:MM:SS],available_to=YYYY-MM-DD[ HH:MM:SS],
+     *      allow_cancellation=0|1
+     *
+     *  Section B (optional, one record): type-specific config
+     *      For default: booking_type=one|many,duration=<int>,break_time=<int>
+     *      For appointment: duration=<int>,break_time=<int>,same_slot_all_days=0|1
+     *      For table: price_type=table|guest,guest_limit=<int>,duration=<int>,
+     *                 break_time=<int>,prevent_scheduling_before=<int>,same_slot_all_days=0|1
+     *      For rental: renting_type=daily|hourly|daily_hourly,daily_price=<dec>,
+     *                  hourly_price=<dec>,same_slot_all_days=0|1
+     *      (No separate config record for event.)
+     *
+     *  Section C+ (optional, repeating): slot or ticket records
+     *      Slot: day=<0-6|all>,from=HH:MM,to=HH:MM[,status=0|1]
+     *      One-booking-many-days slot: from_day=<0-6>,from=HH:MM,to_day=<0-6>,to=HH:MM
+     *      Event ticket: ticket=<ref>,name=<text>,qty=<int>,price=<dec>[,special_price=<dec>,
+     *                    special_price_from=YYYY-MM-DD,special_price_to=YYYY-MM-DD,description=<text>]
+     */
+    public function prepareBookingData(array $rowData, array &$bookingData): void
+    {
+        if (
+            ($rowData['type'] ?? null) != self::PRODUCT_TYPE_BOOKING
+            || empty($rowData['booking_options'])
+        ) {
+            return;
+        }
+
+        $sections = explode('|', $rowData['booking_options']);
+
+        if (empty($sections)) {
+            return;
+        }
+
+        parse_str(str_replace(',', '&', array_shift($sections)), $config);
+
+        if (empty($config['type'])) {
+            return;
+        }
+
+        $type = $config['type'];
+
+        /**
+         * The admin edit form hides the "Available Every Week" selector for
+         * `default` and `event` booking types — both are always date-range-
+         * based (weekly slot patterns within the window, or one-off events).
+         * Force those types to `available_every_week = 0` here so the saved
+         * row is consistent with what the manual form produces; otherwise
+         * the edit view's `v-if="! parseInt(booking.available_every_week)"`
+         * check would hide the Available From/To fields with no UI to flip
+         * the flag back.
+         */
+        $forceDateRange = in_array($type, ['default', 'event'], true);
+
+        $entry = [
+            'type' => $type,
+            'qty' => (int) ($config['qty'] ?? 0),
+            'location' => $config['location'] ?? null,
+            'show_location' => ! empty($config['show_location']) ? 1 : 0,
+            'available_every_week' => $forceDateRange ? 0 : (! empty($config['available_every_week']) ? 1 : 0),
+            'available_from' => $config['available_from'] ?? null,
+            'available_to' => $config['available_to'] ?? null,
+            'allow_cancellation' => array_key_exists('allow_cancellation', $config)
+                ? (! empty($config['allow_cancellation']) ? 1 : 0)
+                : 1,
+            'type_config' => [],
+            'slots_raw' => [],
+            'tickets_raw' => [],
+        ];
+
+        if ($entry['type'] !== 'event' && ! empty($sections)) {
+            parse_str(str_replace(',', '&', array_shift($sections)), $typeConfig);
+
+            $entry['type_config'] = $typeConfig;
+        }
+
+        foreach ($sections as $section) {
+            parse_str(str_replace(',', '&', $section), $record);
+
+            if (empty($record)) {
+                continue;
+            }
+
+            if ($entry['type'] === 'event' && isset($record['ticket'])) {
+                $entry['tickets_raw'][] = $record;
+            } else {
+                $entry['slots_raw'][] = $record;
+            }
+        }
+
+        $bookingData[$rowData['sku']] = $entry;
+    }
+
+    /**
+     * Save booking data from current batch.
+     */
+    public function saveBookingData(array &$bookingData): void
+    {
+        if (empty($bookingData)) {
+            return;
+        }
+
+        foreach ($bookingData as $sku => $entry) {
+            $product = $this->skuStorage->get($sku);
+
+            if (! $product) {
+                continue;
+            }
+
+            $data = [
+                'type' => $entry['type'],
+                'qty' => $entry['qty'],
+                'location' => $entry['location'],
+                'show_location' => $entry['show_location'],
+                'available_every_week' => $entry['available_every_week'],
+                'available_from' => $entry['available_from'],
+                'available_to' => $entry['available_to'],
+                'allow_cancellation' => $entry['allow_cancellation'],
+                'product_id' => $product['id'],
+            ];
+
+            $this->mergeBookingTypeData($data, $entry);
+
+            $existing = $this->bookingProductRepository->findOneByField('product_id', $product['id']);
+
+            if ($existing) {
+                $this->bookingProductRepository->update($data, $existing->id);
+            } else {
+                $this->bookingProductRepository->create($data);
+            }
+        }
+    }
+
+    /**
+     * Merge type-specific config (slots/tickets) into the booking data payload.
+     */
+    private function mergeBookingTypeData(array &$data, array $entry): void
+    {
+        $type = $entry['type'];
+        $typeConfig = $entry['type_config'] ?? [];
+        $slotsRaw = $entry['slots_raw'] ?? [];
+
+        switch ($type) {
+            case 'default':
+                $data['booking_type'] = $typeConfig['booking_type'] ?? 'many';
+                $data['duration'] = (int) ($typeConfig['duration'] ?? 0);
+                $data['break_time'] = (int) ($typeConfig['break_time'] ?? 0);
+                $data['slots'] = $this->buildSlotsMatrix($slotsRaw, $data['booking_type'] === 'one');
+
+                break;
+
+            case 'appointment':
+                $data['duration'] = (int) ($typeConfig['duration'] ?? 0);
+                $data['break_time'] = (int) ($typeConfig['break_time'] ?? 0);
+                $data['same_slot_all_days'] = ! empty($typeConfig['same_slot_all_days']) ? 1 : 0;
+                $data['slots'] = $this->buildSlotsMatrix($slotsRaw, false, (bool) $data['same_slot_all_days']);
+
+                break;
+
+            case 'table':
+                $data['price_type'] = $typeConfig['price_type'] ?? 'guest';
+                $data['guest_limit'] = (int) ($typeConfig['guest_limit'] ?? 0);
+                $data['duration'] = (int) ($typeConfig['duration'] ?? 0);
+                $data['break_time'] = (int) ($typeConfig['break_time'] ?? 0);
+                $data['prevent_scheduling_before'] = (int) ($typeConfig['prevent_scheduling_before'] ?? 0);
+                $data['same_slot_all_days'] = ! empty($typeConfig['same_slot_all_days']) ? 1 : 0;
+                $data['slots'] = $this->buildSlotsMatrix($slotsRaw, false, (bool) $data['same_slot_all_days']);
+
+                break;
+
+            case 'rental':
+                $data['renting_type'] = $typeConfig['renting_type'] ?? 'daily';
+                $data['daily_price'] = (float) ($typeConfig['daily_price'] ?? 0);
+                $data['hourly_price'] = (float) ($typeConfig['hourly_price'] ?? 0);
+                $data['same_slot_all_days'] = ! empty($typeConfig['same_slot_all_days']) ? 1 : 0;
+                $data['slots'] = $this->buildSlotsMatrix($slotsRaw, false, (bool) $data['same_slot_all_days']);
+
+                break;
+
+            case 'event':
+                $data['tickets'] = $this->buildTickets($entry['tickets_raw'] ?? []);
+
+                break;
+        }
+    }
+
+    /**
+     * Convert slot records into the structure expected by the booking repository.
+     *
+     *  - For "one booking for many days" (default type), returns a flat list of
+     *    `[from_day, from, to_day, to]` entries.
+     *  - For `same_slot_all_days`, returns a flat list of `[from, to]` entries.
+     *  - Otherwise, returns a 7-index array keyed by weekday (0=Sun..6=Sat).
+     *    `day=all` fans the record out to all 7 weekdays.
+     */
+    private function buildSlotsMatrix(array $slotsRaw, bool $isOneForMany, bool $sameSlotAllDays = false): array
+    {
+        if ($isOneForMany) {
+            $slots = [];
+
+            foreach ($slotsRaw as $index => $raw) {
+                if (! isset($raw['from_day'], $raw['to_day'], $raw['from'], $raw['to'])) {
+                    continue;
+                }
+
+                $slots[] = [
+                    'id' => $index,
+                    'from_day' => (int) $raw['from_day'],
+                    'from' => $raw['from'],
+                    'to_day' => (int) $raw['to_day'],
+                    'to' => $raw['to'],
+                ];
+            }
+
+            return $slots;
+        }
+
+        if ($sameSlotAllDays) {
+            $slots = [];
+
+            foreach ($slotsRaw as $raw) {
+                if (! isset($raw['from'], $raw['to'])) {
+                    continue;
+                }
+
+                $slots[] = [
+                    'from' => $raw['from'],
+                    'to' => $raw['to'],
+                ];
+            }
+
+            return $slots;
+        }
+
+        $slots = [];
+
+        foreach ($slotsRaw as $raw) {
+            if (! isset($raw['from'], $raw['to'])) {
+                continue;
+            }
+
+            $days = isset($raw['day']) && $raw['day'] === 'all'
+                ? range(0, 6)
+                : [(int) ($raw['day'] ?? 0)];
+
+            foreach ($days as $day) {
+                $count = isset($slots[$day]) ? count($slots[$day]) : 0;
+
+                $entry = [
+                    'id' => $day.'_slot_'.$count,
+                    'from' => $raw['from'],
+                    'to' => $raw['to'],
+                ];
+
+                if (array_key_exists('status', $raw)) {
+                    $entry['status'] = (int) $raw['status'];
+                } else {
+                    $entry['status'] = 1;
+                }
+
+                $slots[$day][] = $entry;
+            }
+        }
+
+        ksort($slots);
+
+        return $slots;
+    }
+
+    /**
+     * Convert ticket records into the structure expected by the booking repository.
+     */
+    private function buildTickets(array $ticketsRaw): array
+    {
+        $tickets = [];
+
+        $localeCode = core()->getCurrentLocale()?->code ?? config('app.fallback_locale');
+
+        foreach ($ticketsRaw as $raw) {
+            $ref = $raw['ticket'] ?? count($tickets);
+
+            $tickets['ticket_'.$ref] = [
+                'qty' => (int) ($raw['qty'] ?? 0),
+                'price' => (float) ($raw['price'] ?? 0),
+                'special_price' => isset($raw['special_price']) ? (float) $raw['special_price'] : null,
+                'special_price_from' => $raw['special_price_from'] ?? null,
+                'special_price_to' => $raw['special_price_to'] ?? null,
+                $localeCode => [
+                    'name' => $raw['name'] ?? '',
+                    'description' => $raw['description'] ?? '',
+                ],
+            ];
+        }
+
+        return $tickets;
+    }
+
+    /**
      * Prepare links from current batch
      */
     public function prepareLinks(array $rowData, array &$links): void
     {
         $linkTableMapping = [
-            'related'    => 'product_relations',
+            'related' => 'product_relations',
             'cross_sell' => 'product_cross_sells',
-            'up_sell'    => 'product_up_sells',
+            'up_sell' => 'product_up_sells',
         ];
 
         foreach ($linkTableMapping as $type => $table) {
@@ -1865,7 +2547,7 @@ class Importer extends AbstractImporter
 
                     $productLinks[] = [
                         'parent_id' => $product['id'],
-                        'child_id'  => $linkedProduct['id'],
+                        'child_id' => $linkedProduct['id'],
                     ];
                 }
             }
@@ -1951,7 +2633,7 @@ class Importer extends AbstractImporter
         $attributeFamily = $this->attributeFamilies->where('code', $attributeFamilyCode)->first();
 
         $product = ProductModel::make([
-            'type'                => $type,
+            'type' => $type,
             'attribute_family_id' => $attributeFamily->id,
         ]);
 

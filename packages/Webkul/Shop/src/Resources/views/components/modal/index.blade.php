@@ -17,11 +17,13 @@
             <div {{ $header->attributes->merge(['class' => 'flex items-center justify-between gap-5 border-b border-zinc-200 bg-white p-8 max-sm:px-4 max-sm:py-3']) }}>
                 {{ $header }}
 
-                <span
-                    class="icon-cancel cursor-pointer text-3xl max-sm:text-2xl"
+                <button
+                    type="button"
+                    class="icon-cancel cursor-pointer text-3xl max-sm:text-2xl focus-visible:ring-2 focus-visible:ring-navyBlue focus-visible:ring-offset-2 focus-visible:outline-hidden rounded bg-transparent border-0"
+                    aria-label="Close modal"
                     @click="toggle"
                 >
-                </span>
+                </button>
             </div>
         </template>
     @endisset
@@ -49,7 +51,10 @@
         id="v-modal-template"
     >
         <div>
-            <div @click="toggle">
+            <div
+                class="w-max max-md:w-full"
+                @click="toggle"
+            >
                 <slot name="toggle">
                 </slot>
             </div>
@@ -65,7 +70,7 @@
                 leave-to-class="opacity-0"
             >
                 <div
-                    class="fixed inset-0 z-10 bg-gray-500 bg-opacity-50 transition-opacity"
+                    class="fixed inset-0 z-10 bg-gray-500/50 transition-opacity"
                     v-show="isOpen"
                 ></div>
             </transition>
@@ -81,10 +86,18 @@
                 leave-to-class="translate-y-4 opacity-0 md:translate-y-0 md:scale-95"
             >
                 <div
-                    class="fixed inset-0 z-10 transform overflow-y-auto transition" v-show="isOpen"
+                    class="fixed inset-0 z-10 transform overflow-y-auto transition focus-visible:outline-hidden" 
+                    v-show="isOpen"
+                    role="dialog"
+                    aria-modal="true"
+                    ref="modalContainer"
+                    tabindex="-1"
                 >
                     <div class="flex min-h-full items-end justify-center p-4 sm:items-center sm:p-0">
-                        <div class="absolute left-1/2 top-1/2 z-[999] w-full max-w-[595px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-zinc-100 max-md:w-[90%]">
+                        <div
+                            class="absolute left-1/2 top-1/2 z-999 w-full -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-zinc-100 max-md:w-[90%]"
+                            :class="panelClass || 'max-w-[595px]'"
+                        >
                             <!-- Header Slot-->
                             <slot
                                 name="header"
@@ -109,12 +122,43 @@
         app.component('v-modal', {
             template: '#v-modal-template',
 
-            props: ['isActive'],
+            props: ['isActive', 'panelClass'],
 
             data() {
                 return {
                     isOpen: this.isActive,
+                    previousActiveElement: null,
                 };
+            },
+
+            watch: {
+                isActive(newVal) {
+                    this.isOpen = newVal;
+                },
+
+                isOpen(newVal) {
+                    if (newVal) {
+                        this.previousActiveElement = document.activeElement;
+                        this.$nextTick(() => {
+                            const focusable = this.getFocusableElements();
+                            if (focusable.length > 0) {
+                                focusable[0].focus();
+                            } else if (this.$refs.modalContainer) {
+                                this.$refs.modalContainer.focus();
+                            }
+                        });
+                        window.addEventListener('keydown', this.handleGlobalKeyDown);
+                    } else {
+                        window.removeEventListener('keydown', this.handleGlobalKeyDown);
+                        if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+                            this.previousActiveElement.focus();
+                        }
+                    }
+                }
+            },
+
+            beforeUnmount() {
+                window.removeEventListener('keydown', this.handleGlobalKeyDown);
             },
 
             methods: {
@@ -156,6 +200,42 @@
                     document.body.style.paddingRight = '';
 
                     this.$emit('close', { isActive: this.isOpen });
+                },
+
+                getFocusableElements() {
+                    if (! this.$refs.modalContainer) return [];
+                    return Array.from(
+                        this.$refs.modalContainer.querySelectorAll(
+                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                        )
+                    ).filter(el => ! el.hasAttribute('disabled') && el.offsetParent !== null);
+                },
+
+                handleGlobalKeyDown(e) {
+                    if (e.key === 'Escape') {
+                        this.close();
+                        return;
+                    }
+                    if (e.key === 'Tab') {
+                        const focusable = this.getFocusableElements();
+                        if (focusable.length === 0) {
+                            e.preventDefault();
+                            return;
+                        }
+                        const first = focusable[0];
+                        const last = focusable[focusable.length - 1];
+                        if (e.shiftKey) {
+                            if (document.activeElement === first) {
+                                last.focus();
+                                e.preventDefault();
+                            }
+                        } else {
+                            if (document.activeElement === last) {
+                                first.focus();
+                                e.preventDefault();
+                            }
+                        }
+                    }
                 }
             }
         });

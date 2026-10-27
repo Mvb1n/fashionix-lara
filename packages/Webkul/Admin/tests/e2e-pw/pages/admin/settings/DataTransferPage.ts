@@ -1,0 +1,439 @@
+import {
+    expect,
+    type Download,
+    type Locator,
+    type Page,
+} from "@playwright/test";
+import { BasePage } from "../../BasePage";
+import { escapeRegExp } from "@shared/regex";
+import {
+    dataFilePath,
+    IMPORT_TIMEOUT,
+    type ImageSource,
+    type ImportOptions,
+    type ImportType,
+} from "../../../utils/data-transfer";
+
+type SampleFormat = "CSV" | "XLS" | "XLSX" | "XML";
+
+export class DataTransferPage extends BasePage {
+    constructor(page: Page) {
+        super(page);
+    }
+
+    private get createImportButton(): Locator {
+        return this.page.getByRole("link", {
+            name: "Create Import",
+            exact: true,
+        });
+    }
+
+    private get importButton(): Locator {
+        return this.page.getByRole("button", { name: "Import", exact: true });
+    }
+
+    private get agreeButton(): Locator {
+        return this.page.getByRole("button", { name: "Agree", exact: true });
+    }
+
+    private get typeSelect(): Locator {
+        return this.page.locator('select[name="type"]');
+    }
+
+    private get fileInput(): Locator {
+        return this.page.locator('input[type="file"][name="file"]');
+    }
+
+    private get actionSelect(): Locator {
+        return this.page.locator('select[name="action"]');
+    }
+
+    private get validationStrategySelect(): Locator {
+        return this.page.locator('select[name="validation_strategy"]');
+    }
+
+    private get allowedErrorsInput(): Locator {
+        return this.page.locator('input[name="allowed_errors"]');
+    }
+
+    private get fieldSeparatorInput(): Locator {
+        return this.page.locator('input[name="field_separator"]');
+    }
+
+    private get processInQueueCheckbox(): Locator {
+        return this.page.locator('input[name="process_in_queue"]');
+    }
+
+    private get processInQueueSwitch(): Locator {
+        return this.page.locator('label[for="process_in_queue"]');
+    }
+
+    private get imagesArchiveInput(): Locator {
+        return this.page.locator('input[type="file"][name="upload_images"]');
+    }
+
+    private get imagesDirectoryInput(): Locator {
+        return this.page.locator('input[name="images_directory_path"]');
+    }
+
+    private get imagesPanel(): Locator {
+        return this.page.locator("#import-images-panel");
+    }
+
+    private get successMessage(): Locator {
+        return this.page.getByText(
+            "Congratulations! Your import was successful.",
+        );
+    }
+
+    private get validationFailedMessage(): Locator {
+        return this.page.getByText(
+            "Your import is invalid. Please fix the following errors and try again.",
+        );
+    }
+
+    private get validationErrorList(): Locator {
+        return this.page.locator("div.grid:has(> p.break-all)");
+    }
+
+    private get errorReportLink(): Locator {
+        return this.page.getByRole("link", { name: "Download Full Report" });
+    }
+
+    private get uploadedArchiveNote(): Locator {
+        return this.page.getByText("Currently uploaded:");
+    }
+
+    private get sampleImagesLink(): Locator {
+        return this.page.getByText("Download sample images");
+    }
+
+    private get importStepLabels(): Locator {
+        return this.page.locator("ol li span.absolute");
+    }
+
+    private get sampleDropdown(): Locator {
+        return this.page
+            .locator("span")
+            .filter({ hasText: /^\s*Download Sample\s*$/ })
+            .locator("xpath=following-sibling::*[1]");
+    }
+
+    private get sampleDropdownToggle(): Locator {
+        return this.sampleDropdown.locator("span.icon-arrow-down");
+    }
+
+    private statRow(label: string): Locator {
+        return this.page.locator("p").filter({
+            has: this.page.locator("span", {
+                hasText: new RegExp(`^\\s*${escapeRegExp(label)}\\s*$`),
+            }),
+        });
+    }
+
+    private imageSourceCard(source: ImageSource): Locator {
+        return this.page.locator(
+            `label:has(> input[name="image_source"][value="${source}"])`,
+        );
+    }
+
+    private imageSourceRadio(source: ImageSource): Locator {
+        return this.page.locator(
+            `input[name="image_source"][value="${source}"]`,
+        );
+    }
+
+    private sampleLink(format: SampleFormat): Locator {
+        return this.page.getByRole("link", { name: format, exact: true });
+    }
+
+    private gridRow(id: number): Locator {
+        return this.page
+            .locator("div.row")
+            .filter({ hasText: `imports/${id}/` });
+    }
+
+    private async statValue(label: string): Promise<number> {
+        const text = await this.statRow(label).innerText();
+
+        return Number(text.replace(label, "").trim());
+    }
+
+    async goto(): Promise<void> {
+        await this.visit("admin/settings/data-transfer/imports");
+
+        await expect(this.createImportButton).toBeVisible();
+    }
+
+    async gotoCreate(): Promise<void> {
+        await this.goto();
+
+        await this.createImportButton.click();
+
+        await this.page.waitForURL(/data-transfer\/imports\/create/);
+    }
+
+    async gotoEdit(id: number): Promise<void> {
+        await this.visit(`admin/settings/data-transfer/imports/edit/${id}`);
+
+        await expect(this.importButton).toBeVisible();
+    }
+
+    importId(): number {
+        const id = this.page
+            .url()
+            .match(/imports\/(?:import|edit)\/(\d+)/)?.[1];
+
+        if (!id) {
+            throw new Error(
+                `Not on an import page, current url is "${this.page.url()}".`,
+            );
+        }
+
+        return Number(id);
+    }
+
+    async selectImporterType(type: ImportType): Promise<void> {
+        await this.typeSelect.selectOption(type);
+    }
+
+    async fillForm(options: ImportOptions): Promise<void> {
+        const {
+            type,
+            file,
+            action = "append",
+            validationStrategy = "skip-errors",
+            allowedErrors = "10",
+            fieldSeparator = ",",
+            processInQueue = false,
+            imageSource = "url",
+            imagesZip,
+            imagesDirectory,
+        } = options;
+
+        await this.typeSelect.selectOption(type);
+
+        if (file) {
+            await this.fileInput.setInputFiles(dataFilePath(file));
+        }
+
+        if (await this.hasImagesPanel()) {
+            await this.chooseImageSource(imageSource, {
+                imagesZip,
+                imagesDirectory,
+            });
+        }
+
+        await this.actionSelect.selectOption(action);
+
+        await this.validationStrategySelect.selectOption(validationStrategy);
+
+        await this.allowedErrorsInput.fill(String(allowedErrors));
+
+        await this.fieldSeparatorInput.fill(fieldSeparator);
+
+        await this.setProcessInQueue(processInQueue);
+    }
+
+    async hasImagesPanel(): Promise<boolean> {
+        return this.imagesPanel.isVisible();
+    }
+
+    async chooseImageSource(
+        source: ImageSource,
+        {
+            imagesZip,
+            imagesDirectory,
+        }: { imagesZip?: string; imagesDirectory?: string } = {},
+    ): Promise<void> {
+        await this.imageSourceCard(source).click();
+
+        await expect(this.imageSourceRadio(source)).toBeChecked();
+
+        if (source === "upload" && imagesZip) {
+            await this.imagesArchiveInput.setInputFiles(
+                dataFilePath(imagesZip),
+            );
+        }
+
+        if (source === "directory") {
+            await this.imagesDirectoryInput.fill(imagesDirectory ?? "");
+        }
+    }
+
+    async setProcessInQueue(enabled: boolean): Promise<void> {
+        if ((await this.processInQueueCheckbox.isChecked()) !== enabled) {
+            await this.processInQueueSwitch.click();
+        }
+    }
+
+    async submitForm(): Promise<void> {
+        await this.importButton.click();
+
+        await this.confirmAgreeDialog();
+
+        await this.page.waitForURL(/data-transfer\/imports\/import\/\d+/);
+    }
+
+    async submitFormExpectingErrors(): Promise<void> {
+        await this.importButton.click();
+
+        await this.confirmAgreeDialog();
+    }
+
+    async confirmAgreeDialog(): Promise<void> {
+        await this.agreeButton.click();
+    }
+
+    async createImport(options: ImportOptions): Promise<void> {
+        await this.gotoCreate();
+
+        await this.fillForm(options);
+
+        await this.submitForm();
+    }
+
+    async runImport(options: ImportOptions): Promise<void> {
+        await this.createImport(options);
+
+        await this.waitForSuccess();
+    }
+
+    async rerunImport(id: number, options?: ImportOptions): Promise<void> {
+        await this.gotoEdit(id);
+
+        if (options) {
+            await this.fillForm(options);
+        }
+
+        await this.submitForm();
+    }
+
+    async waitForSuccess(timeout = IMPORT_TIMEOUT): Promise<void> {
+        await expect(this.successMessage).toBeVisible({ timeout });
+    }
+
+    async waitForValidationFailure(timeout = IMPORT_TIMEOUT): Promise<void> {
+        await expect(this.validationFailedMessage).toBeVisible({ timeout });
+    }
+
+    async openSampleDropdown(): Promise<void> {
+        await this.sampleDropdownToggle.click();
+
+        await expect(this.sampleLink("CSV")).toBeVisible();
+    }
+
+    async deleteImport(id: number): Promise<void> {
+        await this.goto();
+
+        await this.gridRow(id)
+            .locator("span.cursor-pointer.icon-delete")
+            .click();
+
+        await this.confirmAgreeDialog();
+
+        await expect(this.page.getByText("Import deleted successfully.")).toBeVisible();
+        await expect(this.gridRow(id)).toHaveCount(0);
+    }
+
+    async downloadSample(format: SampleFormat): Promise<Download> {
+        const [download] = await Promise.all([
+            this.page.waitForEvent("download"),
+            this.sampleLink(format).click(),
+        ]);
+
+        return download;
+    }
+
+    async downloadErrorReport(): Promise<Download> {
+        const [download] = await Promise.all([
+            this.page.waitForEvent("download"),
+            this.errorReportLink.click(),
+        ]);
+
+        return download;
+    }
+
+    async downloadSampleImages(): Promise<Download> {
+        const [download] = await Promise.all([
+            this.page.waitForEvent("download"),
+            this.sampleImagesLink.click(),
+        ]);
+
+        return download;
+    }
+
+    async expectStat(label: string, value: number): Promise<void> {
+        await expect(this.statRow(label)).toHaveText(
+            new RegExp(`^\\s*${escapeRegExp(label)}\\s*${value}\\s*$`),
+        );
+    }
+
+    async expectStatAbove(label: string, value: number): Promise<void> {
+        await expect
+            .poll(() => this.statValue(label), {
+                message: `"${label}" never rose above ${value}`,
+                timeout: IMPORT_TIMEOUT,
+            })
+            .toBeGreaterThan(value);
+    }
+
+    async expectRecordsTouched(count: number): Promise<void> {
+        await expect
+            .poll(
+                async () =>
+                    (await this.statValue("Total Records Created:")) +
+                    (await this.statValue("Total Records Updated:")),
+                {
+                    message: `the import never reported ${count} created and updated record(s)`,
+                    timeout: IMPORT_TIMEOUT,
+                },
+            )
+            .toBe(count);
+    }
+
+    async expectImportSteps(labels: string[]): Promise<void> {
+        await expect(this.importStepLabels).toHaveText(
+            labels.map(
+                (label) => new RegExp(`^\\s*${escapeRegExp(label)}\\s*$`),
+            ),
+        );
+    }
+
+    async expectSampleLinkHref(
+        format: SampleFormat,
+        href: RegExp,
+    ): Promise<void> {
+        await expect(this.sampleLink(format)).toHaveAttribute("href", href);
+    }
+
+    async expectValidationMessage(text: string): Promise<void> {
+        await expect(this.validationErrorList).toBeVisible();
+        await expect(this.validationErrorList).toContainText(text);
+    }
+
+    async expectFormError(text: string): Promise<void> {
+        await expect(this.page.getByText(text)).toBeVisible();
+        await expect(this.page).toHaveURL(/imports\/create/);
+    }
+
+    async expectImagesDirectory(directory: string): Promise<void> {
+        await expect(this.imagesDirectoryInput).toHaveValue(directory);
+    }
+
+    async expectImagesPanelVisible(): Promise<void> {
+        await expect(this.imagesPanel).toBeVisible();
+    }
+
+    async expectImagesPanelHidden(): Promise<void> {
+        await expect(this.imagesPanel).toBeHidden();
+    }
+
+    async expectImagesDownloaded(text: string): Promise<void> {
+        await expect(this.statRow("Images Downloaded:")).toContainText(text);
+    }
+
+    async expectUploadedArchiveNote(text: string): Promise<void> {
+        await expect(this.uploadedArchiveNote).toContainText(text);
+    }
+}

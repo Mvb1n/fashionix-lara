@@ -1,14 +1,17 @@
 <x-admin::layouts>
     <!-- Title of the page -->
     <x-slot:title>
-        @lang('admin::app.sales.orders.create.title', ['name' => $cart->customer->name])
+        @lang('admin::app.sales.orders.create.title', ['name' => e($cart->customer->name)])
     </x-slot>
 
     <!-- Page Header -->
     <div class="flex items-center justify-between gap-4 max-sm:flex-wrap">
         <div class="grid gap-1.5">
-            <p class="text-xl font-bold leading-6 text-gray-800 dark:text-white">
-                @lang('admin::app.sales.orders.create.title', ['name' => $cart->customer->name])
+            <p
+                class="text-xl font-bold leading-6 text-gray-800 dark:text-white"
+                v-pre
+            >
+                @lang('admin::app.sales.orders.create.title', ['name' => e($cart->customer->name)])
             </p>
         </div>
 
@@ -87,7 +90,7 @@
                                 </x-slot>
 
                                 <!-- Drawer Content -->
-                                <x-slot:content class="!p-0">
+                                <x-slot:content class="p-0!">
                                     {!! view_render_event('bagisto.admin.sales.order.create.product_options.before') !!}
 
                                     <!-- Included Simple Product Configuration Blade File -->
@@ -120,6 +123,11 @@
                                         @include('admin::sales.orders.create.types.virtual')
                                     </template>
 
+                                    <!-- Included Booking Product Configuration Blade File -->
+                                    <template v-if="selectedProductOptions.product.type == 'booking'">
+                                        @include('admin::sales.orders.create.types.booking')
+                                    </template>
+
                                     {!! view_render_event('bagisto.admin.sales.order.create.product_options.after') !!}
                                 </x-slot>
                             </x-admin::drawer>
@@ -132,7 +140,7 @@
                 <!-- Right Component -->
                 {!! view_render_event('bagisto.admin.sales.order.right_component.before') !!}
 
-                <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+                <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
                     <!-- Cart Items Component -->
                     @include('admin::sales.orders.create.cart-items')
 
@@ -174,7 +182,15 @@
 
                 methods: {
                     setCart(cart) {
-                        this.cart = cart;
+                        /**
+                         * Belt-and-braces: only accept cart-shaped payloads. Cart
+                         * endpoints return `{ message }` on failure; ignoring those
+                         * keeps the render from crashing if a child component ever
+                         * emits one upward by accident.
+                         */
+                        if (cart && cart.items !== undefined) {
+                            this.cart = cart;
+                        }
                     },
 
                     getCart() {
@@ -229,11 +245,34 @@
                             .then(response => {
                                 this.isAddingToCart = false;
 
-                                this.cart = response.data.data;
+                                /**
+                                 * storeItem() returns { data: CartResource, message }
+                                 * on success and only { message } on failure. Treat
+                                 * a payload without a cart-shaped body as an error so
+                                 * the Vue render doesn't get poisoned with the error
+                                 * message object.
+                                 */
+                                const payload = response.data.data;
 
-                                this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                                if (payload && payload.items !== undefined) {
+                                    this.cart = payload;
+
+                                    this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                                } else {
+                                    this.$emitter.emit('add-flash', {
+                                        type: 'error',
+                                        message: payload?.message || response.data.message || 'Unable to add the product to the cart.',
+                                    });
+                                }
                             })
-                            .catch(error => {});
+                            .catch(error => {
+                                this.isAddingToCart = false;
+
+                                this.$emitter.emit('add-flash', {
+                                    type: 'error',
+                                    message: error.response?.data?.message || 'Unable to add the product to the cart.',
+                                });
+                            });
                     },
 
                     stepReset() {

@@ -70,6 +70,31 @@
             </x-admin::form.control-group>
         </template>
 
+        <!-- Allow Slot Overlap (only for one booking for many days) -->
+        <x-admin::form.control-group
+            class="w-full"
+            v-if="default_booking.booking_type == 'one'"
+        >
+            <x-admin::form.control-group.label>
+                @lang('admin::app.catalog.products.edit.types.booking.allow-slot-overlap.title')
+            </x-admin::form.control-group.label>
+
+            <x-admin::form.control-group.control
+                type="select"
+                name="booking[allow_slot_overlap]"
+                v-model="default_booking.allow_slot_overlap"
+                :label="trans('admin::app.catalog.products.edit.types.booking.allow-slot-overlap.title')"
+            >
+                <option value="0">
+                    @lang('admin::app.catalog.products.edit.types.booking.allow-slot-overlap.no')
+                </option>
+
+                <option value="1">
+                    @lang('admin::app.catalog.products.edit.types.booking.allow-slot-overlap.yes')
+                </option>
+            </x-admin::form.control-group.control>
+        </x-admin::form.control-group>
+
         <!-- Slots Component -->
         <div class="flex items-center justify-between gap-5 py-2">
             <div class="flex flex-col gap-2">
@@ -102,7 +127,7 @@
                 <template v-if="slots.one?.length">
                     <div class="flex flex-wrap gap-x-2.5">
                         <div
-                            class="flex min-h-[38px] flex-wrap items-center gap-1 dark:border-gray-800"
+                            class="flex min-h-9.5 flex-wrap items-center gap-1 dark:border-gray-800"
                             v-for="(slot, index) in slots.one"
                         >
                             <!-- Hidden Inputs -->
@@ -137,7 +162,7 @@
                             />
 
                             <!-- Panel details -->
-                            <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded">
+                            <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded-sm">
                                 @{{ convertIndexToDay(slot.from_day) }} @{{ slot.from }} - @{{ convertIndexToDay(slot.to_day) }} @{{ slot.to }}
 
                                 <span
@@ -181,7 +206,7 @@
                     </div>
 
                     <div class="flex items-center justify-between grid-cols-2">
-                        <div class="flex min-h-[38px] flex-wrap items-center gap-1 dark:border-gray-800">
+                        <div class="flex min-h-9.5 flex-wrap items-center gap-1 dark:border-gray-800">
                             <template v-if="slots['many'][dayIndex]?.length">
                                 <template v-for="(slot, slotIndex) in slots['many'][dayIndex]">
                                     <!-- Hidden Inputs -->
@@ -209,7 +234,7 @@
                                         :value="slot.status"
                                     />
 
-                                    <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded">
+                                    <p class="flex items-center px-2 py-1 font-semibold text-white bg-gray-600 rounded-sm">
                                         @{{ slot.from }} - @{{ slot.to }}
         
                                         <span
@@ -396,7 +421,7 @@
 
                         <!-- Booking Type Many -->
                         <template v-if="default_booking.booking_type == 'many'">
-                            <div class="grid grid-cols-3 gap-2.5 pb-3">
+                            <div class="grid grid-cols-3 gap-2.5 pb-1">
                                 <!-- Hidden ID Field -->
                                 <x-admin::form.control-group.control
                                     type="hidden"
@@ -404,7 +429,7 @@
                                 />
 
                                 <!-- Slots From -->
-                                <x-admin::form.control-group class="w-full">
+                                <x-admin::form.control-group class="w-full mb-0!">
                                     <x-admin::form.control-group.label class="hidden">
                                         @lang('admin::app.catalog.products.edit.types.booking.default.modal.slot.from')
                                     </x-admin::form.control-group.label>
@@ -415,13 +440,14 @@
                                         ::rules="selectedStatus[currentIndex] ? 'required' : ''"
                                         :label="trans('admin::app.catalog.products.edit.types.booking.default.modal.slot.from')"
                                         :placeholder="trans('admin::app.catalog.products.edit.types.booking.default.modal.slot.from')"
+                                        @input="drawerError = ''"
                                     />
 
                                     <x-admin::form.control-group.error control-name="from" />
                                 </x-admin::form.control-group>
 
                                 <!-- Slots To -->
-                                <x-admin::form.control-group class="w-full">
+                                <x-admin::form.control-group class="w-full mb-0!">
                                     <x-admin::form.control-group.label class="hidden">
                                         @lang('admin::app.catalog.products.edit.types.booking.default.modal.slot.to')
                                     </x-admin::form.control-group.label>
@@ -432,13 +458,14 @@
                                         ::rules="selectedStatus[currentIndex] ? 'required' : ''"
                                         :label="trans('admin::app.catalog.products.edit.types.booking.default.modal.slot.to')"
                                         :placeholder="trans('admin::app.catalog.products.edit.types.booking.default.modal.slot.to')"
+                                        @input="drawerError = ''"
                                     />
 
                                     <x-admin::form.control-group.error control-name="to" />
                                 </x-admin::form.control-group>
 
                                 <!-- Status -->
-                                <x-admin::form.control-group class="w-full">
+                                <x-admin::form.control-group class="w-full mb-0!">
                                     <x-admin::form.control-group.label class="hidden">
                                         @lang('admin::app.catalog.products.edit.types.booking.default.modal.slot.status')
                                     </x-admin::form.control-group.label>
@@ -449,6 +476,7 @@
                                         v-model="selectedStatus[currentIndex]"
                                         ::value="selectedStatus[currentIndex]"
                                         :label="trans('admin::app.catalog.products.edit.types.booking.default.modal.slot.status')"
+                                        @change="drawerError = ''"
                                     >
                                         <option value="1">
                                             @lang('admin::app.catalog.products.edit.types.booking.default.modal.slot.open')
@@ -462,6 +490,13 @@
                                     <x-admin::form.control-group.error control-name="status" />
                                 </x-admin::form.control-group>
                             </div>
+
+                            <p
+                                v-if="drawerError"
+                                class="mt-1 text-xs italic text-red-600"
+                                v-text="drawerError"
+                            >
+                            </p>
                         </template>
                     </x-slot:content>
                 </x-admin::drawer>
@@ -481,6 +516,8 @@
                         duration: 45,
 
                         break_time: 15,
+
+                        allow_slot_overlap: 0,
 
                         slots: []
                     },
@@ -506,6 +543,8 @@
                     ],
 
                     selectedStatus : [],
+
+                    drawerError: '',
                 }
             },
 
@@ -532,60 +571,107 @@
                         }
 
                         if (
-                            params.from_day > params.to_day || 
-                            (params.from_day === params.to_day && params.from >= params.to)
+                            params.from_day === params.to_day
+                            && params.from >= params.to
                         ) {
                             this.$emitter.emit('add-flash', {
                                 type: 'error',
                                 message: "@lang('admin::app.catalog.products.edit.types.booking.validations.time-validation')"
                             });
-                            
+
                             return;
                         }
                         
-                        const isOverlapping = this.slots.one.some(item => {
+                        if (parseInt(this.default_booking.allow_slot_overlap)) {
+                            this.slots.one.push(params);
+                        } else {
+                            const WEEK_MIN = 7 * 1440;
+
                             const toMinutes = (day, time) => {
                                 const [h, m] = time.split(':').map(Number);
-                                
+
                                 return day * 1440 + h * 60 + m;
                             };
 
-                            const itemStart = toMinutes(+item.from_day, item.from);
+                            const normalize = (fromDay, fromTime, toDay, toTime) => {
+                                let start = toMinutes(+fromDay, fromTime);
+                                let end = toMinutes(+toDay, toTime);
 
-                            const itemEnd = toMinutes(+item.to_day, item.to);
-                            
-                            const paramsStart = toMinutes(+params.from_day, params.from);
-                            
-                            const paramsEnd = toMinutes(+params.to_day, params.to);
+                                if (end <= start) {
+                                    end += WEEK_MIN;
+                                }
 
-                            return paramsStart < itemEnd && paramsEnd > itemStart;
-                        });
+                                return { start, end };
+                            };
 
-                        if (! isOverlapping) {
-                            this.slots.one.push(params);
-                        } else {
-                            this.$emitter.emit('add-flash', {
-                                type: 'error',
-                                message: "@lang('admin::app.catalog.products.edit.types.booking.validations.overlap-validation')",
+                            const toSegments = (slot) => {
+                                if (slot.end <= WEEK_MIN) {
+                                    return [[slot.start, slot.end]];
+                                }
+
+                                return [
+                                    [slot.start, WEEK_MIN],
+                                    [0, slot.end - WEEK_MIN],
+                                ];
+                            };
+
+                            const overlaps = (a, b) => {
+                                for (const [as, ae] of toSegments(a)) {
+                                    for (const [bs, be] of toSegments(b)) {
+                                        if (as < be && bs < ae) {
+                                            return true;
+                                        }
+                                    }
+                                }
+
+                                return false;
+                            };
+
+                            const isOverlapping = this.slots.one.some(item => {
+                                const a = normalize(item.from_day, item.from, item.to_day, item.to);
+                                const b = normalize(params.from_day, params.from, params.to_day, params.to);
+
+                                return overlaps(a, b);
                             });
-                            
-                            return;
+
+                            if (! isOverlapping) {
+                                this.slots.one.push(params);
+                            } else {
+                                this.$emitter.emit('add-flash', {
+                                    type: 'error',
+                                    message: "@lang('admin::app.catalog.products.edit.types.booking.validations.overlap-validation')",
+                                });
+
+                                return;
+                            }
                         }
                     } else {
                         params.id = this.currentIndex;
+
+                        this.drawerError = '';
 
                         if (params.from && params.to) {
                             const currentSlot = this.slots['many'][this.currentIndex];
 
                             if (params.from >= params.to) {
-                                this.$emitter.emit('add-flash', {
-                                    type: 'error',
-                                    message: "@lang('admin::app.catalog.products.edit.types.booking.validations.time-validation')"
-                                });
+                                this.drawerError = "@lang('admin::app.catalog.products.edit.types.booking.validations.time-validation')";
 
                                 return;
                             }
-                            
+
+                            const minMinutes = parseInt(this.default_booking.duration) || 0;
+
+                            if (
+                                minMinutes > 0
+                                && parseInt(params.status) === 1
+                                && ! this.spansMinimumDuration(params.from, params.to, minMinutes)
+                            ) {
+                                this.drawerError = "@lang('admin::app.catalog.products.edit.types.booking.validations.slot-window-too-short-field')"
+                                    .replace(/:duration/g, minMinutes);
+
+                                return;
+                            }
+
                             if (! currentSlot.length) {
                                 currentSlot.push(params);
                             } else {
@@ -597,6 +683,21 @@
                     }
 
                     this.$refs.drawerForm.toggle();
+                },
+
+                spansMinimumDuration(from, to, minMinutes) {
+                    const toMinutes = timeString => {
+                        const [h, m] = timeString.split(':').map(n => parseInt(n, 10) || 0);
+                        return h * 60 + m;
+                    };
+
+                    let duration = toMinutes(to) - toMinutes(from);
+
+                    if (duration <= 0) {
+                        duration += 24 * 60;
+                    }
+
+                    return duration >= minMinutes;
                 },
 
                 convertIndexToDay(day) {
@@ -618,6 +719,8 @@
                 },
 
                 toggle(element) {
+                    this.drawerError = '';
+
                     if (element != undefined) {
                         this.$refs.modelForm.setValues(this.slots['many'][element][0]);
 

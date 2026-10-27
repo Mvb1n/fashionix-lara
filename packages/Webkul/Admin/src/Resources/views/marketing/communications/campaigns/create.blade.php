@@ -41,7 +41,7 @@
                 {!! view_render_event('bagisto.admin.marketing.communications.campaigns.create.card.general.before') !!}
 
                 <!-- General Section -->
-                <div class="box-shadow rounded bg-white p-4 dark:bg-gray-900">
+                <div class="box-shadow rounded-sm bg-white p-4 dark:bg-gray-900">
                     <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.marketing.communications.campaigns.create.general')
                     </p>
@@ -102,10 +102,11 @@
                                     @lang('admin::app.marketing.communications.campaigns.create.select-event')
                                 </option>
 
-                                @foreach (app('Webkul\Marketing\Repositories\EventRepository')->all() as $event)
+                                @foreach (app(\Webkul\Marketing\Repositories\EventRepository::class)->all() as $event)
                                     <option
                                         value="{{ $event->id }}"
                                         {{ old('marketing_event_id') == $event->id ? 'selected' : '' }}
+                                        v-pre
                                     >
                                         {{ $event->name }}
                                     </option>
@@ -116,7 +117,7 @@
                         </x-admin::form.control-group>
 
                         <!-- Email Template -->
-                        <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label class="required">
                                 @lang('admin::app.marketing.communications.campaigns.create.email-template')
                             </x-admin::form.control-group.label>
@@ -138,6 +139,7 @@
                                     <option
                                         value="{{ $template->id }}"
                                         {{ old('marketing_template_id') == $template->id ? 'selected' : '' }}
+                                        v-pre
                                     >
                                         {{ $template->name }}
                                     </option>
@@ -153,7 +155,7 @@
             </div>
 
             <!-- Right Section -->
-            <div class="flex w-[360px] max-w-full flex-col gap-2 max-md:w-full">
+            <div class="flex w-90 max-w-full flex-col gap-2 max-md:w-full">
 
                 {!! view_render_event('bagisto.admin.marketing.communications.campaigns.create.card.accordion.setting.before') !!}
 
@@ -185,10 +187,11 @@
                                     @lang('admin::app.marketing.communications.campaigns.create.select-channel')
                                 </option>
 
-                                @foreach (app('Webkul\Core\Repositories\ChannelRepository')->all() as $channel)
+                                @foreach (app(\Webkul\Core\Repositories\ChannelRepository::class)->all() as $channel)
                                     <option
                                         value="{{ $channel->id }}"
                                         {{ old('channel_id') == $channel->id ? 'selected' : '' }}
+                                        v-pre
                                     >
                                         {{ core()->getChannelName($channel) }}
                                     </option>
@@ -217,10 +220,11 @@
                                     @lang('admin::app.marketing.communications.campaigns.create.select-group')
                                 </option>
 
-                                @foreach (app('Webkul\Customer\Repositories\CustomerGroupRepository')->all() as $customerGroup)
+                                @foreach (app(\Webkul\Customer\Repositories\CustomerGroupRepository::class)->all() as $customerGroup)
                                     <option
                                         value="{{ $customerGroup->id }}"
                                         {{ old('customer_group_id') == $customerGroup->id ? 'selected' : '' }}
+                                        v-pre
                                     >
                                         {{ $customerGroup->name }}
                                     </option>
@@ -231,7 +235,7 @@
                         </x-admin::form.control-group>
 
                          <!-- Status -->
-                         <x-admin::form.control-group class="!mb-0">
+                         <x-admin::form.control-group class="mb-0!">
                             <x-admin::form.control-group.label>
                                 @lang('admin::app.marketing.communications.campaigns.create.status')
                             </x-admin::form.control-group.label>

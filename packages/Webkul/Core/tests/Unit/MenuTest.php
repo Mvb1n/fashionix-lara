@@ -10,29 +10,28 @@ use Webkul\Core\Menu\MenuItem;
 beforeEach(function () {
     config()->set('menu.admin', [
         [
-            'key'        => 'dashboard',
-            'name'       => 'admin::app.components.layouts.sidebar.dashboard',
-            'route'      => 'admin.dashboard.index',
-            'sort'       => 1,
-            'icon'       => 'icon-dashboard',
+            'key' => 'dashboard',
+            'name' => 'admin::app.components.layouts.sidebar.dashboard',
+            'route' => 'admin.dashboard.index',
+            'sort' => 1,
+            'icon' => 'icon-dashboard',
         ], [
-            'key'        => 'sales',
-            'name'       => 'admin::app.components.layouts.sidebar.sales',
-            'route'      => 'admin.sales.orders.index',
-            'sort'       => 2,
-            'icon'       => 'icon-sales',
+            'key' => 'sales',
+            'name' => 'admin::app.components.layouts.sidebar.sales',
+            'route' => 'admin.sales.orders.index',
+            'sort' => 2,
+            'icon' => 'icon-sales',
         ], [
-            'key'        => 'sales.orders',
-            'name'       => 'admin::app.components.layouts.sidebar.orders',
-            'route'      => 'admin.sales.orders.index',
-            'sort'       => 1,
-            'icon'       => '',
+            'key' => 'sales.orders',
+            'name' => 'admin::app.components.layouts.sidebar.orders',
+            'route' => 'admin.sales.orders.index',
+            'sort' => 1,
+            'icon' => '',
         ],
     ]);
 });
 
 it('should add and get menu items', function () {
-    // Arrange.
     $menu = new Menu;
 
     foreach (config('menu.admin') as $menuItem) {
@@ -48,7 +47,6 @@ it('should add and get menu items', function () {
 
     $menuItems = $menu->getItems('admin');
 
-    // Act and Assert.
     expect($menuItems->first()->key)->toBe('dashboard');
 
     expect($menuItems->first()->name)->toBe(trans('admin::app.components.layouts.sidebar.dashboard'));
@@ -63,7 +61,6 @@ it('should add and get menu items', function () {
 });
 
 it('should process sub menu items', function () {
-    // Arrange.
     $menu = new Menu;
 
     $class = new ReflectionClass(Menu::class);
@@ -72,7 +69,6 @@ it('should process sub menu items', function () {
 
     $subMenuItems = $method->invoke($menu, config('menu.admin'));
 
-    // Act and Assert.
     expect($subMenuItems)->toBeInstanceOf(Collection::class);
 
     expect($subMenuItems->count())->toBe(3);

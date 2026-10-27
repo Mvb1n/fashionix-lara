@@ -1,162 +1,110 @@
-import { test, expect } from "../../setup";
+import { test } from "../../setup";
 import {
-    generateName,
-    generateDescription,
-    generateSlug,
-    generateFullName,
+    InventorySourcesPage,
+    type InventorySourceData,
+} from "../../pages/admin/settings/InventorySourcesPage";
+import {
     generateEmail,
+    generateFullName,
+    generateName,
     generatePhoneNumber,
+    generateSlug,
+    uniqueStamp,
 } from "../../utils/faker";
 
+function buildInventorySource(
+    overrides: Partial<InventorySourceData> = {},
+): InventorySourceData {
+    return {
+        code: generateSlug("_"),
+        name: `${generateName()} ${uniqueStamp()}`,
+        contactName: generateFullName(),
+        contactEmail: generateEmail(),
+        contactNumber: generatePhoneNumber(),
+        street: "Sector 10 Dwarka",
+        city: "New Delhi",
+        postcode: "110045",
+        ...overrides,
+    };
+}
+
 test.describe("inventory source management", () => {
-    test("should create a inventory source", async ({ adminPage }) => {
-        /**
-         * Navigate to the create inventory source page.
-         */
-        await adminPage.goto(
-            `admin/settings/inventory-sources`
-        );
-        await adminPage
-            .getByRole("link", { name: "Create Inventory Source" })
-            .click();
+    let inventorySourcesPage: InventorySourcesPage;
+    let created: string[];
 
-        /**
-         * Waiting for the main form to be visible.
-         */
-        await adminPage.waitForSelector(
-            'form[action*="/settings/inventory-sources/create"]'
-        );
-
-        /**
-         * General Section.
-         */
-        await adminPage
-            .getByRole("textbox", { name: "Code", exact: true })
-            .fill(generateSlug("_"));
-        await adminPage.locator("#name").fill(generateName());
-        await adminPage
-            .getByRole("textbox", { name: "Description" })
-            .fill(generateDescription());
-
-        /**
-         * Contact Information Section.
-         */
-        await adminPage.locator("#contact_name").fill(generateFullName());
-        await adminPage
-            .getByRole("textbox", { name: "Email" })
-            .fill(generateEmail());
-        await adminPage
-            .getByRole("textbox", { name: "Contact Number" })
-            .fill(generatePhoneNumber());
-        await adminPage
-            .getByRole("textbox", { name: "Fax" })
-            .fill(generatePhoneNumber());
-
-        /**
-         * Source Address Section.
-         */
-        await adminPage.locator("#country").selectOption("IN");
-        await adminPage.locator("#state").selectOption("DL");
-        await adminPage
-            .getByRole("textbox", { name: "City" })
-            .fill("New Delhi");
-        await adminPage.getByRole("textbox", { name: "Street" }).fill("Dwarka");
-        await adminPage
-            .getByRole("textbox", { name: "Postcode" })
-            .fill("110045");
-
-        /**
-         * Settings Section.
-         */
-        // Clicking the status and verify the toggle state.
-        await adminPage.click('label[for="status"]');
-        const toggleInput = await adminPage.getByPlaceholder("Status");
-        await expect(toggleInput).toBeChecked();
-
-        /**
-         * Save Inventory Source.
-         */
-        await adminPage
-            .getByRole("button", { name: "Save Inventory Sources" })
-            .click();
-
-        await expect(
-            adminPage.getByText("Inventory Source Created Successfully")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        inventorySourcesPage = new InventorySourcesPage(adminPage);
+        created = [];
     });
 
-    test("should edit a inventory source", async ({ adminPage }) => {
-        /**
-         * Navigate to the inventory source listing page.
-         */
-        await adminPage.goto(
-            `admin/settings/inventory-sources`
-        );
-        await adminPage
-            .getByRole("link", { name: "Create Inventory Source" })
-            .waitFor({ state: "visible" });
+    test.afterEach(async () => {
+        await inventorySourcesPage.deleteInventorySourcesIfPresent(created);
+    });
 
-        /**
-         * Edit the first inventory source.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit", {
-            state: "visible",
+    test("should create an inventory source and list it as active", async () => {
+        const source = buildInventorySource();
+        created.push(source.name);
+
+        await inventorySourcesPage.createInventorySource(source);
+
+        await inventorySourcesPage.expectInventorySourceListed(source);
+    });
+
+    test("should reject an inventory source without a code and name", async () => {
+        await inventorySourcesPage.submitEmptyCreateForm();
+
+        await inventorySourcesPage.expectValidationError(
+            "The Code field is required",
+        );
+        await inventorySourcesPage.expectValidationError(
+            "The Name field is required",
+        );
+        await inventorySourcesPage.expectStillOnCreateForm();
+    });
+
+    test("should reject an inventory source whose code is already used", async () => {
+        const existing = buildInventorySource();
+        const duplicate = buildInventorySource({ code: existing.code });
+        created.push(existing.name, duplicate.name);
+
+        await inventorySourcesPage.createInventorySource(existing);
+        await inventorySourcesPage.attemptCreateInventorySource(duplicate);
+
+        await inventorySourcesPage.expectValidationError(
+            "The code has already been taken.",
+        );
+        await inventorySourcesPage.expectInventorySourceAbsent(duplicate.name);
+        await inventorySourcesPage.expectInventorySourceCodeListedOnce(
+            existing.code,
+        );
+    });
+
+    test("should rename an inventory source and keep the new name after reload", async () => {
+        const source = buildInventorySource();
+        const newName = `${generateName()} ${uniqueStamp()}`;
+        created.push(source.name, newName);
+
+        await inventorySourcesPage.createInventorySource(source);
+        await inventorySourcesPage.renameInventorySource(source.name, newName);
+
+        await inventorySourcesPage.expectInventorySourceListed({
+            name: newName,
+            code: source.code,
         });
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         * Waiting for the main form to be visible.
-         */
-        await adminPage.waitForSelector(
-            'form[action*="/settings/inventory-sources/edit"]'
-        );
-
-        // Content will be added here. Currently just checking the general save button.
-
-        /**
-         * Save Inventory Source.
-         */
-        await adminPage.click('button:has-text("Save Inventory Sources")');
-
-        await expect(
-            adminPage.getByText("Inventory Sources Updated Successfully")
-        ).toBeVisible();
+        await inventorySourcesPage.expectInventorySourceAbsent(source.name);
+        await inventorySourcesPage.expectNameInEditForm(newName);
     });
 
-    test("should delete a inventory source", async ({ adminPage }) => {
-        /**
-         * Navigate to the inventory source listing page.
-         */
-        await adminPage.goto(
-            `admin/settings/inventory-sources`
-        );
-        await adminPage
-            .getByRole("link", { name: "Create Inventory Source" })
-            .waitFor({ state: "visible" });
+    test("should delete an inventory source and remove it from the grid", async () => {
+        const source = buildInventorySource();
+        const untouched = buildInventorySource();
+        created.push(source.name, untouched.name);
 
-        /**
-         * Delete the first inventory source.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
-        );
-        await iconDelete[0].click();
+        await inventorySourcesPage.createInventorySource(source);
+        await inventorySourcesPage.createInventorySource(untouched);
+        await inventorySourcesPage.deleteInventorySource(source.name);
 
-        await adminPage.waitForSelector("text=Are you sure");
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        await expect(
-            adminPage.getByText("Inventory Sources Deleted Successfully")
-        ).toBeVisible();
+        await inventorySourcesPage.expectInventorySourceAbsent(source.name);
+        await inventorySourcesPage.expectInventorySourceListed(untouched);
     });
 });

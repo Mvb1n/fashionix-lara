@@ -1,60 +1,72 @@
-import { test, expect } from "../../../setup";
-import { generateHostname, generateName } from "../../../utils/faker";
+import { test } from "../../../setup";
+import {
+    ContentConfigurationPage,
+    type ContentSettings,
+} from "../../../pages/admin/configuration/general/ContentConfigurationPage";
+import { ChannelsPage } from "../../../pages/admin/settings/ChannelsPage";
+import {
+    buildCurrency,
+    CurrenciesPage,
+} from "../../../pages/admin/settings/CurrenciesPage";
+import { uniqueStamp } from "../../../utils/faker";
+
+const DEFAULT_CHANNEL = "Default";
 
 test.describe("content configuration", () => {
+    test.describe.configure({ timeout: 180000 });
+
+    let configPage: ContentConfigurationPage;
+    let original: ContentSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/general/content");
+        configPage = new ContentConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    test("should update header offer title with redirection title and redirection link", async ({
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
+    });
+
+    test("should show the saved header offer on the storefront once the channel has a second currency", async ({
         adminPage,
     }) => {
-        await adminPage
-            .locator('input[name="general[content][header_offer][title]"]')
-            .fill(generateName());
-        await adminPage
-            .locator(
-                'input[name="general[content][header_offer][redirection_title]"]'
-            )
-            .fill(generateName());
-        await adminPage
-            .locator(
-                'input[name="general[content][header_offer][redirection_link]"]'
-            )
-            .fill(generateHostname());
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        const stamp = uniqueStamp();
+        const changed = {
+            headerOfferTitle: `Offer ${stamp}`,
+            redirectionTitle: `Shop now ${stamp}`,
+            redirectionLink: "http://example.com/offer",
+        };
+        const currency = buildCurrency();
+        const currenciesPage = new CurrenciesPage(adminPage);
+        const channelsPage = new ChannelsPage(adminPage);
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await currenciesPage.createCurrency(currency);
+
+        try {
+            await channelsPage.setChannelCurrency(DEFAULT_CHANNEL, currency.name, true);
+
+            await configPage.applySettings(changed);
+
+            await configPage.expectSettings(changed);
+            await configPage.expectHeaderOfferOnStorefront(
+                changed.headerOfferTitle,
+                changed.redirectionTitle,
+            );
+        } finally {
+            await channelsPage.setChannelCurrency(DEFAULT_CHANNEL, currency.name, false);
+            await currenciesPage.deleteCurrenciesIfPresent([currency.name]);
+        }
     });
 
-    test("should add css and javascript", async ({ adminPage }) => {
-        /**
-         * Custom CSS and Javascript.
-         */
-        const cssCode = `.test {\n  display: flex;\n  justify-content: center;\n}`;
-        const jsCode = `document.addEventListener('DOMContentLoaded', () => {\n  console.log('JavaScript added successfully');\n});`;
+    test("should persist the custom css and javascript after reload", async () => {
+        const stamp = uniqueStamp();
+        const changed = {
+            customCss: `.e2e-${stamp} { display: flex; }`,
+            customJs: `window.e2eStamp = ${stamp};`,
+        };
 
-        await adminPage
-            .locator(
-                'textarea[name="general[content][custom_scripts][custom_css]"]'
-            )
-            .fill(cssCode);
-        await adminPage
-            .locator(
-                'textarea[name="general[content][custom_scripts][custom_javascript]"]'
-            )
-            .fill(jsCode);
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        await configPage.applySettings(changed);
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.locator('#app p' , { hasText: 'Configuration saved successfully' })).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 });

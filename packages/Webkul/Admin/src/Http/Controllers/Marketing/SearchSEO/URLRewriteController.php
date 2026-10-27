@@ -5,6 +5,7 @@ namespace Webkul\Admin\Http\Controllers\Marketing\SearchSEO;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Marketing\SearchSEO\URLRewriteDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
@@ -22,7 +23,7 @@ class URLRewriteController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -39,11 +40,11 @@ class URLRewriteController extends Controller
     public function store(): JsonResponse
     {
         $this->validate(request(), [
-            'entity_type'   => 'required:in:category,product,cms_page',
-            'request_path'  => 'required',
-            'target_path'   => 'required',
+            'entity_type' => 'required|in:category,product,cms_page',
+            'request_path' => 'required',
+            'target_path' => 'required',
             'redirect_type' => 'required|in:301,302',
-            'locale'        => 'required|exists:locales,code',
+            'locale' => 'required|exists:locales,code',
         ]);
 
         Event::dispatch('marketing.search_seo.url_rewrites.create.before');
@@ -65,19 +66,17 @@ class URLRewriteController extends Controller
 
     /**
      * Update the specified resource in storage.
-     *
-     * @param  int  $id
      */
     public function update(): JsonResponse
     {
         $id = request()->id;
 
         $this->validate(request(), [
-            'entity_type'   => 'required:in:category,product,cms_page',
-            'request_path'  => 'required',
-            'target_path'   => 'required',
+            'entity_type' => 'required|in:category,product,cms_page',
+            'request_path' => 'required',
+            'target_path' => 'required',
             'redirect_type' => 'required|in:301,302',
-            'locale'        => 'required|exists:locales,code',
+            'locale' => 'required|exists:locales,code',
         ]);
 
         Event::dispatch('marketing.search_seo.url_rewrites.update.before', $id);

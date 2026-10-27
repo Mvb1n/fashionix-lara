@@ -1,45 +1,34 @@
-import { test, expect } from "../../../setup";
+import { test } from "../../../setup";
+import {
+    PRODUCT_RICH_SNIPPET_OPTIONS,
+    RichSnippetsConfigurationPage,
+    type RichSnippetSettings,
+} from "../../../pages/admin/configuration/catalog/RichSnippetsConfigurationPage";
 
 test.describe("rich snippets configuration", () => {
-    test("should update products settings including with sku, weight, categories, images, reviews, ratings, offers and etc.", async ({
-        adminPage,
-    }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/catalog/rich_snippets");
+    test.describe.configure({ timeout: 120000 });
 
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][enable]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_sku]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_weight]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_categories]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_images]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_reviews]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_ratings]"]'
-        );
-        await adminPage.click(
-            'label[for="catalog[rich_snippets][products][show_offers]"]'
-        );
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    let configPage: RichSnippetsConfigurationPage;
+    let original: RichSnippetSettings;
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        configPage = new RichSnippetsConfigurationPage(adminPage);
+        original = await configPage.readSettings();
+    });
+
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
+    });
+
+    test("should persist every product rich snippet option after reload", async () => {
+        const changed = {} as RichSnippetSettings;
+
+        for (const option of PRODUCT_RICH_SNIPPET_OPTIONS) {
+            changed[option] = !original[option];
+        }
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

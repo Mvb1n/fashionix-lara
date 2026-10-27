@@ -84,6 +84,7 @@ class SystemConfig
                 name: trans($configItem['name']),
                 route: $configItem['route'] ?? null,
                 sort: $configItem['sort'],
+                layout: $configItem['layout'] ?? null,
             ));
         }
     }
@@ -109,6 +110,7 @@ class SystemConfig
                     name: trans($subConfigItem['name']),
                     route: $subConfigItem['route'] ?? null,
                     sort: $subConfigItem['sort'] ?? null,
+                    layout: $subConfigItem['layout'] ?? null,
                 );
             });
     }
@@ -129,7 +131,7 @@ class SystemConfig
         }
 
         if ($slug2 = request()->route('slug2')) {
-            $activeItem = $activeItem->getChildren()[$slug2];
+            $activeItem = $activeItem->getChildren()[$slug2] ?? null;
         }
 
         return $activeItem;
@@ -167,20 +169,20 @@ class SystemConfig
         if (! empty($fields['channel_based'])) {
             if (! empty($fields['locale_based'])) {
                 $coreConfigValue = $this->coreConfigRepository->findOneWhere([
-                    'code'         => $field,
+                    'code' => $field,
                     'channel_code' => $channel,
-                    'locale_code'  => $locale,
+                    'locale_code' => $locale,
                 ]);
             } else {
                 $coreConfigValue = $this->coreConfigRepository->findOneWhere([
-                    'code'         => $field,
+                    'code' => $field,
                     'channel_code' => $channel,
                 ]);
             }
         } else {
             if (! empty($fields['locale_based'])) {
                 $coreConfigValue = $this->coreConfigRepository->findOneWhere([
-                    'code'        => $field,
+                    'code' => $field,
                     'locale_code' => $locale,
                 ]);
             } else {

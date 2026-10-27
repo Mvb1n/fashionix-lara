@@ -3,8 +3,8 @@
 return [
     'boolean' => [
         'options' => [
+            'no' => 'Nie',
             'yes' => 'Tak',
-            'no'  => 'Nie',
         ],
     ],
 ];

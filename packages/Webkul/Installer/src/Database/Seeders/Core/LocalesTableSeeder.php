@@ -6,9 +6,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Http\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Webkul\Core\Concerns\SyncsPostgresSequences;
+use Webkul\Core\Helpers\SupportedLocales;
 
 class LocalesTableSeeder extends Seeder
 {
+    use SyncsPostgresSequences;
+
     /**
      * Base path for the images.
      */
@@ -39,13 +43,15 @@ class LocalesTableSeeder extends Seeder
 
             DB::table('locales')->insert([
                 [
-                    'id'        => $key + 1,
-                    'code'      => $locale,
-                    'name'      => trans('installer::app.seeders.core.locales.'.$locale, [], $defaultLocale),
-                    'direction' => in_array($locale, ['ar', 'fa', 'he']) ? 'rtl' : 'ltr',
+                    'id' => $key + 1,
+                    'code' => $locale,
+                    'name' => trans('installer::app.seeders.core.locales.'.$locale, [], $defaultLocale),
+                    'direction' => SupportedLocales::direction($locale),
                     'logo_path' => $logoPath,
                 ],
             ]);
         }
+
+        $this->syncPostgresSequences(['locales']);
     }
 }

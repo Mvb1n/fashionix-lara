@@ -27,7 +27,7 @@
             >
                 <img
                     src="{{ core()->getCurrentChannel()->logo_url ?? bagisto_asset('images/logo.svg') }}"
-                    alt="{{ config('app.name') }}"
+                    alt="{{ core()->getCurrentChannel()->logo_alt ?: config('app.name') }}"
                     width="131"
                     height="29"
                 >
@@ -37,7 +37,7 @@
         {!! view_render_event('bagisto.shop.customers.login.logo.after') !!}
 
         <!-- Form Container -->
-        <div class="m-auto w-full max-w-[870px] rounded-xl border border-zinc-200 p-16 px-[90px] max-md:px-8 max-md:py-8 max-sm:border-none max-sm:p-0">
+        <div class="m-auto w-full max-w-217.5 rounded-xl border border-zinc-200 p-16 px-22.5 max-md:px-8 max-md:py-8 max-sm:border-none max-sm:p-0">
             <h1 class="font-dmserif text-4xl max-md:text-3xl max-sm:text-xl">
                 @lang('shop::app.customers.login-form.page-title')
             </h1>
@@ -48,9 +48,8 @@
 
             {!! view_render_event('bagisto.shop.customers.login.before') !!}
 
-            <div class="mt-14 rounded max-sm:mt-8">
+            <div class="mt-14 rounded-sm max-sm:mt-8">
                 <x-shop::form :action="route('shop.customer.session.create')">
-
                     {!! view_render_event('bagisto.shop.customers.login_form_controls.before') !!}
 
                     <!-- Email -->
@@ -96,28 +95,7 @@
                         <x-shop::form.control-group.error control-name="password" />
                     </x-shop::form.control-group>
 
-                    <div class="flex justify-between">
-                        <div class="flex select-none items-center gap-1.5">
-                            <input
-                                type="checkbox"
-                                id="show-password"
-                                class="peer hidden"
-                                onchange="switchVisibility()"
-                            />
-
-                            <label
-                                class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue max-sm:text-xl"
-                                for="show-password"
-                            ></label>
-
-                            <label
-                                class="cursor-pointer select-none text-base text-zinc-500 max-sm:text-sm ltr:pl-0 rtl:pr-0"
-                                for="show-password"
-                            >
-                                @lang('shop::app.customers.login-form.show-password')
-                            </label>
-                        </div>
-
+                    <div class="flex justify-end">
                         <div class="block">
                             <a
                                 href="{{ route('shop.customers.forgot_password.create') }}"
@@ -132,26 +110,42 @@
 
                     <!-- Captcha -->
                     @if (core()->getConfigData('customer.captcha.credentials.status'))
-                        <div class="mt-5 flex">
+                        <x-shop::form.control-group class="mt-5">
                             {!! \Webkul\Customer\Facades\Captcha::render() !!}
-                        </div>
+
+                            <x-shop::form.control-group.error control-name="recaptcha_token" />
+                        </x-shop::form.control-group>
                     @endif
 
                     <!-- Submit Button -->
                     <div class="mt-8 flex flex-wrap items-center gap-9 max-sm:justify-center max-sm:gap-5 max-sm:text-center">
                         <button
-                            class="primary-button m-0 mx-auto block w-full max-w-[374px] rounded-2xl px-11 py-4 text-center text-base max-md:max-w-full max-md:rounded-lg max-md:py-3 max-sm:py-1.5 ltr:ml-0 rtl:mr-0"
+                            class="primary-button m-0 mx-auto block w-full max-w-93.5 rounded-2xl px-11 py-4 text-center text-base max-md:max-w-full max-md:rounded-lg max-md:py-3 max-sm:py-1.5 ltr:ml-0 rtl:mr-0"
                             type="submit"
                         >
                             @lang('shop::app.customers.login-form.button-title')
                         </button>
-
-                        {!! view_render_event('bagisto.shop.customers.login_form_controls.after') !!}
                     </div>
+
+                    {!! view_render_event('bagisto.shop.customers.login_form_controls.after') !!}
                 </x-shop::form>
             </div>
 
             {!! view_render_event('bagisto.shop.customers.login.after') !!}
+
+            @if (
+                request()->cookie('enable-resend')
+                && request()->cookie('email-for-resend')
+            )
+                <p class="mt-5 font-medium text-zinc-500 max-sm:text-center max-sm:text-sm">
+                    <a
+                        class="text-navyBlue"
+                        href="{{ route('shop.customers.resend.verification_email', urlencode(request()->cookie('email-for-resend'))) }}"
+                    >
+                        @lang('shop::app.customers.login-form.resend-verification')
+                    </a>
+                </p>
+            @endif
 
             <p class="mt-5 font-medium text-zinc-500 max-sm:text-center max-sm:text-sm">
                 @lang('shop::app.customers.login-form.new-customer')
@@ -166,21 +160,13 @@
         </div>
 
         <p class="mb-4 mt-8 text-center text-xs text-zinc-500">
-            @lang('shop::app.customers.login-form.footer', ['current_year'=> date('Y') ])
+            <x-shop::layouts.footer.copyright>
+                @lang('shop::app.customers.login-form.footer', ['current_year'=> date('Y') ])
+            </x-shop::layouts.footer.copyright>
         </p>
     </div>
 
     @push('scripts')
         {!! \Webkul\Customer\Facades\Captcha::renderJS() !!}
-
-        <script>
-            function switchVisibility() {
-                let passwordField = document.getElementById("password");
-
-                passwordField.type = passwordField.type === "password"
-                    ? "text"
-                    : "password";
-            }
-        </script>
     @endpush
 </x-shop::layouts>

@@ -1,5 +1,8 @@
 <?php
 
+use Webkul\Customer\Models\Customer;
+use Webkul\User\Models\Admin;
+
 return [
 
     /*
@@ -14,7 +17,7 @@ return [
     */
 
     'defaults' => [
-        'guard'     => 'customer',
+        'guard' => 'customer',
         'passwords' => 'customers',
     ],
 
@@ -37,12 +40,12 @@ return [
 
     'guards' => [
         'customer' => [
-            'driver'   => 'session',
+            'driver' => 'session',
             'provider' => 'customers',
         ],
 
         'admin' => [
-            'driver'   => 'session',
+            'driver' => 'session',
             'provider' => 'admins',
         ],
     ],
@@ -67,12 +70,12 @@ return [
     'providers' => [
         'customers' => [
             'driver' => 'eloquent',
-            'model'  => Webkul\Customer\Models\Customer::class,
+            'model' => Customer::class,
         ],
 
         'admins' => [
             'driver' => 'eloquent',
-            'model'  => Webkul\User\Models\Admin::class,
+            'model' => Admin::class,
         ],
     ],
 
@@ -98,15 +101,15 @@ return [
     'passwords' => [
         'customers' => [
             'provider' => 'customers',
-            'table'    => 'customer_password_resets',
-            'expire'   => 60,
+            'table' => 'customer_password_resets',
+            'expire' => 60,
             'throttle' => 60,
         ],
 
         'admins' => [
             'provider' => 'admins',
-            'table'    => 'admin_password_resets',
-            'expire'   => 60,
+            'table' => 'admin_password_resets',
+            'expire' => 60,
             'throttle' => 60,
         ],
     ],

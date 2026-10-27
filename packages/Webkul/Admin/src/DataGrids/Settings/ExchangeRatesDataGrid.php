@@ -2,6 +2,7 @@
 
 namespace Webkul\Admin\DataGrids\Settings;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Webkul\DataGrid\DataGrid;
 
@@ -17,7 +18,7 @@ class ExchangeRatesDataGrid extends DataGrid
     /**
      * Prepare query builder.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     public function prepareQueryBuilder()
     {
@@ -39,29 +40,29 @@ class ExchangeRatesDataGrid extends DataGrid
     public function prepareColumns()
     {
         $this->addColumn([
-            'index'      => 'currency_exchange_id',
-            'label'      => trans('admin::app.settings.exchange-rates.index.datagrid.id'),
-            'type'       => 'integer',
+            'index' => 'currency_exchange_id',
+            'label' => trans('admin::app.settings.exchange-rates.index.datagrid.id'),
+            'type' => 'integer',
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'currency_name',
-            'label'      => trans('admin::app.settings.exchange-rates.index.datagrid.currency-name'),
-            'type'       => 'string',
+            'index' => 'currency_name',
+            'label' => trans('admin::app.settings.exchange-rates.index.datagrid.currency-name'),
+            'type' => 'string',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
 
         $this->addColumn([
-            'index'      => 'currency_rate',
-            'label'      => trans('admin::app.settings.exchange-rates.index.datagrid.exchange-rate'),
-            'type'       => 'integer',
+            'index' => 'currency_rate',
+            'label' => trans('admin::app.settings.exchange-rates.index.datagrid.exchange-rate'),
+            'type' => 'integer',
             'searchable' => true,
             'filterable' => true,
-            'sortable'   => true,
+            'sortable' => true,
         ]);
     }
 
@@ -69,11 +70,11 @@ class ExchangeRatesDataGrid extends DataGrid
     {
         if (bouncer()->hasPermission('settings.exchange_rates.edit')) {
             $this->addAction([
-                'index'  => 'edit',
-                'icon'   => 'icon-edit',
-                'title'  => trans('admin::app.settings.exchange-rates.index.datagrid.edit'),
+                'index' => 'edit',
+                'icon' => 'icon-edit',
+                'title' => trans('admin::app.settings.exchange-rates.index.datagrid.edit'),
                 'method' => 'GET',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.settings.exchange_rates.edit', $row->currency_exchange_id);
                 },
             ]);
@@ -81,11 +82,11 @@ class ExchangeRatesDataGrid extends DataGrid
 
         if (bouncer()->hasPermission('settings.exchange_rates.delete')) {
             $this->addAction([
-                'index'  => 'delete',
-                'icon'   => 'icon-delete',
-                'title'  => trans('admin::app.settings.exchange-rates.index.datagrid.delete'),
+                'index' => 'delete',
+                'icon' => 'icon-delete',
+                'title' => trans('admin::app.settings.exchange-rates.index.datagrid.delete'),
                 'method' => 'DELETE',
-                'url'    => function ($row) {
+                'url' => function ($row) {
                     return route('admin.settings.exchange_rates.delete', $row->currency_exchange_id);
                 },
             ]);

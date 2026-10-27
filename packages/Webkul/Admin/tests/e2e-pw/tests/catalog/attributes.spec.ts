@@ -1,2120 +1,277 @@
-import { test, expect } from "../../setup";
-import { generateName, generateSlug, generateSKU } from "../../utils/faker";
+import { test } from "../../setup";
+import {
+    AttributePage,
+    type AttributeData,
+} from "../../pages/admin/catalog/attribute/AttributePage";
+import {
+    generateName,
+    generateSlug,
+    getImageFile,
+    uniqueStamp,
+} from "../../utils/faker";
+
+function buildAttribute(overrides: Partial<AttributeData> = {}): AttributeData {
+    return {
+        adminName: `${generateName()} ${uniqueStamp()}`,
+        code: generateSlug("_"),
+        type: "text",
+        ...overrides,
+    };
+}
+
+const attributeTypes: {
+    title: string;
+    overrides: Partial<AttributeData>;
+}[] = [
+    { title: "text", overrides: { type: "text" } },
+    {
+        title: "textarea with the wysiwyg editor",
+        overrides: { type: "textarea", wysiwyg: true },
+    },
+    { title: "price", overrides: { type: "price" } },
+    { title: "boolean", overrides: { type: "boolean" } },
+    { title: "date", overrides: { type: "date" } },
+    {
+        title: "datetime",
+        overrides: { type: "datetime" },
+    },
+    { title: "image", overrides: { type: "image" } },
+    { title: "file", overrides: { type: "file" } },
+    {
+        title: "select with dropdown options",
+        overrides: {
+            type: "select",
+            swatchType: "dropdown",
+            options: [{ label: "1 Year" }, { label: "2 Years" }],
+        },
+    },
+    {
+        title: "select with color swatch options",
+        overrides: {
+            type: "select",
+            swatchType: "color",
+            options: [
+                { label: "Crimson", color: "#eb0f0f" },
+                { label: "Lime", color: "#3bdb0f" },
+            ],
+        },
+    },
+    {
+        title: "select with text swatch options",
+        overrides: {
+            type: "select",
+            swatchType: "text",
+            options: [{ label: "Small" }, { label: "Large" }],
+        },
+    },
+    {
+        title: "multiselect",
+        overrides: {
+            type: "multiselect",
+            options: [{ label: "Cotton" }, { label: "Linen" }],
+        },
+    },
+    {
+        title: "checkbox",
+        overrides: {
+            type: "checkbox",
+            options: [{ label: "Gift Wrap" }, { label: "Express" }],
+        },
+    },
+];
 
 test.describe("attribute management", () => {
-    test("should validate required fields", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.waitForSelector(
-            'div.primary-button:has-text("Create Attribute")',
-            { state: "visible" }
-        );
+    let attributePage: AttributePage;
+    let created: string[];
 
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
-
-        await adminPage.click('button[type="submit"]');
-
-        await expect(
-            adminPage.getByText("The Admin field is required")
-        ).toBeVisible();
-        await expect(
-            adminPage.getByText("The Attribute Code field is")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        attributePage = new AttributePage(adminPage);
+        created = [];
     });
 
-    test("should create a new text type attribute", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.selectOption('select[name="type"]', "text");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Verify Checkbox States Using The Hidden Inputs
-         */
-        await expect(adminPage.locator("input#value_per_locale")).toBeChecked();
-        await expect(
-            adminPage.locator("input#value_per_channel")
-        ).toBeChecked();
-        await expect(
-            adminPage.locator("input#is_visible_on_front")
-        ).toBeChecked();
-        await expect(adminPage.locator("input#is_comparable")).toBeChecked();
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         * Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         *  Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
+    test.afterEach(async () => {
+        await attributePage.deleteAttributesIfPresent(created);
     });
 
-    test("should create a new textarea type attribute with wysiwyg editor", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    for (const { title, overrides } of attributeTypes) {
+        test(`should create a ${title} attribute and list it with its type`, async () => {
+            const attribute = buildAttribute(overrides);
+            created.push(attribute.code);
 
-        const attributeName = generateName();
+            await attributePage.createAttribute(attribute);
 
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("textarea");
-        await adminPage.locator(".relative > label").click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        // Locate all target divs where items will be dragged
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        // Use only the first target (e.g., "General")
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        // Locate all draggable icons inside the unassigned section
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        // Drag each item to the first target
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            // Move mouse to item center
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
+            await attributePage.expectAttributeListed(
+                attribute.code,
+                attribute.adminName,
+                attribute.type,
             );
-            await adminPage.mouse.down();
+        });
+    }
 
-            // Move mouse to target center
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
+    test("should keep the options of a select attribute after reload", async () => {
+        const attribute = buildAttribute({
+            type: "select",
+            swatchType: "dropdown",
+            options: [{ label: "1 Year" }, { label: "2 Years" }],
+        });
+        created.push(attribute.code);
 
-            await adminPage.waitForTimeout(200);
-        }
+        await attributePage.createAttribute(attribute);
 
-        // Click save
-        await adminPage.click(".primary-button:visible");
-
-        // Verify success
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
+        await attributePage.expectOptionsInEditForm(attribute.code, [
+            "1 Year",
+            "2 Years",
+        ]);
     });
 
-    test("should create a new textarea type attribute without wysiwyg editor", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    test("should keep the color of each color swatch option after reload", async () => {
+        const options = [
+            { label: "Crimson", color: "#eb0f0f" },
+            { label: "Lime", color: "#3bdb0f" },
+        ];
+        const attribute = buildAttribute({
+            type: "select",
+            swatchType: "color",
+            options,
+        });
+        created.push(attribute.code);
 
-        const attributeName = generateName();
+        await attributePage.createAttribute(attribute);
 
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("textarea");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        // Locate all target divs where items will be dragged
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        // Use only the first target (e.g., "General")
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        // Locate all draggable icons inside the unassigned section
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        // Drag each item to the first target
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            // Move mouse to item center
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            // Move mouse to target center
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        // Click save
-        await adminPage.click(".primary-button:visible");
-
-        // Verify success
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
+        await attributePage.expectColorSwatchesInEditForm(attribute.code, options);
     });
 
-    test("should create a new select type attribute with dropdown swatch type", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    test("should keep the image of each image swatch option after reload", async () => {
+        const attribute = buildAttribute({
+            type: "select",
+            swatchType: "image",
+            options: [
+                { label: "Denim", swatchImage: getImageFile() },
+                { label: "Tweed", swatchImage: getImageFile() },
+            ],
+        });
+        created.push(attribute.code);
 
-        const attributeName = generateName();
+        await attributePage.createAttribute(attribute);
 
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("select");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.locator("#swatchType").selectOption("dropdown");
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("1 Year");
-        await adminPage.locator('input[name="en"]').fill("1 Year");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("2 Years");
-        await adminPage.locator('input[name="en"]').fill("2 Years");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("5 Years");
-        await adminPage.locator('input[name="en"]').fill("5 Years");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("No Warranty");
-        await adminPage.locator('input[name="en"]').fill("No Warranty");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-        await adminPage.getByText(attributeName).click();
+        await attributePage.expectImageSwatchesInEditForm(attribute.code, [
+            "Denim",
+            "Tweed",
+        ]);
     });
 
-    test("should create a new select type attribute with color swatch type", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
+    test("should keep the swatch alt text and file name when an image swatch option is edited", async () => {
+        const attribute = buildAttribute({
+            type: "select",
+            swatchType: "image",
+            options: [{ label: "Denim", swatchImage: getImageFile() }],
+        });
+        const seo = {
+            altText: `Denim swatch ${uniqueStamp()}`,
+            fileName: `denim-swatch-${uniqueStamp()}`,
+        };
+        created.push(attribute.code);
+
+        await attributePage.createAttribute(attribute);
+        await attributePage.updateImageSwatchSeo(attribute.code, "Denim", seo);
+
+        await attributePage.expectImageSwatchSeoInEditForm(
+            attribute.code,
+            "Denim",
+            seo,
         );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("select");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.locator("#swatchType").selectOption("color");
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Red");
-        await adminPage.locator('input[name="en"]').fill("Red");
-        await adminPage.getByPlaceholder("Color").fill("#eb0f0f");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Green");
-        await adminPage.locator('input[name="en"]').fill("Green");
-        await adminPage.getByPlaceholder("Color").fill("#3bdb0f");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Yellow");
-        await adminPage.locator('input[name="en"]').fill("Yellow");
-        await adminPage.getByPlaceholder("Color").fill("#e1f00a");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Blue");
-        await adminPage.locator('input[name="en"]').fill("Blue");
-        await adminPage.getByPlaceholder("Color").fill("#0af0ec");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-        await adminPage.getByText(attributeName).click();
     });
 
-    test("should create a new select type attribute with image swatch type", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    test("should keep the wysiwyg editor enabled on a textarea attribute after reload", async () => {
+        const attribute = buildAttribute({ type: "textarea", wysiwyg: true });
+        created.push(attribute.code);
 
-        const attributeName = generateName();
+        await attributePage.createAttribute(attribute);
 
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("select");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.locator("#swatchType").selectOption("color");
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Image-1");
-        await adminPage.locator('input[name="en"]').fill("Image-1");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Image-2");
-        await adminPage.locator('input[name="en"]').fill("Image-2");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Image-3");
-        await adminPage.locator('input[name="en"]').fill("Image-3");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Image-4");
-        await adminPage.locator('input[name="en"]').fill("Image-4");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-        await adminPage.getByText(attributeName).click();
+        await attributePage.expectWysiwygEnabledInEditForm(attribute.code);
     });
 
-    test("should create a new select type attribute with text swatch type", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
+    test("should reject an attribute without an admin name and code", async () => {
+        await attributePage.submitEmptyCreateForm();
+
+        await attributePage.expectValidationError("The Admin field is required");
+        await attributePage.expectValidationError(
+            "The Attribute Code field is required",
         );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("select");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.locator("#swatchType").selectOption("text");
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Text-1");
-        await adminPage.locator('input[name="en"]').fill("Text-1");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Text-2");
-        await adminPage.locator('input[name="en"]').fill("Text-2");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Text-3");
-        await adminPage.locator('input[name="en"]').fill("Text-3");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("Text-4");
-        await adminPage.locator('input[name="en"]').fill("Text-4");
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-        await adminPage.getByText(attributeName).click();
+        await attributePage.expectStillOnCreateForm();
     });
 
-    test("should create a new price type attribute ", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
+    test("should reject an attribute whose code is already used", async () => {
+        const existing = buildAttribute();
+        const duplicate = buildAttribute({ code: existing.code });
+        created.push(existing.code);
+
+        await attributePage.createAttribute(existing);
+        await attributePage.attemptCreateAttribute(duplicate);
+
+        await attributePage.expectValidationError(
+            "The code has already been taken.",
         );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("price");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
+        await attributePage.expectAttributeListed(
+            existing.code,
+            existing.adminName,
+            "text",
         );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
     });
 
-    test("should create a new boolean type attribute ", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    test("should rename an attribute and keep the new name after reload", async () => {
+        const attribute = buildAttribute();
+        const newName = `${generateName()} ${uniqueStamp()}`;
+        created.push(attribute.code);
 
-        const attributeName = generateName();
+        await attributePage.createAttribute(attribute);
+        await attributePage.renameAttribute(attribute.code, newName);
 
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("boolean");
-        await adminPage.locator('input[name="default_value"]').fill("1");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
+        await attributePage.expectAttributeListed(attribute.code, newName, "text");
+        await attributePage.expectAdminNameInEditForm(attribute.code, newName);
     });
 
-    test("should create a new date type attribute ", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
+    test("should delete an attribute and remove it from the grid", async () => {
+        const attribute = buildAttribute();
+        const untouched = buildAttribute();
+        created.push(attribute.code, untouched.code);
+
+        await attributePage.createAttribute(attribute);
+        await attributePage.createAttribute(untouched);
+        await attributePage.deleteAttribute(attribute.code);
+
+        await attributePage.expectAttributeAbsent(attribute.code);
+        await attributePage.expectAttributeListed(
+            untouched.code,
+            untouched.adminName,
+            "text",
         );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("date");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
     });
 
-    test("should create a new datetime type attribute ", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
+    test("should refuse to delete a system attribute", async () => {
+        await attributePage.attemptDeleteAttribute("sku");
 
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("datetime");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
+        await attributePage.expectErrorMessage("Can not delete system Attribute");
+        await attributePage.expectSystemAttributeListed("sku");
     });
 
-    test("should create a new image type attribute ", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
+    test("should mass delete only the selected attributes", async () => {
+        const first = buildAttribute();
+        const second = buildAttribute();
+        const untouched = buildAttribute();
+        created.push(first.code, second.code, untouched.code);
+
+        await attributePage.createAttribute(first);
+        await attributePage.createAttribute(second);
+        await attributePage.createAttribute(untouched);
+        await attributePage.massDeleteAttributes([first.code, second.code]);
+
+        await attributePage.expectAttributeAbsent(first.code);
+        await attributePage.expectAttributeAbsent(second.code);
+        await attributePage.expectAttributeListed(
+            untouched.code,
+            untouched.adminName,
+            "text",
         );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("image");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-    });
-
-    test("should create a new file type attribute ", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("file");
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-    });
-
-    test("should create a new multiselect type attribute", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("multiselect");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("5 Years");
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-        await adminPage.getByText(attributeName).click();
-    });
-
-    test("should create a new checkbox type attribute", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.click(
-            'div.primary-button:has-text("Create Attribute")'
-        );
-
-        const attributeName = generateName();
-
-        /**
-         * Label Section
-         */
-        await adminPage.fill('input[name="admin_name"]', attributeName);
-        await adminPage.fill('input[name="en[name]"]', attributeName);
-
-        /**
-         * General Section
-         */
-        await adminPage.fill("#code", generateSlug("_"));
-        await adminPage.locator("#type").selectOption("multiselect");
-
-        /**
-         * Dropdown Options
-         */
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill("5 Years");
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        await adminPage.getByText("Add Row").click();
-        await adminPage
-            .getByRole("textbox", { name: "Admin" })
-            .nth(1)
-            .fill(generateName());
-        await adminPage.locator('input[name="en"]').fill(generateName());
-        await adminPage.getByRole("button", { name: "Save Option" }).click();
-
-        /**
-         * Configuration Section
-         */
-        await adminPage.click('label[for="value_per_locale"]');
-        await adminPage.click('label[for="value_per_channel"]');
-        await adminPage.click('label[for="is_visible_on_front"]');
-        await adminPage.click('label[for="is_comparable"]');
-
-        /**
-         * Submit
-         */
-        await adminPage.click('button[type="submit"]');
-
-        await expect(adminPage.locator("#app")).toContainText(
-            "Attribute Created Successfully"
-        );
-
-        /**
-         * Drag and drop the attribute to the Attribute Family
-         */
-        adminPage.goto("admin/catalog/families");
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        /**
-         *  Locate all target divs where items will be dragged
-         */
-        const targets = await adminPage.$$(
-            "div.flex.gap-5.justify-between.px-4 > div > div.h-\\[calc\\(100vh-285px\\)\\].overflow-auto.border-gray-200.pb-4.ltr\\:border-r.rtl\\:border-l"
-        );
-
-        /**
-         * Use only the first target (e.g., "General")
-         */
-        const firstTarget = targets[0];
-
-        const targetBox = await firstTarget.boundingBox();
-
-        /**
-         * Locate all draggable icons inside the unassigned section
-         */
-        const unassignedItems = await adminPage.$$(
-            "#unassigned-attributes i.icon-drag"
-        );
-
-        /**
-         * Drag each item to the first target
-         */
-        for (const item of unassignedItems) {
-            const itemBox = await item.boundingBox();
-            if (!itemBox) continue;
-
-            /**
-             * Move mouse to item center
-             */
-            await adminPage.mouse.move(
-                itemBox.x + itemBox.width / 2,
-                itemBox.y + itemBox.height / 2
-            );
-            await adminPage.mouse.down();
-
-            /**
-             * Move mouse to target center
-             */
-            await adminPage.mouse.move(
-                targetBox.x + targetBox.width / 2,
-                targetBox.y + targetBox.height / 2,
-                { steps: 20 }
-            );
-            await adminPage.mouse.up();
-
-            await adminPage.waitForTimeout(200);
-        }
-
-        /**
-         * Click save
-         */
-        await adminPage.click(".primary-button:visible");
-
-        /**
-         * Verify success
-         */
-        await expect(
-            adminPage.getByText("Family updated successfully.")
-        ).toBeVisible();
-
-        /**
-         * create product
-         */
-        adminPage.goto("admin/catalog/products");
-        await adminPage.waitForSelector(
-            'button.primary-button:has-text("Create Product")'
-        );
-        await adminPage.locator('p > span:nth-child(2)').first().click();
-        await adminPage.reload();
-        await adminPage.waitForTimeout(5000);
-        await expect(adminPage.getByText(attributeName)).toBeVisible();
-    });
-
-    test("should edit an existing attribute successfully", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.waitForSelector(
-            'div.primary-button:has-text("Create Attribute")',
-            { state: "visible" }
-        );
-
-        await adminPage.waitForSelector("span.cursor-pointer.icon-edit");
-        const iconEdit = await adminPage.$$("span.cursor-pointer.icon-edit");
-        await iconEdit[0].click();
-
-        // Content will be added here. Currently just checking the general save button.
-
-        await adminPage.click('button[type="submit"]');
-
-        await expect(
-            adminPage.getByText('Attribute Updated Successfully')
-        ).toBeVisible();
-    });
-
-    test("should delete an existing attribute", async ({ adminPage }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.waitForSelector(
-            'div.primary-button:has-text("Create Attribute")',
-            { state: "visible" }
-        );
-
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
-        );
-        await iconDelete[0].click();
-
-        await adminPage.click(
-            "button.transparent-button + button.primary-button:visible"
-        );
-
-        await expect(
-            adminPage.getByText("Attribute Deleted Successfully")
-        ).toBeVisible();
-    });
-
-    test("should mass delete and existing attributes", async ({
-        adminPage,
-    }) => {
-        await adminPage.goto("admin/catalog/attributes");
-        await adminPage.waitForSelector(
-            'div.primary-button:has-text("Create Attribute")',
-            { state: "visible" }
-        );
-        await adminPage.getByRole("button", { name: "" }).click();
-        await adminPage.getByText("50", { exact: true }).click();
-        await adminPage.waitForSelector(".icon-uncheckbox:visible");
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-
-        for (let i = 1; i <= 14; i++) {
-            await checkboxes[i].click();
-        }
-
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")'
-        );
-        await selectActionButton.click();
-
-        await adminPage.click('a:has-text("Delete")');
-
-        await adminPage.waitForSelector("text=Are you sure");
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        await expect(
-            adminPage.getByText(
-                /Attribute Deleted Successfully|Attribute Deleted Failed/
-            )
-        ).toBeVisible();
     });
 });

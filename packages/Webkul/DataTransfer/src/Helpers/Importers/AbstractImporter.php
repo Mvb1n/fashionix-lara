@@ -6,7 +6,10 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
 use Webkul\DataTransfer\Contracts\Import as ImportContract;
 use Webkul\DataTransfer\Contracts\ImportBatch as ImportBatchContract;
+use Webkul\DataTransfer\Helpers\Error;
 use Webkul\DataTransfer\Helpers\Import;
+use Webkul\DataTransfer\Helpers\Importers\Concerns\ValidatesInChunks;
+use Webkul\DataTransfer\Helpers\Source;
 use Webkul\DataTransfer\Jobs\Import\Completed as CompletedJob;
 use Webkul\DataTransfer\Jobs\Import\ImportBatch as ImportBatchJob;
 use Webkul\DataTransfer\Jobs\Import\IndexBatch as IndexBatchJob;
@@ -17,6 +20,8 @@ use Webkul\DataTransfer\Repositories\ImportBatchRepository;
 
 abstract class AbstractImporter
 {
+    use ValidatesInChunks;
+
     /**
      * Error code for system exception.
      */
@@ -56,13 +61,13 @@ abstract class AbstractImporter
      * Error message templates.
      */
     protected array $errorMessages = [
-        self::ERROR_CODE_SYSTEM_EXCEPTION    => 'data_transfer::app.validation.errors.system',
-        self::ERROR_CODE_COLUMN_NOT_FOUND    => 'data_transfer::app.validation.errors.column-not-found',
+        self::ERROR_CODE_SYSTEM_EXCEPTION => 'data_transfer::app.validation.errors.system',
+        self::ERROR_CODE_COLUMN_NOT_FOUND => 'data_transfer::app.validation.errors.column-not-found',
         self::ERROR_CODE_COLUMN_EMPTY_HEADER => 'data_transfer::app.validation.errors.column-empty-headers',
         self::ERROR_CODE_COLUMN_NAME_INVALID => 'data_transfer::app.validation.errors.column-name-invalid',
-        self::ERROR_CODE_INVALID_ATTRIBUTE   => 'data_transfer::app.validation.errors.invalid-attribute',
-        self::ERROR_CODE_WRONG_QUOTES        => 'data_transfer::app.validation.errors.wrong-quotes',
-        self::ERROR_CODE_COLUMNS_NUMBER      => 'data_transfer::app.validation.errors.column-numbers',
+        self::ERROR_CODE_INVALID_ATTRIBUTE => 'data_transfer::app.validation.errors.invalid-attribute',
+        self::ERROR_CODE_WRONG_QUOTES => 'data_transfer::app.validation.errors.wrong-quotes',
+        self::ERROR_CODE_COLUMNS_NUMBER => 'data_transfer::app.validation.errors.column-numbers',
     ];
 
     public const BATCH_SIZE = 100;
@@ -80,7 +85,7 @@ abstract class AbstractImporter
     /**
      * Error helper instance.
      *
-     * @var \Webkul\DataTransfer\Helpers\Error
+     * @var Error
      */
     protected $errorHelper;
 
@@ -92,7 +97,7 @@ abstract class AbstractImporter
     /**
      * Source instance.
      *
-     * @var \Webkul\DataTransfer\Helpers\Source
+     * @var Source
      */
     protected $source;
 
@@ -166,7 +171,7 @@ abstract class AbstractImporter
     /**
      * Import instance.
      *
-     * @param  \Webkul\DataTransfer\Helpers\Source  $errorHelper
+     * @param  Source  $source
      */
     public function setSource($source)
     {
@@ -178,7 +183,7 @@ abstract class AbstractImporter
     /**
      * Import instance.
      *
-     * @param  \Webkul\DataTransfer\Helpers\Error  $errorHelper
+     * @param  Error  $errorHelper
      */
     public function setErrorHelper($errorHelper): self
     {
@@ -192,7 +197,7 @@ abstract class AbstractImporter
     /**
      * Import instance.
      *
-     * @return \Webkul\DataTransfer\Helpers\Source
+     * @return Source
      */
     public function getSource()
     {
@@ -214,6 +219,38 @@ abstract class AbstractImporter
     {
         Event::dispatch('data_transfer.imports.validate.before', $this->import);
 
+        $this->prepareForValidation();
+
+        $this->validateColumns();
+
+        if (! $this->errorHelper->getErrorsCount()) {
+            $this->saveValidatedBatches();
+        }
+
+        Event::dispatch('data_transfer.imports.validate.after', $this->import);
+    }
+
+    /**
+     * Load whatever must be in place before any row is validated — the storage of
+     * existing records rows are checked against, typically.
+     *
+     * Called once per validation pass on every path: at the top of validateData(),
+     * and at the start of each window on the chunked and queued paths, since every
+     * window runs in a fresh request or job with nothing loaded.
+     */
+    protected function prepareForValidation(): void {}
+
+    /**
+     * Validate the source's columns against the importer's permanent and valid
+     * column names.
+     *
+     * Split out of validateData() so the chunked and queued paths can run it
+     * once, up-front, without reading a single data row: a bad header aborts the
+     * whole validation, and there is no point dispatching row windows for a file
+     * that cannot be read.
+     */
+    protected function validateColumns(): void
+    {
         $errors = [];
 
         $absentColumns = array_diff($this->permanentAttributes, $this->getSource()->getColumnNames());
@@ -238,12 +275,6 @@ abstract class AbstractImporter
         foreach ($errors as $errorCode => $error) {
             $this->addErrors($errorCode, $error);
         }
-
-        if (! $this->errorHelper->getErrorsCount()) {
-            $this->saveValidatedBatches();
-        }
-
-        Event::dispatch('data_transfer.imports.validate.after', $this->import);
     }
 
     /**
@@ -274,7 +305,7 @@ abstract class AbstractImporter
             ) {
                 $this->importBatchRepository->create([
                     'import_id' => $this->import->id,
-                    'data'      => $batchRows,
+                    'data' => $batchRows,
                 ]);
 
                 $batchRows = [];
@@ -321,18 +352,25 @@ abstract class AbstractImporter
             }
         }
 
-        $chain[] = Bus::batch($typeBatches['import']);
+        /**
+         * Failures are allowed through so that one bad batch cannot cancel the
+         * rest of its own batch and, with it, the remaining links in the chain.
+         * A cancelled chain leaves the import stuck in `processing` for good,
+         * with a progress bar that never reaches the end; letting it run on
+         * imports everything that can be imported and reports what could not.
+         */
+        $chain[] = Bus::batch($typeBatches['import'])->allowFailures();
 
         if (! empty($typeBatches['link'])) {
             $chain[] = new LinkingJob($this->import);
 
-            $chain[] = Bus::batch($typeBatches['link']);
+            $chain[] = Bus::batch($typeBatches['link'])->allowFailures();
         }
 
         if (! empty($typeBatches['index'])) {
             $chain[] = new IndexingJob($this->import);
 
-            $chain[] = Bus::batch($typeBatches['index']);
+            $chain[] = Bus::batch($typeBatches['index'])->allowFailures();
         }
 
         $chain[] = new CompletedJob($this->import);
@@ -414,6 +452,36 @@ abstract class AbstractImporter
     public function getProcessedRowsCount(): int
     {
         return $this->processedRowsCount;
+    }
+
+    /**
+     * Drop everything accumulated while processing a batch.
+     *
+     * A queue worker keeps its container alive between jobs, so per-batch state
+     * left on the importer is carried into the next batch — it grows for the
+     * lifetime of the worker rather than the lifetime of a batch. Importers that
+     * cache more (loaded attributes, sku maps) extend this.
+     */
+    public function releaseBatchMemory(): void
+    {
+        $this->validatedRows = [];
+    }
+
+    /**
+     * Zero the created/updated/deleted tallies.
+     *
+     * They are written into the batch summary at the end of importBatch(), so a
+     * batch that is attempted more than once has to start counting from zero
+     * again — otherwise the second attempt reports the first attempt's rows on
+     * top of its own.
+     */
+    public function resetItemCounts(): void
+    {
+        $this->createdItemsCount = 0;
+
+        $this->updatedItemsCount = 0;
+
+        $this->deletedItemsCount = 0;
     }
 
     /**

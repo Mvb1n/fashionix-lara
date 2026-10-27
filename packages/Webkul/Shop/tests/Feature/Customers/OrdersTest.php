@@ -1,25 +1,17 @@
 <?php
 
-use Webkul\Checkout\Models\Cart;
-use Webkul\Checkout\Models\CartAddress;
-use Webkul\Checkout\Models\CartItem;
-use Webkul\Checkout\Models\CartPayment;
 use Webkul\Customer\Models\Customer;
-use Webkul\Customer\Models\CustomerAddress;
-use Webkul\Faker\Helpers\Product as ProductFaker;
-use Webkul\Sales\Models\Invoice;
-use Webkul\Sales\Models\InvoiceItem;
 use Webkul\Sales\Models\Order;
-use Webkul\Sales\Models\OrderAddress;
-use Webkul\Sales\Models\OrderItem;
-use Webkul\Sales\Models\OrderPayment;
 
 use function Pest\Laravel\get;
 use function Pest\Laravel\getJson;
-use function Pest\Laravel\postJson;
+use function Pest\Laravel\post;
 
-it('should returns the index page customers orders', function () {
-    // Act and Assert.
+// ============================================================================
+// Index
+// ============================================================================
+
+it('should return the customer orders page', function () {
     $this->loginAsCustomer();
 
     get(route('shop.customers.account.orders.index'))
@@ -27,555 +19,160 @@ it('should returns the index page customers orders', function () {
         ->assertSeeText(trans('shop::app.customers.account.orders.title'));
 });
 
-it('should view the order', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5 => 'new',
-        ],
-
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))
-        ->getSimpleProductFactory()
-        ->create();
-
+it('should list only the orders of the signed-in customer', function () {
     $customer = Customer::factory()->create();
 
-    $cart = Cart::factory()->create([
-        'customer_id'         => $customer->id,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-        'customer_email'      => $customer->email,
-        'is_guest'            => 0,
-    ]);
+    $order = $this->createOrder(customer: $customer);
 
-    $additional = [
-        'product_id' => $product->id,
-        'rating'     => '0',
-        'is_buy_now' => '0',
-        'quantity'   => '1',
-    ];
+    $this->createOrder();
 
-    $cartItem = CartItem::factory()->create([
-        'cart_id'           => $cart->id,
-        'product_id'        => $product->id,
-        'sku'               => $product->sku,
-        'quantity'          => $additional['quantity'],
-        'name'              => $product->name,
-        'price'             => $convertedPrice = core()->convertPrice($price = $product->price),
-        'base_price'        => $price,
-        'total'             => $convertedPrice * $additional['quantity'],
-        'base_total'        => $price * $additional['quantity'],
-        'weight'            => $product->weight ?? 0,
-        'total_weight'      => ($product->weight ?? 0) * $additional['quantity'],
-        'base_total_weight' => ($product->weight ?? 0) * $additional['quantity'],
-        'type'              => $product->type,
-        'additional'        => $additional,
-    ]);
+    $this->loginAsCustomer($customer);
 
-    $customerAddress = CustomerAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CustomerAddress::ADDRESS_TYPE,
-    ]);
+    $records = getJson(route('shop.customers.account.orders.index'), ['X-Requested-With' => 'XMLHttpRequest'])
+        ->assertOk()
+        ->json('records');
 
-    $cartBillingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_BILLING,
-    ]);
+    expect(collect($records)->pluck('id')->all())->toBe([$order->id]);
+});
 
-    $cartShippingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
+// ============================================================================
+// View
+// ============================================================================
 
-    $cartPayment = CartPayment::factory()->create([
-        'cart_id'      => $cart->id,
-        'method'       => $paymentMethod = 'cashondelivery',
-        'method_title' => core()->getConfigData('sales.payment_methods.'.$paymentMethod.'.title'),
-    ]);
+it('should show an order to the customer who placed it', function () {
+    $customer = Customer::factory()->create();
 
-    $order = Order::factory()->create([
-        'cart_id'             => $cart->id,
-        'customer_id'         => $customer->id,
-        'customer_email'      => $customer->email,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-    ]);
+    $order = $this->createOrder(customer: $customer);
 
-    $orderItem = OrderItem::factory()->create([
-        'product_id' => $product->id,
-        'order_id'   => $order->id,
-        'sku'        => $product->sku,
-        'type'       => $product->type,
-        'name'       => $product->name,
-    ]);
-
-    $orderBillingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_BILLING,
-    ]);
-
-    $orderShippingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
-
-    $orderPayment = OrderPayment::factory()->create([
-        'order_id' => $order->id,
-    ]);
-
-    // Act and Assert.
     $this->loginAsCustomer($customer);
 
     get(route('shop.customers.account.orders.view', $order->id))
         ->assertOk()
-        ->assertSeeText(trans('shop::app.customers.account.orders.view.information.sku'))
-        ->assertSeeText(trans('shop::app.customers.account.orders.view.information.product-name'))
-        ->assertSeeText(trans('shop::app.customers.account.orders.view.information.total-due'))
-        ->assertSeeText(trans('shop::app.customers.account.orders.view.page-title', ['order_id' => $order->increment_id]));
+        ->assertSeeText($order->increment_id)
+        ->assertSeeText($order->items->first()->name);
+});
 
-    $cart->refresh();
+it('should not show the order of another customer', function () {
+    $order = $this->createOrder();
 
-    $cartItem->refresh();
+    $this->loginAsCustomer();
 
-    $cartBillingAddress->refresh();
+    get(route('shop.customers.account.orders.view', $order->id))
+        ->assertNotFound();
+});
 
-    $cartShippingAddress->refresh();
+// ============================================================================
+// Cancel
+// ============================================================================
 
-    $orderBillingAddress->refresh();
+it('should cancel a pending order and mark its items canceled', function () {
+    $customer = Customer::factory()->create();
 
-    $orderShippingAddress->refresh();
+    $order = $this->createOrder(customer: $customer, items: [['product' => $this->createSimpleProduct(), 'qty_ordered' => 2]]);
 
-    $order->refresh();
+    $this->loginAsCustomer($customer);
 
-    $orderItem->refresh();
+    post(route('shop.customers.account.orders.cancel', $order->id))
+        ->assertRedirect()
+        ->assertSessionHas('success');
 
-    $this->assertModelWise([
-        Cart::class => [
-            $this->prepareCart($cart),
-        ],
+    $this->assertDatabaseHas('orders', [
+        'id' => $order->id,
+        'status' => Order::STATUS_CANCELED,
+    ]);
 
-        CartItem::class => [
-            $this->prepareCartItem($cartItem),
-        ],
-
-        CartPayment::class => [
-            $this->prepareCartPayment($cartPayment),
-        ],
-
-        CartAddress::class => [
-            $this->prepareAddress($cartBillingAddress),
-        ],
-
-        CartAddress::class => [
-            $this->prepareAddress($cartShippingAddress),
-        ],
-
-        CustomerAddress::class => [
-            $this->prepareAddress($customerAddress),
-        ],
-
-        Order::class => [
-            $this->prepareOrder($order),
-        ],
-
-        OrderItem::class => [
-            $this->prepareOrderItem($orderItem),
-        ],
-
-        OrderAddress::class => [
-            $this->prepareAddress($orderBillingAddress),
-
-            $this->prepareAddress($orderShippingAddress),
-        ],
-
-        OrderPayment::class => [
-            $this->prepareOrderPayment($orderPayment),
-        ],
+    $this->assertDatabaseHas('order_items', [
+        'order_id' => $order->id,
+        'qty_canceled' => 2,
     ]);
 });
 
-it('should cancel the customer order', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5 => 'new',
-        ],
-
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))
-        ->getSimpleProductFactory()
-        ->create();
-
+it('should refuse to cancel an order that has already been invoiced', function () {
     $customer = Customer::factory()->create();
 
-    $cart = Cart::factory()->create([
-        'customer_id'         => $customer->id,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-        'customer_email'      => $customer->email,
-        'is_guest'            => 0,
-    ]);
+    $order = $this->createOrder(customer: $customer, items: [['product' => $this->createSimpleProduct()]]);
 
-    $additional = [
-        'product_id' => $product->id,
-        'rating'     => '0',
-        'is_buy_now' => '0',
-        'quantity'   => '1',
-    ];
+    $this->invoiceOrder($order);
 
-    $cartItem = CartItem::factory()->create([
-        'cart_id'           => $cart->id,
-        'product_id'        => $product->id,
-        'sku'               => $product->sku,
-        'quantity'          => $additional['quantity'],
-        'name'              => $product->name,
-        'price'             => $convertedPrice = core()->convertPrice($price = $product->price),
-        'base_price'        => $price,
-        'total'             => $convertedPrice * $additional['quantity'],
-        'base_total'        => $price * $additional['quantity'],
-        'weight'            => $product->weight ?? 0,
-        'total_weight'      => ($product->weight ?? 0) * $additional['quantity'],
-        'base_total_weight' => ($product->weight ?? 0) * $additional['quantity'],
-        'type'              => $product->type,
-        'additional'        => $additional,
-    ]);
-
-    $customerAddress = CustomerAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CustomerAddress::ADDRESS_TYPE,
-    ]);
-
-    $cartBillingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_BILLING,
-    ]);
-
-    $cartShippingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
-
-    $cartPayment = CartPayment::factory()->create([
-        'cart_id'      => $cart->id,
-        'method'       => $paymentMethod = 'cashondelivery',
-        'method_title' => core()->getConfigData('sales.payment_methods.'.$paymentMethod.'.title'),
-    ]);
-
-    $order = Order::factory()->create([
-        'cart_id'             => $cart->id,
-        'customer_id'         => $customer->id,
-        'customer_email'      => $customer->email,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-    ]);
-
-    $orderItem = OrderItem::factory()->create([
-        'product_id' => $product->id,
-        'order_id'   => $order->id,
-        'sku'        => $product->sku,
-        'type'       => $product->type,
-        'name'       => $product->name,
-    ]);
-
-    $orderBillingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_BILLING,
-    ]);
-
-    $orderShippingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
-
-    $orderPayment = OrderPayment::factory()->create([
-        'order_id' => $order->id,
-    ]);
-
-    // Act and Assert.
     $this->loginAsCustomer($customer);
 
-    postJson(route('shop.customers.account.orders.cancel', $order->id))
-        ->assertRedirect();
+    post(route('shop.customers.account.orders.cancel', $order->id))
+        ->assertRedirect()
+        ->assertSessionHas('error');
 
-    $cart->refresh();
-
-    $cartItem->refresh();
-
-    $cartBillingAddress->refresh();
-
-    $cartShippingAddress->refresh();
-
-    $orderBillingAddress->refresh();
-
-    $orderShippingAddress->refresh();
-
-    $order->refresh();
-
-    $orderItem->refresh();
-
-    $this->assertModelWise([
-        Cart::class => [
-            $this->prepareCart($cart),
-        ],
-
-        CartItem::class => [
-            $this->prepareCartItem($cartItem),
-        ],
-
-        CartPayment::class => [
-            $this->prepareCartPayment($cartPayment),
-        ],
-
-        CartAddress::class => [
-            $this->prepareAddress($cartBillingAddress),
-        ],
-
-        CartAddress::class => [
-            $this->prepareAddress($cartShippingAddress),
-        ],
-
-        CustomerAddress::class => [
-            $this->prepareAddress($customerAddress),
-        ],
-
-        Order::class => [
-            $this->prepareOrder($order),
-        ],
-
-        OrderItem::class => [
-            $this->prepareOrderItem($orderItem),
-        ],
-
-        OrderAddress::class => [
-            $this->prepareAddress($orderBillingAddress),
-
-            $this->prepareAddress($orderShippingAddress),
-        ],
-
-        OrderPayment::class => [
-            $this->prepareOrderPayment($orderPayment),
-        ],
+    $this->assertDatabaseHas('orders', [
+        'id' => $order->id,
+        'status' => Order::STATUS_PROCESSING,
     ]);
 });
 
-it('should print the order invoice', function () {
-    // Arrange.
-    $product = (new ProductFaker([
-        'attributes' => [
-            5 => 'new',
-        ],
+it('should not cancel the order of another customer', function () {
+    $order = $this->createOrder();
 
-        'attribute_value' => [
-            'new' => [
-                'boolean_value' => true,
-            ],
-        ],
-    ]))
-        ->getSimpleProductFactory()
-        ->create();
+    $this->loginAsCustomer();
 
+    post(route('shop.customers.account.orders.cancel', $order->id))
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('orders', [
+        'id' => $order->id,
+        'status' => Order::STATUS_PENDING,
+    ]);
+});
+
+// ============================================================================
+// Reorder
+// ============================================================================
+
+it('should put the items of a previous order back into the cart', function () {
     $customer = Customer::factory()->create();
 
-    $cart = Cart::factory()->create([
-        'customer_id'         => $customer->id,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-        'customer_email'      => $customer->email,
-        'is_guest'            => 0,
-    ]);
+    $product = $this->createSimpleProduct();
 
-    $additional = [
-        'product_id' => $product->id,
-        'rating'     => '0',
-        'is_buy_now' => '0',
-        'quantity'   => '1',
-    ];
+    $order = $this->createOrder(['status' => Order::STATUS_COMPLETED], [['product' => $product, 'qty_ordered' => 2]], $customer);
 
-    $cartItem = CartItem::factory()->create([
-        'cart_id'           => $cart->id,
-        'product_id'        => $product->id,
-        'sku'               => $product->sku,
-        'quantity'          => $additional['quantity'],
-        'name'              => $product->name,
-        'price'             => $convertedPrice = core()->convertPrice($price = $product->price),
-        'base_price'        => $price,
-        'total'             => $convertedPrice * $additional['quantity'],
-        'base_total'        => $price * $additional['quantity'],
-        'weight'            => $product->weight ?? 0,
-        'total_weight'      => ($product->weight ?? 0) * $additional['quantity'],
-        'base_total_weight' => ($product->weight ?? 0) * $additional['quantity'],
-        'type'              => $product->type,
-        'additional'        => $additional,
-    ]);
-
-    $customerAddress = CustomerAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CustomerAddress::ADDRESS_TYPE,
-    ]);
-
-    $cartBillingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_BILLING,
-    ]);
-
-    $cartShippingAddress = CartAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => CartAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
-
-    $cartPayment = CartPayment::factory()->create([
-        'cart_id'      => $cart->id,
-        'method'       => $paymentMethod = 'cashondelivery',
-        'method_title' => core()->getConfigData('sales.payment_methods.'.$paymentMethod.'.title'),
-    ]);
-
-    $order = Order::factory()->create([
-        'cart_id'             => $cart->id,
-        'customer_id'         => $customer->id,
-        'customer_email'      => $customer->email,
-        'customer_first_name' => $customer->first_name,
-        'customer_last_name'  => $customer->last_name,
-    ]);
-
-    $orderItem = OrderItem::factory()->create([
-        'product_id' => $product->id,
-        'order_id'   => $order->id,
-        'sku'        => $product->sku,
-        'type'       => $product->type,
-        'name'       => $product->name,
-    ]);
-
-    $orderBillingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_BILLING,
-    ]);
-
-    $orderShippingAddress = OrderAddress::factory()->create([
-        'cart_id'      => $cart->id,
-        'customer_id'  => $customer->id,
-        'address_type' => OrderAddress::ADDRESS_TYPE_SHIPPING,
-    ]);
-
-    $orderPayment = OrderPayment::factory()->create([
-        'order_id' => $order->id,
-    ]);
-
-    $invoice = Invoice::factory([
-        'order_id' => $order->id,
-        'state'    => 'paid',
-    ])->create();
-
-    $invoiceItem = InvoiceItem::factory()->create([
-        'invoice_id'           => $invoice->id,
-        'order_item_id'        => $orderItem->id,
-        'name'                 => $orderItem->name,
-        'sku'                  => $orderItem->sku,
-        'qty'                  => 1,
-        'price'                => $orderItem->price,
-        'base_price'           => $orderItem->base_price,
-        'total'                => $orderItem->price,
-        'base_total'           => $orderItem->base_price,
-        'tax_amount'           => (($orderItem->tax_amount / $orderItem->qty_ordered)),
-        'base_tax_amount'      => (($orderItem->base_tax_amount / $orderItem->qty_ordered)),
-        'discount_amount'      => (($orderItem->discount_amount / $orderItem->qty_ordered)),
-        'base_discount_amount' => (($orderItem->base_discount_amount / $orderItem->qty_ordered)),
-        'product_id'           => $orderItem->product_id,
-        'product_type'         => $orderItem->product_type,
-        'additional'           => $orderItem->additional,
-    ]);
-
-    // Act and Assert.
     $this->loginAsCustomer($customer);
 
-    getJson(route('shop.customers.account.orders.print-invoice', $invoice->id))
-        ->assertDownload('invoice-'.$invoice->created_at->format('d-m-Y').'.pdf');
+    get(route('shop.customers.account.orders.reorder', $order->id))
+        ->assertRedirect(route('shop.checkout.cart.index'));
 
-    $cart->refresh();
+    $this->assertCartHasProduct($product->id, 2);
+});
 
-    $cartItem->refresh();
+it('should not reorder the order of another customer', function () {
+    $order = $this->createOrder(['status' => Order::STATUS_COMPLETED], [['product' => $this->createSimpleProduct()]]);
 
-    $cartBillingAddress->refresh();
+    $this->loginAsCustomer();
 
-    $cartShippingAddress->refresh();
+    get(route('shop.customers.account.orders.reorder', $order->id))
+        ->assertNotFound();
 
-    $orderBillingAddress->refresh();
+    $this->assertCartIsEmpty();
+});
 
-    $orderShippingAddress->refresh();
+// ============================================================================
+// Invoice
+// ============================================================================
 
-    $order->refresh();
+it('should let the customer download the invoice of their order', function () {
+    $customer = Customer::factory()->create();
 
-    $orderItem->refresh();
+    $order = $this->createOrder(customer: $customer);
 
-    $invoiceItem->refresh();
+    $invoice = $this->invoiceOrder($order);
 
-    $this->assertModelWise([
-        Cart::class => [
-            $this->prepareCart($cart),
-        ],
+    $this->loginAsCustomer($customer);
 
-        CartItem::class => [
-            $this->prepareCartItem($cartItem),
-        ],
+    get(route('shop.customers.account.orders.print_invoice', $invoice->id))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+});
 
-        CartPayment::class => [
-            $this->prepareCartPayment($cartPayment),
-        ],
+it('should not serve the invoice of another customer', function () {
+    $invoice = $this->invoiceOrder($this->createOrder());
 
-        CartAddress::class => [
-            $this->prepareAddress($cartBillingAddress),
-        ],
+    $this->loginAsCustomer();
 
-        CartAddress::class => [
-            $this->prepareAddress($cartShippingAddress),
-        ],
-
-        CustomerAddress::class => [
-            $this->prepareAddress($customerAddress),
-        ],
-
-        Order::class => [
-            $this->prepareOrder($order),
-        ],
-
-        OrderItem::class => [
-            $this->prepareOrderItem($orderItem),
-        ],
-
-        OrderAddress::class => [
-            $this->prepareAddress($orderBillingAddress),
-
-            $this->prepareAddress($orderShippingAddress),
-        ],
-
-        OrderPayment::class => [
-            $this->prepareOrderPayment($orderPayment),
-        ],
-
-        InvoiceItem::class => [
-            $this->prepareInvoiceItem($invoiceItem),
-        ],
-    ]);
+    get(route('shop.customers.account.orders.print_invoice', $invoice->id))
+        ->assertNotFound();
 });

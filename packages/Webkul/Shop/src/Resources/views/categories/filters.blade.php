@@ -29,7 +29,7 @@
                 class="flex cursor-pointer items-center gap-x-2.5 px-2.5 py-3.5 text-base font-medium uppercase max-md:py-3"
                 @click="isDrawerActive.filter = true"
             >
-                <span class="icon-filter-1 text-2xl"></span>
+                <span class="icon-funnel text-2xl"></span>
 
                 @lang('shop::app.categories.filters.filter')
             </div>
@@ -43,7 +43,7 @@
                 </p>
 
                 <p
-                    class="cursor-pointer text-sm font-medium ltr:mr-[50px] rtl:ml-[50px]"
+                    class="cursor-pointer text-sm font-medium ltr:mr-12.5 rtl:ml-12.5"
                     @click="clearFilters('filter', '')"
                 >
                     @lang('shop::app.categories.filters.clear-all')
@@ -79,7 +79,7 @@
                 class="flex cursor-pointer items-center gap-x-2.5 px-2.5 py-3.5 text-base font-medium uppercase max-md:py-3"
                 @click="isDrawerActive.toolbar = true"
             >
-                <span class="icon-sort-1 text-2xl"></span>
+                <span class="icon-sort text-2xl"></span>
 
                 @lang('shop::app.categories.filters.sort')
             </div>
@@ -95,7 +95,7 @@
         </x-slot>
 
         <!-- Drawer Content -->
-        <x-slot:content class="!px-0">
+        <x-slot:content class="px-0!">
             @include('shop::categories.toolbar')
         </x-slot>
     </x-shop::drawer>
@@ -116,9 +116,9 @@
 
         <!-- Filters Container -->
         <template v-else>
-            <div class="panel-side journal-scroll grid max-h-[1320px] min-w-[342px] grid-cols-[1fr] overflow-y-auto overflow-x-hidden max-xl:min-w-[270px] md:max-w-[342px] md:ltr:pr-7 md:rtl:pl-7">
+            <div class="panel-side journal-scroll grid max-h-330 min-w-85.5 grid-cols-[1fr] overflow-y-auto overflow-x-hidden max-xl:min-w-67.5 md:max-w-85.5 md:ltr:pr-7 md:rtl:pl-7">
                 <!-- Filters Header Container -->
-                <div class="flex h-[50px] items-center justify-between border-b border-zinc-200 pb-2.5 max-md:hidden">
+                <div class="flex h-12.5 items-center justify-between border-b border-zinc-200 pb-2.5 max-md:hidden">
                     <p class="text-lg font-semibold max-sm:font-medium">
                         @lang('shop::app.categories.filters.filters')
                     </p>
@@ -152,7 +152,7 @@
     >
         <x-shop::accordion class="last:border-b-0">
             <!-- Filter Item Header -->
-            <x-slot:header class="px-0 py-2.5 max-sm:!pb-1.5">
+            <x-slot:header class="px-0 py-2.5 max-sm:pb-1.5!">
                 <div class="flex items-center justify-between">
                     <p class="text-lg font-semibold max-sm:text-base max-sm:font-medium">
                         @{{ filter.name }}
@@ -161,13 +161,14 @@
             </x-slot>
 
             <!-- Filter Item Content -->
-            <x-slot:content class="!p-0">
+            <x-slot:content class="p-0!">
                 <!-- Price Range Filter -->
                 <ul v-if="filter.type === 'price'">
                     <li>
                         <v-price-filter
                             :key="refreshKey"
                             :default-price-range="appliedValues"
+                            :default-attribute-code="filter.code"
                             @set-price-range="applyValue($event)"
                         >
                         </v-price-filter>
@@ -212,33 +213,25 @@
                                 :key="`${filter.id}_${option.id}`"
                                 v-for="(option, optionIndex) in options"
                             >
-                                <div class="flex select-none items-center gap-x-4 rounded hover:bg-gray-100 max-sm:gap-x-1 max-sm:!p-0 ltr:pl-2 rtl:pr-2">
+                                <div class="flex select-none items-center gap-x-4 rounded-sm hover:bg-gray-100 max-sm:gap-x-1 max-sm:p-0! ltr:pl-2 rtl:pr-2">
                                     <input
                                         type="checkbox"
-                                        :id="`filter_${filter.id}_option_ ${option.id}`"
-                                        class="peer hidden"
+                                        :id="`filter_${filter.id}_option_${option.id}`"
+                                        class="peer sr-only"
                                         :value="option.id"
                                         v-model="appliedValues"
                                         @change="applyValue"
                                     />
 
                                     <label
-                                        class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue max-sm:text-xl"
-                                        role="checkbox"
-                                        aria-checked="false"
-                                        :aria-label="option.name"
-                                        :aria-labelledby="'label_option_' + option.id"
-                                        tabindex="0"
-                                        :for="`filter_${filter.id}_option_ ${option.id}`"
+                                        class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue max-sm:text-xl peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 rounded"
+                                        :for="`filter_${filter.id}_option_${option.id}`"
                                     >
                                     </label>
 
                                     <label
                                         class="w-full cursor-pointer p-2 text-base text-gray-900 max-sm:p-1 max-sm:text-sm ltr:pl-0 rtl:pr-0"
-                                        :id="'label_option_' + option.id"
-                                        :for="`filter_${filter.id}_option_ ${option.id}`"
-                                        role="button"
-                                        tabindex="0"
+                                        :for="`filter_${filter.id}_option_${option.id}`"
                                     >
                                         @{{ option.name }}
                                     </label>
@@ -259,31 +252,31 @@
                                 v-else
                             >
                                 <div class="flex flex-col items-center justify-between">
-                                    <div class="shimmer h-5 w-[50%] self-end rounded"></div>
+                                    <div class="shimmer h-5 w-[50%] self-end rounded-sm"></div>
                                 </div>
 
                                 <div class="z-10 grid gap-1 rounded-lg bg-white">
                                     <div class="flex items-center gap-x-4 ltr:pl-2 rtl:pr-2">
-                                        <div class="shimmer h-5 w-5 rounded"></div>
+                                        <div class="shimmer h-5 w-5 rounded-sm"></div>
 
                                         <div class="p-2 ltr:pl-0 rtl:pr-0">
-                                            <div class="shimmer h-5 w-[100px]"></div>
+                                            <div class="shimmer h-5 w-25"></div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-x-4 rounded ltr:pl-2 rtl:pr-2">
-                                        <div class="shimmer h-5 w-5 rounded"></div>
+                                    <div class="flex items-center gap-x-4 rounded-sm ltr:pl-2 rtl:pr-2">
+                                        <div class="shimmer h-5 w-5 rounded-sm"></div>
 
                                         <div class="p-2 ltr:pl-0 rtl:pr-0">
-                                            <div class="shimmer h-5 w-[100px]"></div>
+                                            <div class="shimmer h-5 w-25"></div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-x-4 rounded ltr:pl-2 rtl:pr-2">
-                                        <div class="shimmer h-5 w-5 rounded"></div>
+                                    <div class="flex items-center gap-x-4 rounded-sm ltr:pl-2 rtl:pr-2">
+                                        <div class="shimmer h-5 w-5 rounded-sm"></div>
 
                                         <div class="p-2 ltr:pl-0 rtl:pr-0">
-                                            <div class="shimmer h-5 w-[100px]"></div>
+                                            <div class="shimmer h-5 w-25"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -295,7 +288,7 @@
                     <div class="flex justify-center pb-3" v-if="meta && meta.current_page < meta.last_page">
                         <button
                             type="button"
-                            class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            class="rounded-sm border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                             @click="loadMoreOptions"
                             :disabled="isLoadingMore"
                         >
@@ -410,7 +403,7 @@
                      * Clearing child components. Improvisation needed here.
                      */
                     this.$refs.filterItemComponent.forEach((filterItem) => {
-                        if (filterItem.filter.code === 'price') {
+                        if (filterItem.filter.type === 'price') {
                             filterItem.$data.appliedValues = null;
                         } else {
                             filterItem.$data.appliedValues = [];
@@ -447,7 +440,7 @@
 
             created() {
                 // Initialize values in created hook
-                if (this.filter.code === 'price') {
+                if (this.filter.type === 'price') {
                     this.appliedValues = this.$parent.$data.filters.applied[this.filter.code]?.join(',');
                 } else {
                     this.appliedValues = this.$parent.$data.filters.applied[this.filter.code] ?? [];
@@ -462,7 +455,7 @@
                 appliedValues: {
                     handler(newVal, oldVal) {
                         if (
-                            this.filter.code === 'price' &&
+                            this.filter.type === 'price' &&
                             newVal !== oldVal &&
                             !newVal
                         ) {
@@ -475,7 +468,7 @@
 
             methods: {
                 applyValue($event) {
-                    if (this.filter.code === 'price') {
+                    if (this.filter.type === 'price') {
                         this.appliedValues = $event;
 
                         this.$emit('values-applied', this.appliedValues);
@@ -534,7 +527,7 @@
         app.component('v-price-filter', {
             template: '#v-price-filter-template',
 
-            props: ['defaultPriceRange'],
+            props: ['defaultPriceRange', 'defaultAttributeCode'],
 
             data() {
                 return {
@@ -559,7 +552,11 @@
 
             created() {
                 // Initialize price range in created hook
-                this.priceRange = this.defaultPriceRange ?? [0, 100].join(',');
+                let defaultRange = Array.isArray(this.defaultPriceRange)
+                    ? this.defaultPriceRange.join(',')
+                    : this.defaultPriceRange;
+
+                this.priceRange = defaultRange || [0, 100].join(',');
             },
 
             mounted() {
@@ -568,7 +565,11 @@
 
             methods: {
                 getMaxPrice() {
-                    this.$axios.get('{{ route("shop.api.categories.max_price", $category->id ?? '') }}')
+                    this.$axios.get('{{ route("shop.api.categories.max_price", isset($category) && $category->id ? $category->id : null) }}', {
+                            params: {
+                                attribute_code: this.defaultAttributeCode || 'price',
+                            }
+                        })
                         .then((response) => {
                             this.isLoading = false;
 

@@ -28,6 +28,8 @@ class Import extends Model implements ImportContract
         'field_separator',
         'file_path',
         'images_directory_path',
+        'image_source',
+        'images_archive_name',
         'error_file_path',
         'summary',
         'started_at',
@@ -40,9 +42,10 @@ class Import extends Model implements ImportContract
      * @var array
      */
     protected $casts = [
-        'summary'      => 'array',
-        'errors'       => 'array',
-        'started_at'   => 'datetime',
+        'summary' => 'array',
+        'errors' => 'array',
+        'process_in_queue' => 'boolean',
+        'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 

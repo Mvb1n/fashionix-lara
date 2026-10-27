@@ -3,6 +3,8 @@
 namespace Webkul\Admin\Http\Controllers\Sales;
 
 use Carbon\Carbon;
+use Illuminate\Http\Response;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Sales\BookingDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\BookingProduct\Repositories\BookingRepository;
@@ -19,7 +21,7 @@ class BookingController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -33,7 +35,7 @@ class BookingController extends Controller
     /**
      * Returns a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function get()
     {
@@ -41,21 +43,31 @@ class BookingController extends Controller
             return app(BookingDataGrid::class)->process();
         }
 
-        $startDate = request()->get('startDate')
-            ? Carbon::createFromTimeString(request()->get('startDate').' 00:00:01')
+        $startDate = request()->input('startDate')
+            ? Carbon::createFromTimeString(request()->input('startDate').' 00:00:01')
             : Carbon::now()->startOfWeek()->format('Y-m-d H:i:s');
 
-        $endDate = request()->get('endDate')
-            ? Carbon::createFromTimeString(request()->get('endDate').' 23:59:59')
+        $endDate = request()->input('endDate')
+            ? Carbon::createFromTimeString(request()->input('endDate').' 23:59:59')
             : Carbon::now()->endOfWeek()->format('Y-m-d H:i:s');
 
-        $bookings = $this->bookingRepository->getBookings([strtotime($startDate), strtotime($endDate)])
+        $bookings = $this->bookingRepository->getBookings([Carbon::parse($startDate)->timestamp, Carbon::parse($endDate)->timestamp])
             ->map(function ($booking) {
-                $booking['start'] = Carbon::createFromTimestamp($booking->start)->format('Y-m-d h:i A');
+                $booking['start'] = Carbon::createFromTimestamp($booking->start)
+                    ->timezone(config('app.timezone'))
+                    ->format('Y-m-d h:i A');
 
-                $booking['end'] = Carbon::createFromTimestamp($booking->end)->format('Y-m-d h:i A');
+                $booking['end'] = Carbon::createFromTimestamp($booking->end)
+                    ->timezone(config('app.timezone'))
+                    ->format('Y-m-d h:i A');
 
-                $booking->total = core()->formatBasePrice($booking->total);
+                $additional = is_string($booking->item_additional)
+                    ? json_decode($booking->item_additional, true)
+                    : ($booking->item_additional ?? []);
+
+                $booking['attributes'] = $additional['attributes'] ?? [];
+
+                unset($booking['item_additional']);
 
                 return $booking;
             });

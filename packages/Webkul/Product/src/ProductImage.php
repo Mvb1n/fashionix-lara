@@ -3,8 +3,10 @@
 namespace Webkul\Product;
 
 use Illuminate\Support\Facades\Storage;
-use League\Flysystem\Local\LocalFilesystemAdapter;
 use Webkul\Customer\Contracts\Wishlist;
+use Webkul\ImageCache\ImageUrlBuilder;
+use Webkul\ImageCache\TemplateRegistry;
+use Webkul\Product\Contracts\Product;
 use Webkul\Product\Repositories\ProductRepository;
 
 class ProductImage
@@ -17,9 +19,10 @@ class ProductImage
     public function __construct(protected ProductRepository $productRepository) {}
 
     /**
-     * Retrieve collection of gallery images.
+     * Retrieve the gallery images of a product, falling back to its parent's when a variant
+     * has none of its own.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getGalleryImages($product)
@@ -35,7 +38,7 @@ class ProductImage
                 continue;
             }
 
-            $images[] = $this->getCachedImageUrls($image->path);
+            $images[] = $this->getCachedImageUrls($image->path, $this->resolveAltText($image, $product, count($images)));
         }
 
         if (
@@ -43,14 +46,9 @@ class ProductImage
             && ! count($images)
             && ! count($product->videos ?? [])
         ) {
-            $images[] = $this->getFallbackImageUrls();
+            $images[] = $this->getFallbackImageUrls($product?->name);
         }
 
-        /*
-         * Product parent checked already above. If the case reached here that means the
-         * parent is available. So recursing the method for getting the parent image if
-         * images of the child are not found.
-         */
         if (empty($images)) {
             $images = $this->getGalleryImages($product->parent);
         }
@@ -61,7 +59,7 @@ class ProductImage
     /**
      * Get product variant image if available otherwise product base image.
      *
-     * @param  \Webkul\Customer\Contracts\Wishlist  $item
+     * @param  Wishlist  $item
      * @return array
      */
     public function getProductImage($item)
@@ -80,12 +78,10 @@ class ProductImage
     }
 
     /**
-     * This method will first check whether the gallery images are already
-     * present or not. If not then it will load from the product.
+     * Get the first of the given gallery images, otherwise load the base image from the product.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
-     * @param  array
-     * @return array
+     * @param  Product  $product
+     * @return array|null
      */
     public function getProductBaseImage($product, ?array $galleryImages = null)
     {
@@ -99,9 +95,30 @@ class ProductImage
     }
 
     /**
+     * Get the placeholder a template shows for a product without an image: the merchant's for a core size,
+     * then the current theme's, then the core one, with any other template falling back to large.
+     */
+    public function getPlaceholderUrl(string $template): string
+    {
+        $templateRegistry = app(TemplateRegistry::class);
+
+        $url = $templateRegistry->placeholderUrl($templateRegistry->currentTheme(), $template);
+
+        if ($url) {
+            return $url;
+        }
+
+        return match (true) {
+            in_array($template, ImageUrlBuilder::CORE_TEMPLATES, true) => bagisto_asset('images/'.$template.'-product-placeholder.webp', 'shop'),
+            $template === 'original' => bagisto_asset('images/large-product-placeholder.webp', 'shop'),
+            default => $this->getPlaceholderUrl('large'),
+        };
+    }
+
+    /**
      * Load product's base image.
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     protected function otherwiseLoadFromProduct($product)
@@ -109,64 +126,52 @@ class ProductImage
         $images = $product?->images;
 
         return $images && $images->count()
-            ? $this->getCachedImageUrls($images[0]->path)
-            : $this->getFallbackImageUrls();
+            ? $this->getCachedImageUrls($images[0]->path, $this->resolveAltText($images[0], $product, 0))
+            : $this->getFallbackImageUrls($product?->name);
     }
 
     /**
-     * Get cached urls configured for intervention package.
+     * Resolve the alt text of an image, falling back to the product name so that a
+     * storefront image is never rendered without one.
+     *
+     * @param  Contracts\ProductImage  $image
+     * @param  Product  $product
+     */
+    private function resolveAltText($image, $product, int $index): string
+    {
+        if (filled($altText = $image->alt_text)) {
+            return $altText;
+        }
+
+        $name = (string) $product?->name;
+
+        return $index > 0
+            ? trim($name.' - '.($index + 1))
+            : $name;
+    }
+
+    /**
+     * Get the urls an image is served from, through every template product images carry for the current
+     * theme, resized by the image cache whichever disk the store keeps its files on.
      *
      * @param  string  $path
      */
-    private function getCachedImageUrls($path): array
+    private function getCachedImageUrls($path, string $altText = ''): array
     {
-        if (! $this->isDriverLocal()) {
-            return [
-                'small_image_url'    => Storage::url($path),
-                'medium_image_url'   => Storage::url($path),
-                'large_image_url'    => Storage::url($path),
-                'original_image_url' => Storage::url($path),
-            ];
+        return image_urls($path, TemplateRegistry::PRODUCT_IMAGES) + ['alt' => $altText];
+    }
+
+    /**
+     * Get the placeholder urls of a product without an image, one for every template an image gets.
+     */
+    private function getFallbackImageUrls(?string $altText = ''): array
+    {
+        $urls = [];
+
+        foreach (app(ImageUrlBuilder::class)->templateNames(TemplateRegistry::PRODUCT_IMAGES) as $template) {
+            $urls[$template.'_image_url'] = $this->getPlaceholderUrl($template);
         }
 
-        return [
-            'small_image_url'    => url('cache/small/'.$path),
-            'medium_image_url'   => url('cache/medium/'.$path),
-            'large_image_url'    => url('cache/large/'.$path),
-            'original_image_url' => url('cache/original/'.$path),
-        ];
-    }
-
-    /**
-     * Get fallback urls.
-     */
-    private function getFallbackImageUrls(): array
-    {
-        $smallImageUrl = core()->getConfigData('catalog.products.cache_small_image.url')
-                        ? Storage::url(core()->getConfigData('catalog.products.cache_small_image.url'))
-                        : bagisto_asset('images/small-product-placeholder.webp', 'shop');
-
-        $mediumImageUrl = core()->getConfigData('catalog.products.cache_medium_image.url')
-                        ? Storage::url(core()->getConfigData('catalog.products.cache_medium_image.url'))
-                        : bagisto_asset('images/medium-product-placeholder.webp', 'shop');
-
-        $largeImageUrl = core()->getConfigData('catalog.products.cache_large_image.url')
-                        ? Storage::url(core()->getConfigData('catalog.products.cache_large_image.url'))
-                        : bagisto_asset('images/large-product-placeholder.webp', 'shop');
-
-        return [
-            'small_image_url'    => $smallImageUrl,
-            'medium_image_url'   => $mediumImageUrl,
-            'large_image_url'    => $largeImageUrl,
-            'original_image_url' => bagisto_asset('images/large-product-placeholder.webp', 'shop'),
-        ];
-    }
-
-    /**
-     * Is driver local.
-     */
-    private function isDriverLocal(): bool
-    {
-        return Storage::getAdapter() instanceof LocalFilesystemAdapter;
+        return $urls + ['alt' => (string) $altText];
     }
 }

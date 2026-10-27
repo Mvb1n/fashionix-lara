@@ -4,6 +4,7 @@ namespace Webkul\Shop\Http\Controllers\API;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
+use Webkul\CartRule\Exceptions\CouponUsageLimitExceededException;
 use Webkul\Checkout\Facades\Cart;
 use Webkul\Customer\Repositories\CustomerRepository;
 use Webkul\Payment\Facades\Payment;
@@ -46,15 +47,17 @@ class OnepageController extends APIController
             ! auth()->guard('customer')->check()
             && ! Cart::getCart()->hasGuestCheckoutItems()
         ) {
+            session()->put('shop.url.intended', route('shop.checkout.onepage.index'));
+
             return new JsonResource([
                 'redirect' => true,
-                'data'     => route('shop.customer.session.index'),
+                'data' => route('shop.customer.session.index'),
             ]);
         }
 
         if (Cart::hasError()) {
             return new JsonResource([
-                'redirect'     => true,
+                'redirect' => true,
                 'redirect_url' => route('shop.checkout.cart.index'),
             ]);
         }
@@ -68,27 +71,27 @@ class OnepageController extends APIController
         if ($cart->haveStockableItems()) {
             if (! $rates = Shipping::collectRates()) {
                 return new JsonResource([
-                    'redirect'     => true,
+                    'redirect' => true,
                     'redirect_url' => route('shop.checkout.cart.index'),
                 ]);
             }
 
             return new JsonResource([
                 'redirect' => false,
-                'data'     => $rates,
+                'data' => $rates,
             ]);
         }
 
         return new JsonResource([
             'redirect' => false,
-            'data'     => Payment::getSupportedPaymentMethods(),
+            'data' => Payment::getSupportedPaymentMethods(),
         ]);
     }
 
     /**
      * Store shipping method.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function storeShippingMethod()
     {
@@ -125,6 +128,7 @@ class OnepageController extends APIController
         if (
             Cart::hasError()
             || ! $validatedData['payment']
+            || ! $this->isPaymentMethodAvailable($validatedData['payment']['method'] ?? null)
             || ! Cart::savePaymentMethod($validatedData['payment'])
         ) {
             return response()->json([
@@ -148,7 +152,7 @@ class OnepageController extends APIController
     {
         if (Cart::hasError()) {
             return new JsonResource([
-                'redirect'     => true,
+                'redirect' => true,
                 'redirect_url' => route('shop.checkout.cart.index'),
             ]);
         }
@@ -167,21 +171,32 @@ class OnepageController extends APIController
 
         if ($redirectUrl = Payment::getRedirectUrl($cart)) {
             return new JsonResource([
-                'redirect'     => true,
+                'redirect' => true,
                 'redirect_url' => $redirectUrl,
             ]);
         }
 
         $data = (new OrderResource($cart))->jsonSerialize();
 
-        $order = $this->orderRepository->create($data);
+        try {
+            $order = $this->orderRepository->create($data);
+        } catch (CouponUsageLimitExceededException $e) {
+            cart()->removeCouponCode();
+
+            Cart::collectTotals();
+
+            return new JsonResource([
+                'redirect' => false,
+                'message' => trans('shop::app.checkout.coupon.usage-limit-exceeded'),
+            ]);
+        }
 
         Cart::deActivateCart();
 
         session()->flash('order_id', $order->id);
 
         return new JsonResource([
-            'redirect'     => true,
+            'redirect' => true,
             'redirect_url' => route('shop.checkout.onepage.success'),
         ]);
     }
@@ -233,5 +248,30 @@ class OnepageController extends APIController
         if (! $cart->payment) {
             throw new \Exception(trans('shop::app.checkout.cart.specify-payment-method'));
         }
+
+        if ($cart->payment->method === 'paypal_smart_button') {
+            throw new \Exception(trans('shop::app.checkout.cart.specify-payment-method'));
+        }
+
+        if (! $this->isPaymentMethodAvailable($cart->payment->method)) {
+            throw new \Exception(trans('shop::app.checkout.cart.specify-payment-method'));
+        }
+    }
+
+    /**
+     * Checks whether the given payment method is available for the current cart.
+     *
+     * Availability is evaluated server-side against the cart contents (e.g. Cash
+     * On Delivery is not available for non-stockable/downloadable carts). This
+     * prevents crafted requests from bypassing the front-end method filtering.
+     */
+    protected function isPaymentMethodAvailable(?string $method): bool
+    {
+        if (! $method) {
+            return false;
+        }
+
+        return collect(Payment::getSupportedPaymentMethods()['payment_methods'] ?? [])
+            ->contains('method', $method);
     }
 }

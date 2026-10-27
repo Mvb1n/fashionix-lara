@@ -17,38 +17,6 @@ class CurrencyRepository extends Repository
     }
 
     /**
-     * Create.
-     *
-     * @return mixed
-     */
-    public function create(array $attributes)
-    {
-        Event::dispatch('core.currency.create.before');
-
-        $currency = parent::create($attributes);
-
-        Event::dispatch('core.currency.create.after', $currency);
-
-        return $currency;
-    }
-
-    /**
-     * Update.
-     *
-     * @return mixed
-     */
-    public function update(array $attributes, $id)
-    {
-        Event::dispatch('core.currency.update.before', $id);
-
-        $currency = parent::update($attributes, $id);
-
-        Event::dispatch('core.currency.update.after', $currency);
-
-        return $currency;
-    }
-
-    /**
      * Delete.
      *
      * @param  int  $id
@@ -62,7 +30,7 @@ class CurrencyRepository extends Repository
             return false;
         }
 
-        if ($this->model->destroy($id)) {
+        if (parent::delete($id)) {
             Event::dispatch('core.currency.delete.after', $id);
 
             return true;

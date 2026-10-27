@@ -1,7 +1,10 @@
 <?php
 
+use Stevebauman\Purify\Facades\Purify;
+use Webkul\Core\Contracts\DatabaseGrammar;
 use Webkul\Core\Facades\Acl;
 use Webkul\Core\Facades\Core;
+use Webkul\Core\Facades\DbGrammar;
 use Webkul\Core\Facades\Menu;
 use Webkul\Core\Facades\SystemConfig;
 
@@ -9,7 +12,7 @@ if (! function_exists('core')) {
     /**
      * Core helper.
      *
-     * @return \Webkul\Core\Core
+     * @return Webkul\Core\Core
      */
     function core()
     {
@@ -21,7 +24,7 @@ if (! function_exists('menu')) {
     /**
      * Menu helper.
      *
-     * @return \Webkul\Core\Menu
+     * @return Webkul\Core\Menu
      */
     function menu()
     {
@@ -33,7 +36,7 @@ if (! function_exists('acl')) {
     /**
      * Acl helper.
      *
-     * @return \Webkul\Core\Acl
+     * @return Webkul\Core\Acl
      */
     function acl()
     {
@@ -45,11 +48,23 @@ if (! function_exists('system_config')) {
     /**
      * System Config helper.
      *
-     * @return \Webkul\Core\SystemConfig
+     * @return Webkul\Core\SystemConfig
      */
     function system_config()
     {
         return SystemConfig::getFacadeRoot();
+    }
+}
+
+if (! function_exists('db_grammar')) {
+    /**
+     * Database grammar helper.
+     *
+     * @return DatabaseGrammar
+     */
+    function db_grammar()
+    {
+        return DbGrammar::getFacadeRoot();
     }
 }
 
@@ -62,6 +77,35 @@ if (! function_exists('clean_path')) {
         return collect(explode('/', $path))
             ->filter(fn ($segment) => ! empty($segment))
             ->join('/');
+    }
+}
+
+if (! function_exists('clean_content')) {
+    /**
+     * Clean content.
+     */
+    function clean_content(string $content): string
+    {
+        $cleaned = Purify::clean($content);
+
+        $patterns = [
+            '/\{\{.*?\}\}/',
+            '/\{!!.*?!!\}/',
+            '/@(php|if|else|endif|foreach|endforeach|for|endfor|while|endwhile|switch|endswitch|case|break|continue|include|extends|section|endsection|yield|push|endpush|stack|endstack)/',
+            '/<\?php.*?\?>/s',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $cleaned = preg_replace($pattern, '', $cleaned);
+        }
+
+        $cleaned = str_replace(
+            ['{{', '}}', '{!!', '!!}'],
+            ['&#123;&#123;', '&#125;&#125;', '&#123;!!', '!!&#125;'],
+            $cleaned
+        );
+
+        return $cleaned;
     }
 }
 

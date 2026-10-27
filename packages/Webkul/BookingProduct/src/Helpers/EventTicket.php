@@ -4,6 +4,7 @@ namespace Webkul\BookingProduct\Helpers;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Webkul\BookingProduct\Contracts\BookingProduct;
 use Webkul\Checkout\Models\CartItem;
 use Webkul\Product\DataTypes\CartItemValidationResult;
 
@@ -12,7 +13,7 @@ class EventTicket extends Booking
     /**
      * Returns event date
      *
-     * @param  \Webkul\BookingProduct\Contracts\BookingProduct  $bookingProduct
+     * @param  BookingProduct  $bookingProduct
      */
     public function getEventDate($bookingProduct): string
     {
@@ -24,9 +25,31 @@ class EventTicket extends Booking
     }
 
     /**
+     * Returns the cheapest ticket price (special price if on sale, else regular price).
+     */
+    public function getCheapestTicketPrice($bookingProduct): float
+    {
+        if (! $bookingProduct || ! $bookingProduct->event_tickets()->count()) {
+            return 0;
+        }
+
+        $cheapest = null;
+
+        foreach ($bookingProduct->event_tickets as $ticket) {
+            $price = $this->isInSale($ticket) ? $ticket->special_price : $ticket->price;
+
+            if ($cheapest === null || $price < $cheapest) {
+                $cheapest = $price;
+            }
+        }
+
+        return (float) ($cheapest ?? 0);
+    }
+
+    /**
      * Returns tickets
      *
-     * @param  \Webkul\BookingProduct\Contracts\BookingProduct  $bookingProduct
+     * @param  BookingProduct  $bookingProduct
      */
     public function getTickets($bookingProduct)
     {
@@ -34,15 +57,18 @@ class EventTicket extends Booking
             return [];
         }
 
-        return $this->formatPrice($bookingProduct->event_tickets);
+        $basePrice = $bookingProduct->product?->getTypeInstance()?->getFinalPrice() ?? 0;
+
+        return $this->formatPrice($bookingProduct->event_tickets, $basePrice);
     }
 
     /**
      * Format ticket price.
      *
      * @param  array  $tickets
+     * @param  float  $basePrice
      */
-    public function formatPrice($tickets)
+    public function formatPrice($tickets, $basePrice = 0)
     {
         foreach ($tickets as $index => $ticket) {
             $price = $ticket->price;
@@ -58,6 +84,10 @@ class EventTicket extends Booking
             $tickets[$index]['converted_price'] = core()->convertPrice($price);
             $tickets[$index]['formatted_price'] = $formattedPrice = core()->currency($price);
             $tickets[$index]['formatted_price_text'] = trans('shop::app.products.booking.per-ticket-price', ['price' => $formattedPrice]);
+
+            $totalPrice = $basePrice + $price;
+            $tickets[$index]['total_price'] = core()->convertPrice($totalPrice);
+            $tickets[$index]['formatted_total_price'] = core()->currency($totalPrice);
         }
 
         return $tickets;
@@ -74,11 +104,33 @@ class EventTicket extends Booking
 
         $ticket = $bookingProduct->event_tickets()->find($cartItem['additional']['booking']['ticket_id']);
 
+        if (! $ticket) {
+            return false;
+        }
+
         if ($ticket->qty - $this->getBookedQuantity($cartItem) < $cartItem['quantity']) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Returns the remaining available quantity for the event ticket.
+     *
+     * @param  \Webkul\Checkout\Contracts\CartItem|array  $cartItem
+     */
+    public function getAvailableTicketQuantity($cartItem): int
+    {
+        $bookingProduct = $this->bookingProductRepository->findOneByField('product_id', $cartItem['product_id']);
+
+        $ticket = $bookingProduct->event_tickets()->find($cartItem['additional']['booking']['ticket_id']);
+
+        if (! $ticket) {
+            return 0;
+        }
+
+        return max(0, $ticket->qty - $this->getBookedQuantity($cartItem));
     }
 
     /**
@@ -107,6 +159,10 @@ class EventTicket extends Booking
             $bookingProduct = $this->bookingProductRepository->findOneByField('product_id', $product['product_id']);
 
             $ticket = $bookingProduct->event_tickets()->find($product['additional']['booking']['ticket_id']);
+
+            if (! $ticket) {
+                continue;
+            }
 
             $price = $ticket->price;
 

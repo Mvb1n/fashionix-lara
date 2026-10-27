@@ -1,86 +1,94 @@
-import { test, expect } from '../../setup';
-import { generateFirstName, generateFullName, generateName, getImageFile } from '../../utils/faker';
+import { test } from "../../setup";
+import {
+    LocalesPage,
+    type LocaleData,
+} from "../../pages/admin/settings/LocalesPage";
+import { uniqueStamp } from "../../utils/faker";
 
-test.describe('locale management', () => {
-    test('create locale', async ({ adminPage }) => {
-        await adminPage.goto('admin/settings/locales');
+function buildLocale(overrides: Partial<LocaleData> = {}): LocaleData {
+    const stamp = Number(uniqueStamp()).toString(36);
 
-        await adminPage.click('button[type="button"].primary-button:visible');
+    return {
+        code: `lc_${stamp}`,
+        name: `Locale ${stamp}`,
+        direction: "ltr",
+        ...overrides,
+    };
+}
 
-        await adminPage.fill('input[name="name"]', generateName());
+test.describe("locale management", () => {
+    let localesPage: LocalesPage;
+    let created: string[];
 
-        const select = await adminPage.$('select[name="direction"]');
-
-        const option = Math.random() > 0.5 ? 'ltr' : 'rtl';
-
-        await select.selectOption({ value: option });
-
-        const concatenatedNames = Array(5)
-        .fill(null)
-        .map(() => generateFirstName())
-        .join(' ')
-        .replaceAll(' ', '');
-
-        await adminPage.fill('input[name="code"]', concatenatedNames);
-
-        await adminPage.$eval('label[class="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-800 dark:text-white required"]', (el, content) => {
-            el.innerHTML += content;
-        }, `<input type="file" name="logo_path[]" accept="image/*">`);
-
-        const image = await adminPage.$('input[type="file"][name="logo_path[]"]');
-
-        const filePath = getImageFile();
-
-        await image.setInputFiles(filePath);
-
-        await adminPage.press('input[name="code"]', 'Enter');
-
-        await expect(adminPage.getByText('Locale created successfully.')).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        localesPage = new LocalesPage(adminPage);
+        created = [];
     });
 
-    test('edit locale', async ({ adminPage }) => {
-        await adminPage.goto('admin/settings/locales');
-
-        await adminPage.waitForSelector('span[class="icon-edit cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]');
-
-        const iconEdit = await adminPage.$$('span[class="icon-edit cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]');
-
-        await iconEdit[0].click();
-
-        await adminPage.fill('input[name="name"]', generateName());
-
-        const select = await adminPage.$('select[name="direction"]');
-
-        const option = Math.random() > 0.5 ? 'ltr' : 'rtl';
-
-        await select.selectOption({ value: option });
-
-        await adminPage.$eval('label[class="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-800 dark:text-white required"]', (el, content) => {
-            el.innerHTML += content;
-        }, `<input type="file" name="logo_path[]" accept="image/*">`);
-
-        const image = await adminPage.$('input[type="file"][name="logo_path[]"]');
-
-        const filePath = getImageFile();
-
-        await image.setInputFiles(filePath);
-
-        await adminPage.press('input[name="name"]', 'Enter');
-
-        await expect(adminPage.getByText('Locale updated successfully.')).toBeVisible();
+    test.afterEach(async () => {
+        await localesPage.deleteLocalesIfPresent(created);
     });
 
-    test('delete locale', async ({ adminPage }) => {
-        await adminPage.goto('admin/settings/locales');
+    test("should create a locale and list it with its code and direction", async () => {
+        const locale = buildLocale();
+        created.push(locale.name);
 
-        await adminPage.waitForSelector('span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]');
+        await localesPage.createLocale(locale);
 
-        const iconDelete = await adminPage.$$('span[class="icon-delete cursor-pointer rounded-md p-1.5 text-2xl transition-all hover:bg-gray-200 dark:hover:bg-gray-800 max-sm:place-self-center"]');
+        await localesPage.expectLocaleListed(locale);
+    });
 
-        await iconDelete[0].click();
+    test("should reject a locale without a code and name", async () => {
+        await localesPage.submitEmptyCreateForm();
 
-        await adminPage.click('button.transparent-button + button.primary-button:visible');
+        await localesPage.expectValidationError("The Code field is required");
+        await localesPage.expectValidationError("The Name field is required");
+    });
 
-        await expect(adminPage.getByText('Locale deleted successfully.')).toBeVisible();
+    test("should reject a locale whose code is already used", async () => {
+        const existing = buildLocale();
+        const duplicate = buildLocale({
+            code: existing.code,
+            name: `${existing.name} duplicate`,
+        });
+        created.push(existing.name, duplicate.name);
+
+        await localesPage.createLocale(existing);
+        await localesPage.attemptCreateLocale(duplicate);
+
+        await localesPage.expectValidationError(
+            "The code has already been taken.",
+        );
+        await localesPage.expectLocaleAbsent(duplicate.name);
+        await localesPage.expectLocaleCodeListedOnce(existing.code);
+    });
+
+    test("should update a locale and keep the new direction after reload", async () => {
+        const locale = buildLocale();
+        const changes = { name: `Locale ${uniqueStamp()} renamed`, direction: "rtl" as const };
+        created.push(locale.name, changes.name);
+
+        await localesPage.createLocale(locale);
+        await localesPage.updateLocale(locale.name, changes);
+
+        await localesPage.expectLocaleListed({ ...locale, ...changes });
+        await localesPage.expectLocaleAbsent(locale.name);
+        await localesPage.expectDirectionInEditForm(changes.name, "rtl");
+    });
+
+    test("should delete a locale and remove it from the grid", async () => {
+        const locale = buildLocale();
+        const untouched = buildLocale({
+            code: `lc_${Number(uniqueStamp()).toString(36)}`,
+            name: `Locale ${uniqueStamp()} untouched`,
+        });
+        created.push(locale.name, untouched.name);
+
+        await localesPage.createLocale(locale);
+        await localesPage.createLocale(untouched);
+        await localesPage.deleteLocale(locale.name);
+
+        await localesPage.expectLocaleAbsent(locale.name);
+        await localesPage.expectLocaleListed(untouched);
     });
 });

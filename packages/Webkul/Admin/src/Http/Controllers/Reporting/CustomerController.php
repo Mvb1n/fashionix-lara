@@ -2,6 +2,8 @@
 
 namespace Webkul\Admin\Http\Controllers\Reporting;
 
+use Illuminate\View\View;
+
 class CustomerController extends Controller
 {
     /**
@@ -10,38 +12,41 @@ class CustomerController extends Controller
      * @var array
      */
     protected $typeFunctions = [
-        'total-customers'             => 'getTotalCustomersStats',
-        'customers-traffic'           => 'getCustomersTrafficStats',
-        'customers-with-most-sales'   => 'getCustomersWithMostSales',
-        'customers-with-most-orders'  => 'getCustomersWithMostOrders',
+        'total-customers' => 'getTotalCustomersStats',
+        'customers-with-most-sales' => 'getCustomersWithMostSales',
+        'customers-with-most-orders' => 'getCustomersWithMostOrders',
         'customers-with-most-reviews' => 'getCustomersWithMostReviews',
-        'top-customer-groups'         => 'getTopCustomerGroups',
+        'top-customer-groups' => 'getTopCustomerGroups',
     ];
 
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
         return view('admin::reporting.customers.index')->with([
             'startDate' => $this->reportingHelper->getStartDate(),
-            'endDate'   => $this->reportingHelper->getEndDate(),
+            'endDate' => $this->reportingHelper->getEndDate(),
         ]);
     }
 
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function view()
     {
+        if ($this->validateRequestedType()) {
+            abort(404);
+        }
+
         return view('admin::reporting.view')->with([
-            'entity'    => 'customers',
+            'entity' => 'customers',
             'startDate' => $this->reportingHelper->getStartDate(),
-            'endDate'   => $this->reportingHelper->getEndDate(),
+            'endDate' => $this->reportingHelper->getEndDate(),
         ]);
     }
 }

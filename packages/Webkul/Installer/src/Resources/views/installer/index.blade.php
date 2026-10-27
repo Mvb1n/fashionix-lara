@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html
     lang="{{ app()->getLocale() }}"
-    dir="{{ in_array(app()->getLocale(), ['ar', 'fa', 'he']) ? 'rtl' : 'ltr' }}"
+    dir="{{ \Webkul\Core\Helpers\SupportedLocales::direction(app()->getLocale()) }}"
 >
     <head>
         <title>
@@ -38,97 +38,12 @@
     </head>
 
     @php
-        $locales = [
-            'ar'    => 'arabic',
-            'bn'    => 'bengali',
-            'ca'    => 'catalan',
-            'de'    => 'german',
-            'en'    => 'english',
-            'es'    => 'spanish',
-            'fa'    => 'persian',
-            'fr'    => 'french',
-            'he'    => 'hebrew',
-            'hi_IN' => 'hindi',
-            'id'    => 'indonesian',
-            'it'    => 'italian',
-            'ja'    => 'japanese',
-            'nl'    => 'dutch',
-            'pl'    => 'polish',
-            'pt_BR' => 'portuguese',
-            'ru'    => 'russian',
-            'sin'   => 'sinhala',
-            'tr'    => 'turkish',
-            'uk'    => 'ukrainian',
-            'zh_CN' => 'chinese',
-        ];
+        use Webkul\Core\Helpers\SupportedCurrencies;
+        use Webkul\Core\Helpers\SupportedLocales;
 
-        $currencies = [
-            'AED' => 'united-arab-emirates-dirham',
-            'ARS' => 'argentine-peso',
-            'AUD' => 'australian-dollar',
-            'BDT' => 'bangladeshi-taka',
-            'BHD' => 'bahraini-dinar',
-            'BRL' => 'brazilian-real',
-            'CAD' => 'canadian-dollar',
-            'CHF' => 'swiss-franc',
-            'CLP' => 'chilean-peso',
-            'CNY' => 'chinese-yuan',
-            'COP' => 'colombian-peso',
-            'CZK' => 'czech-koruna',
-            'DKK' => 'danish-krone',
-            'DZD' => 'algerian-dinar',
-            'EGP' => 'egyptian-pound',
-            'EUR' => 'euro',
-            'FJD' => 'fijian-dollar',
-            'GBP' => 'british-pound-sterling',
-            'HKD' => 'hong-kong-dollar',
-            'HUF' => 'hungarian-forint',
-            'IDR' => 'indonesian-rupiah',
-            'ILS' => 'israeli-new-shekel',
-            'INR' => 'indian-rupee',
-            'JOD' => 'jordanian-dinar',
-            'JPY' => 'japanese-yen',
-            'KRW' => 'south-korean-won',
-            'KWD' => 'kuwaiti-dinar',
-            'KZT' => 'kazakhstani-tenge',
-            'LBP' => 'lebanese-pound',
-            'LKR' => 'sri-lankan-rupee',
-            'LYD' => 'libyan-dinar',
-            'MAD' => 'moroccan-dirham',
-            'MUR' => 'mauritian-rupee',
-            'MXN' => 'mexican-peso',
-            'MYR' => 'malaysian-ringgit',
-            'NGN' => 'nigerian-naira',
-            'NOK' => 'norwegian-krone',
-            'NPR' => 'nepalese-rupee',
-            'NZD' => 'new-zealand-dollar',
-            'OMR' => 'omani-rial',
-            'PAB' => 'panamanian-balboa',
-            'PEN' => 'peruvian-nuevo-sol',
-            'PHP' => 'philippine-peso',
-            'PKR' => 'pakistani-rupee',
-            'PLN' => 'polish-zloty',
-            'PYG' => 'paraguayan-guarani',
-            'QAR' => 'qatari-rial',
-            'RON' => 'romanian-leu',
-            'RUB' => 'russian-ruble',
-            'SAR' => 'saudi-riyal',
-            'SEK' => 'swedish-krona',
-            'SGD' => 'singapore-dollar',
-            'THB' => 'thai-baht',
-            'TND' => 'tunisian-dinar',
-            'TRY' => 'turkish-lira',
-            'TWD' => 'new-taiwan-dollar',
-            'UAH' => 'ukrainian-hryvnia',
-            'USD' => 'united-states-dollar',
-            'UZS' => 'uzbekistani-som',
-            'VEF' => 'venezuelan-bolívar',
-            'VND' => 'vietnamese-dong',
-            'XAF' => 'cfa-franc-beac',
-            'XOF' => 'cfa-franc-bceao',
-            'ZAR' => 'south-african-rand',
-            'ZMW' => 'zambian-kwacha'
-        ];
+        $locales = array_map(fn ($locale) => $locale['name'], SupportedLocales::ALL);
+
+        $currencies = array_map(fn ($currency) => $currency['name'], SupportedCurrencies::ALL);
     @endphp
 
     <body>
@@ -149,7 +64,7 @@
             >
                 <!-- Left Side Welcome to Installation -->
                 <div class="flex flex-col justify-center">
-                    <div class="m-auto grid h-[100vh] max-w-[362px] items-end">
+                    <div class="m-auto grid h-[100vh] max-w-90.5 items-end">
                         <div class="grid gap-4">
                             <img
                                 src="{{ bagisto_asset('images/installer/bagisto-logo.svg', 'installer') }}"
@@ -313,7 +228,7 @@
                 <!-- Right Side Components -->
                 <!-- Start -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'start'"
                 >
                     <x-installer::form
@@ -332,19 +247,19 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[388px] flex-col items-center gap-3 overflow-y-auto px-7 py-4">
+                            <div class="flex h-97 flex-col items-center gap-3 overflow-y-auto px-7 py-4">
                                 <div class="container overflow-hidden">
-                                    <div class="flex h-[100px] flex-col justify-end gap-3">
+                                    <div class="flex h-25 flex-col justify-end gap-3">
                                         <p class="text-center text-sm text-gray-600">
                                             @lang('installer::app.installer.index.installation-description')
                                         </p>
                                     </div>
 
                                     <div class="flex h-72 flex-col justify-center gap-3 overflow-y-auto px-7 py-4">
-                                        <!-- Application Name -->
+                                        <!-- Installer Language -->
                                         <x-installer::form.control-group class="mb-2.5">
                                             <x-installer::form.control-group.label>
-                                                @lang('Installation Wizard language')
+                                                @lang('installer::app.installer.index.start.language')
                                             </x-installer::form.control-group.label>
 
                                             <x-installer::form.control-group.control
@@ -391,7 +306,7 @@
 
                 <!-- System Requirements -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'systemRequirements'"
                 >
                     <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -400,12 +315,12 @@
                         </p>
                     </div>
 
-                    <div class="flex h-[486px] flex-col gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                    <div class="flex h-121.5 flex-col gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
                         <div class="flex items-center gap-1">
                             <span class="{{ $phpVersion['supported'] ? 'icon-tick text-xl text-green-500' : '' }}"></span>
 
                             <p class="text-sm font-semibold text-gray-600">
-                                @lang('installer::app.installer.index.server-requirements.php') <span class="font-normal">(@lang('installer::app.installer.index.server-requirements.php-version'))</span>
+                                @lang('installer::app.installer.index.server-requirements.php') <span class="font-normal">(@lang('installer::app.installer.index.server-requirements.php-version', ['version' => $phpVersion['minimum']]))</span>
                             </p>
                         </div>
 
@@ -456,7 +371,7 @@
 
                 <!-- Environment Configuration Database -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'envDatabase'"
                 >
                     <x-installer::form
@@ -465,7 +380,7 @@
                         ref="envDatabase"
                     >
                         <form
-                            @submit.prevent="handleSubmit($event, FormSubmit)"
+                            @submit.prevent="handleSubmit($event, formSubmit)"
                             enctype="multipart/form-data"
                         >
                             <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -474,7 +389,7 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[484px] flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                            <div class="flex h-121 flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
                                 <!-- Database Connection-->
                                 <x-installer::form.control-group class="mb-2.5">
                                     <x-installer::form.control-group.label class="required">
@@ -488,12 +403,21 @@
                                         rules="required"
                                         :label="trans('installer::app.installer.index.environment-configuration.database-connection')"
                                         :placeholder="trans('installer::app.installer.index.environment-configuration.database-connection')"
+                                        @change="$refs.envDatabase.setFieldValue('db_port', $event.target.value === 'pgsql' ? '5432' : '3306')"
                                     >
                                         <option
                                             value="mysql"
                                             selected
                                         >
                                             @lang('installer::app.installer.index.environment-configuration.mysql')
+                                        </option>
+
+                                        <option value="mariadb">
+                                            @lang('installer::app.installer.index.environment-configuration.mariadb')
+                                        </option>
+
+                                        <option value="pgsql">
+                                            @lang('installer::app.installer.index.environment-configuration.postgresql')
                                         </option>
                                     </x-installer::form.control-group.control>
 
@@ -564,8 +488,8 @@
                                         type="text"
                                         name="db_prefix"
                                         ::value="envData.db_prefix"
-                                        ::rules="{ 
-                                            max: 4, 
+                                        ::rules="{
+                                            max: 4,
                                             regex: /^[a-zA-Z0-9_]*$/
                                         }"
                                         :label="trans('installer::app.installer.index.environment-configuration.database-prefix')"
@@ -640,7 +564,7 @@
 
                 <!-- Ready For Installation -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'readyForInstallation'"
                 >
                     <x-installer::form
@@ -649,7 +573,7 @@
                         ref="envDatabase"
                     >
                         <form
-                            @submit.prevent="handleSubmit($event, FormSubmit)"
+                            @submit.prevent="handleSubmit($event, formSubmit)"
                             enctype="multipart/form-data"
                         >
                             <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -658,7 +582,7 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[484px] flex-col justify-center gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                            <div class="flex h-121 flex-col justify-center gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
                                 <div class="grid gap-1">
                                     <p class="text-lg font-semibold text-gray-800">
                                         @lang('installer::app.installer.index.ready-for-installation.install-info')
@@ -673,13 +597,19 @@
                                             <div class="flex items-center gap-1 text-sm text-gray-600">
                                                 <span class="icon-right text-xl"></span>
 
-                                                <p>@lang('installer::app.installer.index.ready-for-installation.create-databsae-table')</p>
+                                                <p>@lang('installer::app.installer.index.ready-for-installation.drop-existing-tables')</p>
                                             </div>
 
                                             <div class="flex items-center gap-1 text-sm text-gray-600">
                                                 <span class="icon-right text-xl"></span>
 
-                                                <p>@lang('installer::app.installer.index.ready-for-installation.populate-database-table')</p>
+                                                <p>@lang('installer::app.installer.index.ready-for-installation.create-database-tables')</p>
+                                            </div>
+
+                                            <div class="flex items-center gap-1 text-sm text-gray-600">
+                                                <span class="icon-right text-xl"></span>
+
+                                                <p>@lang('installer::app.installer.index.ready-for-installation.populate-database-tables')</p>
                                             </div>
                                         </div>
                                     </div>
@@ -694,7 +624,7 @@
                                     tabindex="0"
                                     @click="back"
                                 >
-                                    Back
+                                    @lang('installer::app.installer.index.back')
                                 </div>
 
                                 <button
@@ -710,7 +640,7 @@
 
                 <!-- Installation Processing -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'installProgress'"
                 >
                     <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -719,7 +649,7 @@
                         </p>
                     </div>
 
-                    <div class="flex h-[484px] flex-col justify-center gap-4 overflow-y-auto px-7 py-4">
+                    <div class="flex h-121 flex-col justify-center gap-4 overflow-y-auto px-7 py-4">
                         <div class="flex flex-col gap-4">
                             <p class="text-lg font-bold text-gray-800">
                                 @lang('installer::app.installer.index.installation-processing.bagisto')
@@ -743,7 +673,7 @@
 
                 <!-- Environment Configuration .ENV -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border-[1px] border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'envConfiguration'"
                 >
                     <x-installer::form
@@ -761,7 +691,7 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[484px] flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                            <div class="flex h-121 flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
                                 <!-- Application Name -->
                                 <x-installer::form.control-group class="mb-2.5">
                                     <x-installer::form.control-group.label class="required">
@@ -789,7 +719,7 @@
                                     <x-installer::form.control-group.control
                                         type="text"
                                         name="app_url"
-                                        ::value="envData.app_url ?? 'https://localhost'"
+                                        ::value="envData.app_url ?? '{{ url('/') }}'"
                                         rules="required"
                                         :label="trans('installer::app.installer.index.environment-configuration.default-url')"
                                         :placeholder="trans('installer::app.installer.index.environment-configuration.default-url-link')"
@@ -805,17 +735,15 @@
                                     </x-installer::form.control-group.label>
 
                                     @php
-                                        date_default_timezone_set('UTC');
+                                        $timezones = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
 
-                                        $tzlist = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
-
-                                        $current = date_default_timezone_get();
+                                        $currentTimezone = date_default_timezone_get();
                                     @endphp
 
                                     <x-installer::form.control-group.control
                                         type="select"
                                         name="app_timezone"
-                                        ::value="envData.app_timezone ?? $current"
+                                        ::value="envData.app_timezone ?? '{{ $currentTimezone }}'"
                                         rules="required"
                                         :aria-label="trans('installer::app.installer.index.environment-configuration.default-timezone')"
                                         :label="trans('installer::app.installer.index.environment-configuration.default-timezone')"
@@ -827,12 +755,12 @@
                                             @lang('installer::app.installer.index.environment-configuration.select-timezone')
                                         </option>
 
-                                        @foreach($tzlist as $key => $value)
+                                        @foreach($timezones as $timezone)
                                             <option
-                                                value="{{ $value }}"
-                                                {{ $value === $current ? 'selected' : '' }}
+                                                value="{{ $timezone }}"
+                                                {{ $timezone === $currentTimezone ? 'selected' : '' }}
                                             >
-                                                {{ $value }}
+                                                {{ $timezone }}
                                             </option>
                                         @endforeach
                                     </x-installer::form.control-group.control>
@@ -844,7 +772,7 @@
                                     class="p-1.5"
                                     :style="warning['container'], warning['message']"
                                 >
-                                    <i class="icon-limited !text-black"></i>
+                                    <i class="icon-limited text-black!"></i>
 
                                     @lang('installer::app.installer.index.environment-configuration.warning-message')
                                 </div>
@@ -909,7 +837,7 @@
                                         </x-installer::form.control-group.label>
 
                                         @foreach ($locales as $key => $locale)
-                                            <x-installer::form.control-group class="!mb-0 flex w-max cursor-pointer select-none items-center gap-1">
+                                            <x-installer::form.control-group class="mb-0! flex w-max cursor-pointer select-none items-center gap-1">
                                                 @php
                                                     $selectedOption = ($key == config('app.locale'));
                                                 @endphp
@@ -933,7 +861,7 @@
 
                                                 <x-installer::form.control-group.label
                                                     for="allowed_locale[{{ $key }}]"
-                                                    class="cursor-pointer !text-sm !font-semibold"
+                                                    class="cursor-pointer text-sm! font-semibold!"
                                                 >
                                                     @lang("installer::app.installer.index.$locale")
                                                 </x-installer::form.control-group.label>
@@ -948,7 +876,7 @@
                                         </x-installer::form.control-group.label>
 
                                         @foreach ($currencies as $key => $currency)
-                                            <x-installer::form.control-group class="!mb-0 flex w-max cursor-pointer select-none items-center gap-1">
+                                            <x-installer::form.control-group class="mb-0! flex w-max cursor-pointer select-none items-center gap-1">
                                                 @php
                                                     $selectedOption = $key == config('app.currency');
                                                 @endphp
@@ -972,7 +900,7 @@
 
                                                 <x-installer::form.control-group.label
                                                     for="currency[{{ $key }}]"
-                                                    class="cursor-pointer !text-sm !font-semibold"
+                                                    class="cursor-pointer text-sm! font-semibold!"
                                                 >
                                                     @lang("installer::app.installer.index.environment-configuration.$currency")
                                                 </x-installer::form.control-group.label>
@@ -998,7 +926,7 @@
 
                 <!-- Create Sample Products -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'createSampleProducts'"
                 >
                     <x-installer::form
@@ -1007,7 +935,7 @@
                         ref="createSampleProducts"
                     >
                         <form
-                            @submit.prevent="handleSubmit($event, FormSubmit)"
+                            @submit.prevent="handleSubmit($event, formSubmit)"
                             enctype="multipart/form-data"
                         >
                             <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -1016,7 +944,7 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[484px] flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                            <div class="flex h-121 flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
                                 <!-- Sample Products -->
                                 <x-admin::form.control-group.label>
                                     @lang("installer::app.installer.index.sample-products.sample-products")
@@ -1038,14 +966,10 @@
                                     </option>
                                 </x-installer::form.control-group.control>
 
-                                <a
-                                    href="{{ Storage::disk('public')->url('data-transfer/samples/products.csv') }}"
-                                    download="products.csv"
-                                    id="source-sample-link"
-                                    class="mt-1 cursor-pointer text-right text-sm text-blue-600 transition-all hover:underline"
-                                >
-                                    @lang('installer::app.installer.index.sample-products.download-sample')
-                                </a>
+                                <!-- Indexing Note -->
+                                <p class="text-xs text-blue-600 mt-2">
+                                    @lang('installer::app.installer.index.sample-products.note')
+                                </p>
                             </div>
 
                             <div class="flex items-center justify-end px-4 py-2.5">
@@ -1064,7 +988,7 @@
 
                 <!-- Create Administrator -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'createAdmin'"
                 >
                     <x-installer::form
@@ -1073,7 +997,7 @@
                         ref="createAdmin"
                     >
                         <form
-                            @submit.prevent="handleSubmit($event, FormSubmit)"
+                            @submit.prevent="handleSubmit($event, formSubmit)"
                             enctype="multipart/form-data"
                         >
                             <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -1082,7 +1006,7 @@
                                 </p>
                             </div>
 
-                            <div class="flex h-[484px] flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                            <div class="flex h-121 flex-col gap-3 overflow-y-auto border-b border-gray-300 px-7 py-4">
                                 <!-- Admin -->
                                 <x-installer::form.control-group class="mb-2.5">
                                     <x-installer::form.control-group.label class="required">
@@ -1091,14 +1015,14 @@
 
                                     <x-installer::form.control-group.control
                                         type="text"
-                                        name="admin"
+                                        name="name"
                                         rules="required"
                                         value="Admin"
                                         :label="trans('installer::app.installer.index.create-administrator.admin')"
                                         :placeholder="trans('installer::app.installer.index.create-administrator.bagisto')"
                                     />
 
-                                    <x-installer::form.control-group.error control-name="admin" />
+                                    <x-installer::form.control-group.error control-name="name" />
                                 </x-installer::form.control-group>
 
                                 <!-- Email -->
@@ -1144,13 +1068,13 @@
 
                                     <x-installer::form.control-group.control
                                         type="password"
-                                        name="confirm_password"
+                                        name="password_confirmation"
                                         rules="required|confirmed:@password"
-                                        :value="old('confirm_password')"
+                                        :value="old('password_confirmation')"
                                         :label="trans('installer::app.installer.index.create-administrator.confirm-password')"
                                     />
 
-                                    <x-installer::form.control-group.error control-name="confirm_password" />
+                                    <x-installer::form.control-group.error control-name="password_confirmation" />
                                 </x-installer::form.control-group>
                             </div>
 
@@ -1170,7 +1094,7 @@
 
                 <!-- Installation Completed -->
                 <div
-                    class="w-full max-w-[568px] rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
+                    class="w-full max-w-142 rounded-lg border border-gray-300 bg-white shadow-[0px_8px_10px_0px_rgba(0,0,0,0.05)]"
                     v-if="currentStep == 'installationCompleted'"
                 >
                     <div class="flex items-center justify-between gap-2.5 border-b border-gray-300 px-4 py-3">
@@ -1179,7 +1103,7 @@
                         </p>
                     </div>
 
-                    <div class="flex h-[484px] flex-col justify-center gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
+                    <div class="flex h-121 flex-col justify-center gap-4 overflow-y-auto border-b border-gray-300 px-7 py-4">
                         <div class="flex flex-col gap-4">
                             <div class="flex h-8 w-8 items-center justify-center rounded-full border border-green-500">
                                 <span class="icon-tick text-xl font-semibold text-green-500"></span>
@@ -1294,31 +1218,23 @@
                     },
 
                     methods: {
-                        FormSubmit(params, { setErrors }) {
+                        formSubmit(params, { setErrors }) {
                             const stepActions = {
-                                envDatabase: () => {
-                                    if (params.db_connection === 'mysql') {
-                                        this.completeStep('envDatabase', 'readyForInstallation', 'active', 'complete', setErrors);
+                                envDatabase: (params, setErrors) => {
+                                    this.completeStep('envDatabase', 'readyForInstallation', 'active', 'complete', setErrors);
 
-                                        this.envData = { ...this.envData, ...params };
-                                    } else {
-                                        setErrors({ 'db_connection': ["Bagisto currently supports MySQL only."] });
-                                    }
+                                    this.envData = { ...this.envData, ...params };
                                 },
 
-                                readyForInstallation: (setErrors) => {
-                                    this.currentStep = 'installProgress';
-
-                                    this.startMigration(setErrors);
+                                readyForInstallation: (params, setErrors) => {
+                                    this.startMigration(params, setErrors);
                                 },
 
-                                createSampleProducts: (setErrors) => {
+                                createSampleProducts: (params, setErrors) => {
                                     this.createSampleProducts(params, setErrors);
                                 },
 
-                                createAdmin: (setErrors) => {
-                                    this.isLoading = true;
-
+                                createAdmin: (params, setErrors) => {
                                     this.saveAdmin(params, setErrors);
                                 },
                             };
@@ -1326,7 +1242,7 @@
                             const index = this.steps.find(step => step === this.currentStep);
 
                             if (stepActions[index]) {
-                                stepActions[index]();
+                                stepActions[index](params, setErrors);
                             }
                         },
 
@@ -1345,14 +1261,11 @@
                                 envConfiguration: () => {
                                     this.envData = { ...params };
 
-                                    let data = {
+                                    this.startSeeding({
                                         allowed_locales: this.locales.allowed,
                                         allowed_currencies: this.currencies.allowed,
-                                    };
-
-                                    this.startSeeding(data, this.envData);
+                                    }, this.envData);
                                 },
-
                             };
 
                             const index = this.steps.find(step => step === this.currentStep);
@@ -1360,6 +1273,144 @@
                             if (stepActions[index]) {
                                 stepActions[index]();
                             }
+                        },
+
+                        completeStep(fromStep, toStep, toState, nextState, setErrors) {
+                            this.stepStates[fromStep] = nextState;
+
+                            this.currentStep = toStep;
+
+                            this.stepStates[toStep] = toState;
+                        },
+
+                        startMigration(params, setErrors) {
+                            this.currentStep = 'installProgress';
+
+                            this.$axios.post("{{ route('installer.run_migration') }}", this.envData)
+                                .then((response) => {
+                                    if (response.data.migrated) {
+                                        this.completeStep('readyForInstallation', 'envConfiguration', 'active', 'complete');
+
+                                        this.currentStep = 'envConfiguration';
+                                    }
+                                })
+                                .catch(error => {
+                                    this.currentStep = 'envDatabase';
+
+                                    if (error.response && error.response.data) {
+                                        if (error.response.data.errors) {
+                                            setErrors(error.response.data.errors);
+                                        } else if (error.response.data.message) {
+                                            alert(error.response.data.message);
+                                        } else {
+                                            alert('Migration failed. Please check your database connection.');
+                                        }
+                                    } else {
+                                        alert('Migration failed. Please check your database connection.');
+                                    }
+                                });
+                        },
+
+                        startSeeding(selectedParams, allParameters) {
+                            this.isLoading = true;
+
+                            this.$axios.post("{{ route('installer.run_seeder') }}", {
+                                'allParameters': allParameters,
+                                'selectedParameters': selectedParams
+                            })
+                                .then((response) => {
+                                    this.isLoading = false;
+
+                                    if (response.data.seeded) {
+                                        this.completeStep('readyForInstallation', 'createSampleProducts', 'active', 'complete');
+
+                                        this.currentStep = 'createSampleProducts';
+                                    }
+                                })
+                                .catch(error => {
+                                    this.isLoading = false;
+
+                                    this.currentStep = 'envConfiguration';
+
+                                    if (error.response && error.response.data) {
+                                        if (error.response.data.message) {
+                                            alert(error.response.data.message);
+                                        } else {
+                                            alert('Seeding failed. Please try again.');
+                                        }
+                                    } else {
+                                        alert('Seeding failed. Please try again.');
+                                    }
+                                });
+                        },
+
+                        createSampleProducts(params, setErrors) {
+                            if (params.sample_products == 1){
+                                this.isLoading = true;
+
+                                this.$axios.post("{{ route('installer.seed_sample_products') }}",{
+                                    'selectedLocales': this.locales.allowed,
+                                    'selectedCurrencies': this.currencies.allowed,
+                                })
+                                    .then((response) => {
+                                        this.isLoading = false;
+
+                                        if (response.data.sample_products_seeded) {
+                                            this.completeStep('createSampleProducts', 'createAdmin', 'active', 'complete');
+
+                                            this.currentStep = 'createAdmin';
+                                        }
+                                    })
+                                    .catch(error => {
+                                        this.isLoading = false;
+
+                                        if (error.response && error.response.data) {
+                                            if (error.response.data.errors) {
+                                                setErrors(error.response.data.errors);
+                                            } else if (error.response.data.message) {
+                                                alert(error.response.data.message);
+                                            } else {
+                                                alert('Seeding sample products failed.');
+                                            }
+                                        } else {
+                                            alert('Seeding sample products failed.');
+                                        }
+                                    });
+                            } else {
+                                this.completeStep('createSampleProducts', 'createAdmin', 'active', 'complete');
+
+                                this.currentStep = 'createAdmin';
+                            }
+                        },
+
+                        saveAdmin(params, setErrors) {
+                            this.isLoading = true;
+
+                            this.$axios.post("{{ route('installer.create_admin_user') }}", params)
+                                .then((response) => {
+                                    this.isLoading = false;
+
+                                    if (response.data.admin_user_created) {
+                                        this.currentStep = 'installationCompleted';
+
+                                        this.completeStep('createAdmin', 'installationCompleted', 'active', 'complete', setErrors);
+                                    }
+                                })
+                                .catch(error => {
+                                    this.isLoading = false;
+
+                                    if (error.response && error.response.data) {
+                                        if (error.response.data.errors) {
+                                            setErrors(error.response.data.errors);
+                                        } else if (error.response.data.message) {
+                                            alert(error.response.data.message);
+                                        } else {
+                                            alert('Failed to create admin user.');
+                                        }
+                                    } else {
+                                        alert('Failed to create admin user.');
+                                    }
+                                });
                         },
 
                         pushAllowedCurrency() {
@@ -1378,7 +1429,7 @@
                             const localeName = event.target.name;
 
                             if (! Array.isArray(this.locales.allowed)) {
-                            this.locales.allowed = [];
+                                this.locales.allowed = [];
                             }
 
                             const index = this.locales.allowed.indexOf(localeName);
@@ -1390,102 +1441,14 @@
                             }
                         },
 
-                        completeStep(fromStep, toStep, toState, nextState, setErrors) {
-                            this.stepStates[fromStep] = nextState;
-
-                            this.currentStep = toStep;
-
-                            this.stepStates[toStep] = toState;
-                        },
-
-                        startMigration(setErrors) {
-                            this.currentStep = 'installProgress';
-
-                            this.$axios.post("{{ route('installer.env_file_setup') }}", this.envData)
-                                .then((response) => {
-                                    this.runMigartion(setErrors);
-                            })
-                            .catch(error => {
-                                setErrors(error.response.data.errors);
-                            });
-                        },
-
-                        runMigartion(setErrors) {
-                            this.$axios.post("{{ route('installer.run_migration') }}")
-                                .then((response) => {
-                                    this.completeStep('readyForInstallation', 'envConfiguration', 'active', 'complete');
-
-                                    this.currentStep = 'envConfiguration';
-                                })
-                                .catch(error => {
-                                    alert(error.response.data.error);
-
-                                    this.currentStep = 'envDatabase';
-                                });
-                        },
-
-                        startSeeding(selectedParams, allParameters) {
-                            this.$axios.post("{{ route('installer.run_seeder') }}", {
-                                'allParameters': allParameters,
-                                'selectedParameters': selectedParams
-                            })
-                                .then((response) => {
-                                    this.completeStep('readyForInstallation', 'createSampleProducts', 'active', 'complete');
-
-                                    this.currentStep = 'createSampleProducts';
-                            })
-                                .catch(error => {
-                                    setErrors(error.response.data.errors);
-                                });
-                        },
-
-                        createSampleProducts(params, setErrors) {
-                            if (params.sample_products == 1){
-                                this.isLoading = true;
-
-                                this.$axios.post("{{ route('installer.sample_products_setup') }}",{
-                                    'selectedLocales': this.locales.allowed,
-                                    'selectedCurrencies': this.currencies.allowed,
-                                })
-                                    .then((response) => {
-                                        this.isLoading = false;
-
-                                        this.completeStep('createSampleProducts', 'createAdmin', 'active', 'complete');
-
-                                        this.currentStep = 'createAdmin';
-                                    })
-                                    .catch(error => {
-                                        setErrors(error.response.data.errors);
-                                    });
-                            } else {
-                                this.completeStep('createSampleProducts', 'createAdmin', 'active', 'complete');
-
-                                this.currentStep = 'createAdmin';
-                            }
-                        },
-
-                        saveAdmin(params, setErrors) {
-                            this.$axios.post("{{ route('installer.admin_config_setup') }}", params)
-                                .then((response) => {
-                                    this.isLoading = false;
-
-                                    this.currentStep = 'installationCompleted';
-
-                                    if (response.data) {
-                                        this.completeStep('createAdmin', 'installationCompleted', 'active', 'complete', setErrors);
-                                    }
-                                })
-                                .catch(error => {
-                                    setErrors(error.response.data.errors);
-                                });
-                        },
-
                         setLocale(params) {
                             const newLocale = params.locale;
+
                             const url = new URL(window.location.href);
 
                             if (! url.searchParams.has('locale')) {
                                 url.searchParams.set('locale', newLocale);
+
                                 window.location.href = url.toString();
                             }
                         },
@@ -1500,7 +1463,7 @@
                             if (index > 0) {
                                 this.currentStep = this.steps[index - 1];
                             }
-                        }
+                        },
                     },
                 });
             </script>

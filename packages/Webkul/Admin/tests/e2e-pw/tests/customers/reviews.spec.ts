@@ -1,307 +1,107 @@
-import { test, expect } from "../../setup";
-import { loginAsCustomer, addReview } from "../../utils/customer";
+import { test } from "../../setup";
+import { ProductCreatePage } from "../../pages/admin/catalog/products/ProductCreatePage";
+import { ProductListPage } from "../../pages/admin/catalog/products/ProductListPage";
+import { CustomerReviewsPage } from "../../pages/admin/customers/CustomerReviewsPage";
+import { CustomersPage } from "../../pages/admin/customers/CustomersPage";
+import {
+    ProductReviewShopPage,
+    type ReviewData,
+} from "../../pages/shop/ProductReviewShopPage";
+import { loginAsCustomer } from "../../utils/customer";
+import {
+    generateDescription,
+    generateName,
+    generateSKU,
+    uniqueStamp,
+} from "../../utils/faker";
 
 test.describe("review management", () => {
-    test.beforeEach(async ({ page }) => {
-        /**
-         * Login as customer.
-         */
-        await loginAsCustomer(page);
+    test.setTimeout(180000);
 
-        /**
-         * First adding review before updating status.
-         */
-        await addReview(page);
+    let reviewsPage: CustomerReviewsPage;
+    let productListPage: ProductListPage;
+    let customersPage: CustomersPage;
+    let reviewShop: ProductReviewShopPage;
+    let productName: string;
+    let customerEmail: string;
+    let review: ReviewData;
+
+    test.beforeEach(async ({ adminPage, shopPage }) => {
+        reviewsPage = new CustomerReviewsPage(adminPage);
+        productListPage = new ProductListPage(adminPage);
+        customersPage = new CustomersPage(adminPage);
+        reviewShop = new ProductReviewShopPage(shopPage);
+        productName = `Reviewed ${uniqueStamp()}`;
+        review = {
+            title: `${generateName()} ${uniqueStamp()}`,
+            comment: generateDescription(),
+            rating: 5,
+        };
+
+        await new ProductCreatePage(adminPage).createSimpleProduct({
+            name: productName,
+            productNumber: generateSKU(),
+            shortDescription: generateDescription(),
+            description: generateDescription(),
+            price: "199",
+            weight: "25",
+            inventory: "5000",
+        });
+
+        customerEmail = (await loginAsCustomer(shopPage)).email;
+
+        await reviewShop.submitReview(productName, review);
+
+        await reviewsPage.expectReviewStatus(review.title, "pending");
     });
 
-    test("should approve the review", async ({ adminPage }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
-
-        /**
-         * Now opening the side drawer for updating the status of review.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "span.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
-
-        /**
-         * Selecting the approve option.
-         */
-        await adminPage
-            .locator('select[name="status"]')
-            .selectOption("approved");
-
-        /**
-         * Saving the status.
-         */
-        await adminPage.click('button.primary-button:has-text("Save")');
-
-        /**
-         * Checking if the status is updated successfully.
-         */
-        await expect(adminPage.getByText("Approved").first()).toBeVisible();
-        // await expect(adminPage.getByText('Review Update Successfully')).toBeVisible();
-         await expect(
-        adminPage.locator("#app p", { hasText: "Review Update Successfully" })
-    ).toBeVisible();
-    });
-
-    test("should disapprove the review", async ({ adminPage }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
-
-        /**
-         * Now opening the side drawer for updating the status of review.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-sort-right", {
-            state: "visible",
-        });
-        const iconRight = await adminPage.$$(
-            "span.cursor-pointer.icon-sort-right"
-        );
-        await iconRight[0].click();
-
-        /**
-         * Selecting the disapprove option.
-         */
-        await adminPage
-            .locator('select[name="status"]')
-            .selectOption("disapproved");
-
-        /**
-         * Saving the status.
-         */
-        await adminPage.click('button.primary-button:has-text("Save")');
-
-        /**
-         * Checking if the status is updated successfully.
-         */
-        await expect(adminPage.getByText("Disapproved").first()).toBeVisible();
-         await expect(
-        adminPage.locator("#app p", { hasText: "Review Update Successfully" })
-    ).toBeVisible();
-    });
-
-    test("should approve the review via. mass update", async ({
-        adminPage,
-    }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
-
-        /**
-         * Now selecting the recent review.
-         */
-        await adminPage.waitForSelector(".icon-uncheckbox:visible", {
-            state: "visible",
-        });
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-        await checkboxes[1].click();
-
-        /**
-         * After selecting the review, mass actions option will be visible.
-         */
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")',
-            { timeout: 1000 }
-        );
-        await selectActionButton.click();
-
-        /**
-         * Now hovering over the update status option and selecting the approve option.
-         */
-        await adminPage.hover('a:has-text("Update Status")', { timeout: 1000 });
-        await adminPage.waitForSelector(
-            'a:has-text("Pending"), a:has-text("Approved"), a:has-text("Disapproved")',
-            { state: "visible", timeout: 1000 }
-        );
-        await adminPage.click('a:has-text("Approved")');
-
-        /**
-         * Agreeing to the confirmation dialog.
-         */
-        await adminPage.waitForSelector("text=Are you sure", {
-            state: "visible",
-            timeout: 1000,
-        });
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
+    test.afterEach(async () => {
+        try {
+            await reviewsPage.deleteReviewsIfPresent([review.title]);
+        } finally {
+            try {
+                await productListPage.deleteProductsIfPresent([productName]);
+            } finally {
+                await customersPage.deleteCustomersIfPresent([customerEmail]);
+            }
         }
-
-        /**
-         * Checking if the status is updated successfully.
-         */
-        await expect(adminPage.getByText("Approved").first()).toBeVisible();
-         await expect(
-        adminPage.locator("#app p", { hasText: "Selected Review Updated Successfully" })
-    ).toBeVisible();
     });
 
-    test("should disapprove the review via. mass update", async ({
-        adminPage,
-    }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
+    test("should publish a review on approval and hide it again on disapproval", async () => {
+        await reviewShop.expectReviewHidden(productName, review.title);
 
-        /**
-         * Now selecting the recent review.
-         */
-        await adminPage.waitForSelector(".icon-uncheckbox:visible", {
-            state: "visible",
-        });
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-        await checkboxes[1].click();
+        await reviewsPage.setStatus(review.title, "approved");
 
-        /**
-         * After selecting the review, mass actions option will be visible.
-         */
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")',
-            { timeout: 1000 }
-        );
-        await selectActionButton.click();
+        await reviewsPage.expectReviewStatus(review.title, "approved");
+        await reviewShop.expectReviewShown(productName, review.title);
 
-        /**
-         * Now hovering over the update status option and selecting the disapprove option.
-         */
-        await adminPage.hover('a:has-text("Update Status")', { timeout: 1000 });
-        await adminPage.waitForSelector(
-            'a:has-text("Pending"), a:has-text("Approved"), a:has-text("Disapproved")',
-            { state: "visible", timeout: 1000 }
-        );
-        await adminPage.click('a:has-text("Disapproved")');
+        await reviewsPage.setStatus(review.title, "disapproved");
 
-        /**
-         * Agreeing to the confirmation dialog.
-         */
-        await adminPage.waitForSelector("text=Are you sure", {
-            state: "visible",
-            timeout: 1000,
-        });
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        /**
-         * Checking if the status is updated successfully.
-         */
-        await expect(adminPage.getByText("Disapproved").first()).toBeVisible();
-          await expect(
-        adminPage.locator("#app p", { hasText: "Selected Review Updated Successfully" })
-    ).toBeVisible();
+        await reviewsPage.expectReviewStatus(review.title, "disapproved");
+        await reviewShop.expectReviewHidden(productName, review.title);
     });
 
-    test("should delete a review", async ({ adminPage }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
+    test("should update the status of selected reviews through the mass action", async () => {
+        await reviewsPage.massUpdateStatus([review.title], "approved");
 
-        /**
-         * Now deleting the recent review.
-         */
-        await adminPage.waitForSelector("span.cursor-pointer.icon-delete");
-        const iconDelete = await adminPage.$$(
-            "span.cursor-pointer.icon-delete"
-        );
-        await iconDelete[0].click();
+        await reviewsPage.expectReviewStatus(review.title, "approved");
+        await reviewShop.expectReviewShown(productName, review.title);
 
-        /**
-         * Agreeing to the confirmation dialog.
-         */
-        await adminPage.waitForSelector("text=Are you sure");
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
+        await reviewsPage.massUpdateStatus([review.title], "disapproved");
 
-        /**
-         * Clicking the agree button to delete the review.
-         */
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-        await expect(
-        adminPage.locator("#app p", { hasText: "Review Deleted Successfully" })
-    ).toBeVisible();
+        await reviewsPage.expectReviewStatus(review.title, "disapproved");
+        await reviewShop.expectReviewHidden(productName, review.title);
     });
 
-    test("should mass delete a reviews", async ({ adminPage }) => {
-        /**
-         * Now navigate to admin panel's review section.
-         */
-        await adminPage.goto("admin/customers/reviews");
+    test("should delete a review and remove it from the grid", async () => {
+        await reviewsPage.deleteReview(review.title);
 
-        /**
-         * Now selecting the recent review.
-         */
-        await adminPage.waitForSelector(".icon-uncheckbox:visible", {
-            state: "visible",
-        });
-        const checkboxes = await adminPage.$$(".icon-uncheckbox:visible");
-        await checkboxes[1].click();
+        await reviewsPage.expectReviewAbsent(review.title);
+    });
 
-        /**
-         * After selecting the review, mass actions option will be visible.
-         */
-        let selectActionButton = await adminPage.waitForSelector(
-            'button:has-text("Select Action")',
-            { timeout: 1000 }
-        );
-        await selectActionButton.click();
+    test("should delete selected reviews through the mass action", async () => {
+        await reviewsPage.massDeleteReviews([review.title]);
 
-        /**
-         * Now selecting the delete option.
-         */
-        await adminPage.click('a:has-text("Delete")', { timeout: 1000 });
-
-        /**
-         * Agreeing to the confirmation dialog.
-         */
-        await adminPage.waitForSelector("text=Are you sure", {
-            state: "visible",
-            timeout: 1000,
-        });
-        const agreeButton = await adminPage.locator(
-            'button.primary-button:has-text("Agree")'
-        );
-
-        if (await agreeButton.isVisible()) {
-            await agreeButton.click();
-        } else {
-            console.error("Agree button not found or not visible.");
-        }
-
-        /**
-         * Checking if the review is deleted successfully or not.
-         */
-        await expect(
-            adminPage.getByText("Selected Review Deleted Successfully")
-        ).toBeVisible();
+        await reviewsPage.expectReviewAbsent(review.title);
     });
 });

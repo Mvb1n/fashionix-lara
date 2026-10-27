@@ -1,74 +1,93 @@
-import { test, expect } from '../../setup';
-import { generateName, generateSlug } from '../../utils/faker';
+import { test } from "../../setup";
+import {
+    CustomerGroupsPage,
+    type CustomerGroupData,
+} from "../../pages/admin/customers/CustomerGroupsPage";
+import { generateName, uniqueStamp } from "../../utils/faker";
 
-test.describe('group management', () => {
-        
-        /**
-         * Test Cases for Creating a New Group.
-         */
-    test('create group', async ({ adminPage }) => {
-        await adminPage.goto('admin/customers/groups');
-        await adminPage.waitForSelector('button.primary-button:visible', { state: 'visible' });
-        
-        /**
-         * Create New Group Modal Form Filling
-         */
-        await adminPage.click('button.primary-button:visible');
-        await adminPage.fill('input[name="name"]', generateName());
-        await adminPage.fill('input[name="code"]', generateSlug('_'));
+function buildGroup(): CustomerGroupData {
+    const name = `${generateName()} ${uniqueStamp()}`;
 
-        /**
-         * Saving the Group Modal Form after filling the details.
-         */
-        await adminPage.press('input[name="code"]:visible', 'Enter');
-        await expect(adminPage.getByText('Group created successfully')).toBeVisible();
+    return {
+        name,
+        code: name.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+    };
+}
+
+test.describe("group management", () => {
+    let groupsPage: CustomerGroupsPage;
+    let created: string[];
+
+    test.beforeEach(async ({ adminPage }) => {
+        groupsPage = new CustomerGroupsPage(adminPage);
+        created = [];
     });
 
-        /**
-         * Test Cases for Editing a New Group.
-         */
-    test('edit group', async ({ adminPage }) => {
-        await adminPage.goto('admin/customers/groups');
-        await adminPage.waitForSelector('button.primary-button:visible', { state: 'visible' });
-
-        /**
-         * Click on Edit Icon to Edit the Group.
-         */
-        await adminPage.waitForSelector('span.cursor-pointer.icon-edit');
-        const iconEdit = await adminPage.$$('span.cursor-pointer.icon-edit');
-        await iconEdit[0].click();
-
-        /**
-         * Filling the Edit Group Modal Form with new entries.
-         */
-        await adminPage.fill('input[name="name"]', generateName());
-        await adminPage.fill('input[name="code"]', generateSlug('_'));
-
-        /**
-         * Saving the Group Modal Form after filling the details.
-         */
-        await adminPage.press('input[name="code"]:visible', 'Enter');
-        await expect(adminPage.getByText('Group Updated Successfully')).toBeVisible();
+    test.afterEach(async () => {
+        await groupsPage.deleteGroupsIfPresent(created);
     });
 
-        /**
-         * Test Cases for Editing a New Group.
-         */
-    test('delete group', async ({ adminPage }) => {
-        await adminPage.goto('admin/customers/groups');
-        await adminPage.waitForSelector('button.primary-button:visible', { state: 'visible' });
+    test("should create a group and list it with its code", async () => {
+        const group = buildGroup();
+        created.push(group.name);
 
-        /**
-         * Click on Edit Icon to Edit the Group.
-         */
-        await adminPage.waitForSelector('span.cursor-pointer.icon-delete');
-        const iconDelete = await adminPage.$$('span.cursor-pointer.icon-delete');
-        await iconDelete[0].click();
+        await groupsPage.createGroup(group);
 
-        /**
-         * Select Warning Message box for confirmation to delete selected Search Terms.
-         */
-        await adminPage.click('button.transparent-button + button.primary-button:visible');
-        await expect(adminPage.getByText('Group Deleted Successfully')).toBeVisible();
+        await groupsPage.expectGroupListed(group);
+    });
+
+    test("should reject a group without a name and code", async () => {
+        await groupsPage.submitEmptyCreateForm();
+
+        await groupsPage.expectValidationError("The Name field is required");
+        await groupsPage.expectValidationError("The Code field is required");
+    });
+
+    test("should reject a group whose code is already used", async () => {
+        const existing = buildGroup();
+        const duplicate = { ...buildGroup(), code: existing.code };
+        created.push(existing.name, duplicate.name);
+
+        await groupsPage.createGroup(existing);
+        await groupsPage.attemptCreateGroup(duplicate);
+
+        await groupsPage.expectValidationError(
+            "The code has already been taken.",
+        );
+        await groupsPage.expectGroupAbsent(duplicate.name);
+        await groupsPage.expectGroupCodeListedOnce(existing.code);
+    });
+
+    test("should rename a group and keep the new name after reload", async () => {
+        const group = buildGroup();
+        const newName = `${generateName()} ${uniqueStamp()}`;
+        created.push(group.name, newName);
+
+        await groupsPage.createGroup(group);
+        await groupsPage.renameGroup(group.name, newName);
+
+        await groupsPage.expectGroupListed({ name: newName, code: group.code });
+        await groupsPage.expectGroupAbsent(group.name);
+        await groupsPage.expectNameInEditForm(newName);
+    });
+
+    test("should delete a group and remove it from the grid", async () => {
+        const group = buildGroup();
+        const untouched = buildGroup();
+        created.push(group.name, untouched.name);
+
+        await groupsPage.createGroup(group);
+        await groupsPage.createGroup(untouched);
+        await groupsPage.deleteGroup(group.name);
+
+        await groupsPage.expectGroupAbsent(group.name);
+        await groupsPage.expectGroupListed(untouched);
+    });
+
+    test("should refuse to delete a default group", async () => {
+        await groupsPage.attemptDeleteGroup("General");
+
+        await groupsPage.expectErrorMessage("Default Group Can not be Deleted");
+        await groupsPage.expectDefaultGroupListed("General");
     });
 });

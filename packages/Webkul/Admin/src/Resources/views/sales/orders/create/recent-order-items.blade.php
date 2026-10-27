@@ -22,7 +22,7 @@
         </template>
 
         <template v-else>
-            <div class="box-shadow rounded bg-white dark:bg-gray-900">
+            <div class="box-shadow rounded-sm bg-white dark:bg-gray-900">
                 <div class="flex items-center justify-between p-4">
                     <p class="text-base font-semibold text-gray-800 dark:text-white">
                         @lang('admin::app.sales.orders.create.recent-order-items.title')
@@ -40,7 +40,7 @@
                     >
                         <!-- Image -->
                         <div
-                            class="relative h-[60px] max-h-[60px] w-full max-w-[60px] overflow-hidden rounded"
+                            class="relative h-15 max-h-15 w-full max-w-15 overflow-hidden rounded-sm"
                             :class="{'overflow-hidden rounded border border-dashed border-gray-300 dark:border-gray-800 dark:mix-blend-exclusion dark:invert': ! item.product.images.length}"
                         >
                             <template v-if="! item.product.images.length">
@@ -110,7 +110,7 @@
                             <!-- Item Actions -->
                             <div class="mt-2 flex items-center gap-2.5">
                                 <a
-                                    :href="'{{ route('admin.sales.orders.view', '') }}/' + item.order_id"
+                                    :href="'{{ route('admin.sales.orders.view', ':id') }}'.replace(':id', item.order_id)"
                                     class="cursor-pointer text-sm text-blue-600 transition-all hover:underline"
                                     target="_blank"
                                 >

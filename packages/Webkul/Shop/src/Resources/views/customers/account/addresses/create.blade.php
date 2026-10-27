@@ -112,7 +112,7 @@
                         </x-shop::form.control-group.label>
 
                         <x-shop::form.control-group.control
-                            type="text"
+                            type="email"
                             name="email"
                             rules="required|email"
                             :value="old('email')"
@@ -172,7 +172,7 @@
                             <x-shop::form.control-group.control
                                 type="text"
                                 name="address[{{ $i }}]"
-                                :value="old('address[{{ $i }}]')"
+                                :value="old('address.'.$i)"
                                 rules="address"
                                 :label="trans('shop::app.customers.account.addresses.create.street-address')"
                                 :placeholder="trans('shop::app.customers.account.addresses.create.street-address')"
@@ -200,6 +200,7 @@
                             v-model="country"
                             :aria-label="trans('shop::app.customers.account.addresses.create.country')"
                             :label="trans('shop::app.customers.account.addresses.create.country')"
+                            @change="state = ''"
                         >
                             <option value="">
                                 @lang('shop::app.customers.account.addresses.create.select-country')
@@ -243,6 +244,7 @@
                                 type="text"
                                 name="state"
                                 :value="old('state')"
+                                v-model="state"
                                 rules="{{ core()->isStateRequired() ? 'required' : '' }}"
                                 :label="trans('shop::app.customers.account.addresses.create.state')"
                                 :placeholder="trans('shop::app.customers.account.addresses.create.state')"
@@ -321,11 +323,11 @@
                             name="default_address"
                             value="1"
                             id="default_address"
-                            class="peer hidden cursor-pointer"
+                            class="peer sr-only cursor-pointer"
                         >
 
                         <label
-                            class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue"
+                            class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 peer-focus-visible:outline-hidden rounded"
                             for="default_address"
                         >
                         </label>

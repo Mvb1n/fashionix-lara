@@ -2,19 +2,22 @@
 
 namespace Webkul\Product\Helpers;
 
+use Product\Product\Contracts\ProductBundleOption;
+use Webkul\Product\Contracts\Product;
+
 class BundleOption
 {
     /**
      * Product
      *
-     * @var \Webkul\Product\Contracts\Product
+     * @var Product
      */
     protected $product;
 
     /**
      * Returns bundle option config
      *
-     * @param  \Webkul\Product\Contracts\Product  $product
+     * @param  Product  $product
      * @return array
      */
     public function getBundleConfig($product)
@@ -65,25 +68,25 @@ class BundleOption
     /**
      * Get formed data from bundle option
      *
-     * @param  \Product\Product\Contracts\ProductBundleOption  $option
+     * @param  ProductBundleOption  $option
      * @return array
      */
     private function getOptionItemData($option)
     {
         return [
-            'id'          => $option->id,
-            'label'       => $option->label,
-            'type'        => $option->type,
+            'id' => $option->id,
+            'label' => $option->label,
+            'type' => $option->type,
             'is_required' => $option->is_required,
-            'products'    => $this->getOptionProducts($option),
-            'sort_order'  => $option->sort_order,
+            'products' => $this->getOptionProducts($option),
+            'sort_order' => $option->sort_order,
         ];
     }
 
     /**
      * Get formed data from bundle option product
      *
-     * @param  \Product\Product\Contracts\ProductBundleOption  $option
+     * @param  ProductBundleOption  $option
      * @return array
      */
     private function getOptionProducts($option)
@@ -96,15 +99,15 @@ class BundleOption
             }
 
             $products[$bundleOptionProduct->id] = [
-                'id'         => $bundleOptionProduct->id,
-                'qty'        => $bundleOptionProduct->qty,
-                'price'      => $bundleOptionProduct->product->getTypeInstance()->getProductPrices(),
-                'name'       => $bundleOptionProduct->product->name,
+                'id' => $bundleOptionProduct->id,
+                'qty' => $bundleOptionProduct->qty,
+                'price' => $bundleOptionProduct->product->getTypeInstance()->getProductPrices(),
+                'name' => $bundleOptionProduct->product->name,
                 'product_id' => $bundleOptionProduct->product_id,
                 'is_default' => $bundleOptionProduct->is_default,
                 'sort_order' => $bundleOptionProduct->sort_order,
-                'in_stock'   => $bundleOptionProduct->product->inventories->sum('qty') >= $bundleOptionProduct->qty,
-                'inventory'  => $bundleOptionProduct->product->inventories->sum('qty'),
+                'in_stock' => $bundleOptionProduct->product->inventories->sum('qty') >= $bundleOptionProduct->qty,
+                'inventory' => $bundleOptionProduct->product->inventories->sum('qty'),
             ];
         }
 

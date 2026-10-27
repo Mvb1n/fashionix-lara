@@ -1,4 +1,11 @@
-<v-book-slots :bookingProduct = "{{ $bookingProduct }}" />
+@php
+    $calendarAvailability = app(\Webkul\BookingProduct\Helpers\Booking::class)->getCalendarAvailability($bookingProduct);
+@endphp
+
+<v-book-slots
+    :booking-product="{{ $bookingProduct }}"
+    :availability="{{ json_encode($calendarAvailability) }}"
+/>
 
 @pushOnce('scripts')
     <script
@@ -12,7 +19,7 @@
 
             <div class="grid grid-cols-2 gap-x-4">
                 <!-- Select Date -->
-                <x-shop::form.control-group class="!mb-0">
+                <x-shop::form.control-group class="mb-0!">
                     <x-shop::form.control-group.label class="hidden">
                         @lang('shop::app.products.view.type.booking.slots.date')
                     </x-shop::form.control-group.label>
@@ -24,8 +31,9 @@
                         rules="required"
                         :label="trans('shop::app.products.view.type.booking.slots.date')"
                         :placeholder="trans('YYYY-MM-DD')"
-                        data-min-date="today"
-                        ::disable="disabledDates"                       
+                        ::min-date="minDate"
+                        ::max-date="maxDate"
+                        ::disable="disabledDates"
                         @change="getAvailableSlots"
                     />
 
@@ -33,7 +41,7 @@
                 </x-shop::form.control-group>
 
                 <!-- Select Slots -->
-                <x-shop::form.control-group class="!mb-0">
+                <x-shop::form.control-group class="mb-0!">
                     <x-shop::form.control-group.label class="hidden">
                         @lang('shop::app.products.view.type.booking.slots.title')
                     </x-shop::form.control-group.label>
@@ -73,7 +81,7 @@
         app.component('v-book-slots', {
             template: '#v-book-slots-template',
 
-            props: ['bookingProduct', 'title'],
+            props: ['bookingProduct', 'availability', 'title'],
 
             data() {
                 return {
@@ -83,55 +91,71 @@
                 }
             },
 
-            created() {
-                this.minAllowedDate = this.calculateMinDate();
-            },
-
             computed: {
                 preventDays() {
-                    return this.bookingProduct?.table_slot?.prevent_scheduling_before || 0;
+                    return parseInt(this.availability?.prevent_scheduling_before) || 0;
                 },
 
-                minAllowedDate() {
+                minDate() {
                     const today = new Date();
 
-                    today.setDate(today.getDate() + parseInt(this.preventDays, 10));
-                    
-                    return today.toISOString().split('T')[0];
+                    const minAllowed = new Date(today);
+                    minAllowed.setDate(today.getDate() + this.preventDays);
+
+                    const availableFrom = this.availability?.available_from
+                        ? new Date(this.availability.available_from + 'T00:00:00')
+                        : null;
+
+                    const effective = availableFrom && availableFrom > minAllowed
+                        ? availableFrom
+                        : minAllowed;
+
+                    return this.formatDate(effective);
+                },
+
+                maxDate() {
+                    if (this.availability?.available_every_week) {
+                        return '';
+                    }
+
+                    if (! this.availability?.available_to) {
+                        return '';
+                    }
+
+                    return this.availability.available_to;
                 },
 
                 disabledDates() {
-                    const dates = [];
-                    
-                    const today = new Date();
-                    
-                    const endDate = new Date(this.minAllowedDate);
+                    const validWeekdays = this.availability?.valid_weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+                    const disabledDates = this.availability?.disabled_dates ?? [];
 
-                    while (today < endDate) {
-                        dates.push(today.toISOString().split('T')[0]);
-                        
-                        today.setDate(today.getDate() + 1);
+                    const predicates = [];
+
+                    if (validWeekdays.length < 7) {
+                        predicates.push((date) => ! validWeekdays.includes(date.getDay()));
                     }
 
-                    return dates;
-                }
+                    if (disabledDates.length) {
+                        predicates.push(...disabledDates);
+                    }
+
+                    return predicates;
+                },
             },
 
             methods: {
-                calculateMinDate() {
-                    let today = new Date();
-                    
-                    let preventDays = parseInt(this.preventDays) || 0;
-                    
-                    today.setDate(today.getDate() + preventDays);
+                formatDate(d) {
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
 
-                    return today.toISOString().split('T')[0]; 
+                    return `${year}-${month}-${day}`;
                 },
-        
+
                 getAvailableSlots(params) {
                     let date = params.target.value;
 
-                    this.$axios.get(`{{ route('shop.booking-product.slots.index', '') }}/${this.bookingProduct.id}`, {
+                    this.$axios.get('{{ route('shop.booking_product.slots.index', ':id') }}'.replace(':id', this.bookingProduct.id), {
                         params: { date }
                     })
                         .then((response) => {
@@ -144,7 +168,7 @@
                                 setErrors(error.response.data.errors);
                             }
                         });
-                }
+                },
             }
         });
     </script>

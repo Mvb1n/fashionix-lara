@@ -70,6 +70,7 @@
             <x-admin::datagrid
                 :src="route('admin.settings.exchange_rates.index')"
                 ref="datagrid"
+                :shimmer-columns="4"
             >
                 <template #body="{
                     isLoading,
@@ -80,7 +81,9 @@
                     performAction
                 }">
                     <template v-if="isLoading">
-                        <x-admin::shimmer.datagrid.table.body />
+                        <x-admin::shimmer.datagrid.table.body
+                            :columns="4"
+                        />
                     </template>
 
                     <template v-else>
@@ -196,6 +199,7 @@
                                         v-for="currency in currencies"
                                         :value="currency.id"
                                         :selected="currency.id == selectedExchangeRate.target_currency"
+                                        v-show="currency.code !== '{{ core()->getBaseCurrencyCode() }}'"
                                     >
                                         @{{ currency.name }}
                                     </option>

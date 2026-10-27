@@ -1,0 +1,716 @@
+@php
+    use Webkul\RMA\Enums\DefaultRMAResolution;
+@endphp
+
+<x-shop::layouts.account>
+    <x-slot:title>
+        @lang('shop::app.rma.customer.create.view')
+    </x-slot>
+
+    @section('breadcrumbs')
+        <x-shop::breadcrumbs name="rma.view"></x-shop::breadcrumbs>
+    @endSection
+
+    <div class="max-md:hidden">
+        <x-shop::layouts.account.navigation />
+    </div>
+
+    <div class="mx-4 flex-auto max-md:mx-6 max-sm:mx-4">
+        <div class="mb-8 flex items-center max-md:mb-5">
+            <!-- Back Button -->
+            <a
+                class="grid md:hidden"
+                href="{{ route('shop.customers.account.index') }}"
+            >
+                <span class="icon-arrow-left rtl:icon-arrow-right text-2xl"></span>
+            </a>
+
+            <h2 class="text-2xl font-medium max-md:text-xl max-sm:text-base ltr:ml-2.5 md:ltr:ml-0 rtl:mr-2.5 md:rtl:mr-0">
+                @lang('shop::app.customers.account.rma.view.id') #{{ $rma->id }}
+            </h2>
+        </div>
+
+        <!-- RMA Information -->
+        <div class="mt-8">
+            <h2 class="text-xl font-medium mb-5">
+                @lang('shop::app.rma.view-customer-rma.heading')
+            </h2>
+
+            <div class="rounded-xl border shadow-xs overflow-hidden">
+                <div class="p-6 space-y-4 max-md:p-4">
+                    <!-- Request Date -->
+                    <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                        <span class="font-medium text-gray-500">
+                            @lang('shop::app.rma.view-customer-rma-content.request-on')
+                        </span>
+                        
+                        <span class="font-medium text-gray-800">
+                            {{ \Carbon\Carbon::parse($rma->created_at)->format('F j, Y, h:i:s A') }}
+                        </span>
+                    </div>
+
+                    <!-- Order ID -->
+                    <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                        <span class="font-medium text-gray-500">@lang('shop::app.rma.view-customer-rma.order-id')</span>
+
+                        <a 
+                            href="{{ route('shop.customers.account.orders.view', $rma->order_id) }}" 
+                            class="text-blue-600 hover:underline" target="_blank"
+                        >
+                            #{{ $rma->order_id }}
+                        </a>
+                    </div>
+
+                    <!-- Additional Fields -->
+                    @if (! empty($rma->additionalFields))
+                        @foreach ($rma->additionalFields as $field)
+                            <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                                <span class="font-medium text-gray-500">{{ $field->customField->label }} :</span>
+
+                                <span
+                                    class="font-medium text-gray-800"
+                                    v-pre
+                                >
+                                    {{ $field->value }}
+                                </span>
+                            </div>
+                        @endforeach
+                    @endif
+
+                    <!-- Additional Information -->
+                    @if (! empty($rma->information))
+                        <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                            <span class="font-medium text-gray-500">@lang('shop::app.rma.view-customer-rma.additional-information')</span>
+
+                            <span
+                                class="font-medium text-gray-800"
+                                v-pre
+                            >
+                                {{ $rma->information }}
+                            </span>
+                        </div>
+                    @endif
+
+                    <!-- Images -->
+                    @if ($rma->images->isNotEmpty())
+                        <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                            <span class="font-medium text-gray-500">@lang('shop::app.rma.view-customer-rma.images')</span>
+
+                            <div class="flex gap-2 flex-wrap">
+                                @foreach ($rma->images as $image)
+                                    <a href="{{ route('shop.customers.account.rma.image', $image['id']) }}" target="_blank">
+                                        <img
+                                            src="{{ route('shop.customers.account.rma.image', $image['id']) }}"
+                                            class="w-24 h-24 max-sm:w-20 max-sm:h-20 object-cover rounded-sm border shadow-xs hover:shadow-md transition"
+                                        />
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- RMA Status -->
+                    <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                        <span class="font-medium text-gray-500">
+                            @lang('shop::app.rma.view-customer-rma-content.rma-status')
+                        </span>
+
+                        <div>
+                            <span
+                                class="inline-block rounded-full px-3 py-1 text-xs font-medium"
+                                style="background: {{ $rmaStatus->color }}20; color: {{ $rmaStatus->color }}"
+                            >
+                                {{ $rmaStatus->title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Close / Re-open RMA -->
+                @if (
+                    ! $isExpired
+                    && ($canCloseRma || $canReopenRma)
+                )
+                    <div class="border-t bg-gray-50 px-6 py-5 max-md:px-4">
+                        <x-shop::form
+                            enctype="multipart/form-data"
+                            :action="$canCloseRma
+                                ? route('shop.customers.account.rma.update_status', $rma->id)
+                                : route('shop.customers.account.rma.re_open', $rma->id)"
+                        >
+                            @php $checkboxName = $canCloseRma ? 'close_rma' : 'reopen_rma'; @endphp
+
+                            <div class="flex flex-wrap items-center justify-between gap-4">
+                                <x-shop::form.control-group class="mb-0! flex select-none items-center gap-2.5">
+                                    <x-shop::form.control-group.control
+                                        type="checkbox"
+                                        :id="$checkboxName"
+                                        :name="$checkboxName"
+                                        :for="$checkboxName"
+                                        value="1"
+                                        rules="required"
+                                    />
+
+                                    <label class="cursor-pointer text-sm font-medium text-gray-600" :for="$checkboxName">
+                                        {{ $canCloseRma
+                                            ? trans('shop::app.rma.view-customer-rma.status-quotes')
+                                            : trans('shop::app.rma.customer.create.reopen-request') }}
+                                    </label>
+                                </x-shop::form.control-group>
+
+                                <button type="submit" class="primary-button">
+                                    @lang('shop::app.rma.view-customer-rma.save-btn')
+                                </button>
+                            </div>
+
+                            <x-shop::form.control-group.error :control-name="$checkboxName" class="mt-1.5 flex" />
+                        </x-shop::form>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- RMA Items -->
+        <div class="mt-8">
+            <h2 class="text-xl font-medium mb-5">
+                @lang('shop::app.rma.view-customer-rma.items-request')
+            </h2>
+
+            <!-- Desktop Table View -->
+            <div class="rounded-xl border shadow-xs overflow-hidden hidden md:block">
+                <table class="w-full table-fixed">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="w-[36%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.image') / @lang('shop::app.rma.table-heading.product-name')
+                            </th>
+
+                            <th class="w-[16%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.sku')
+                            </th>
+
+                            <th class="w-[11%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.price')
+                            </th>
+
+                            <th class="w-[10%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.rma-qty')
+                            </th>
+
+                            <th class="w-[13%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.resolution-type')
+                            </th>
+
+                            <th class="w-[14%] px-4 py-3 text-left text-sm font-medium text-gray-600">
+                                @lang('shop::app.rma.table-heading.reason')
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y">
+                        @if($item = $rma->item)
+                            <tr>
+                                <td class="px-4 py-4 align-top">
+                                    <div class="flex items-start gap-3">
+                                        @if ($productBaseImage = product_image()->getProductBaseImage($item->orderItem->product))
+                                            <img
+                                                src="{{ $productBaseImage['small_image_url'] }}"
+                                                alt="{{ $productBaseImage['alt'] }}"
+                                                class="h-16 w-16 shrink-0 rounded-lg border object-cover"
+                                            />
+                                        @else
+                                            <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed text-gray-300">
+                                                <span class="text-xs">No Image</span>
+                                            </div>
+                                        @endif
+
+                                        <div class="min-w-0">
+                                            @if (
+                                                $item->orderItem->product?->url_key
+                                                && $item->orderItem->product?->visible_individually
+                                            )
+                                                <a
+                                                    href="{{ route('shop.product_or_category.index', $item->orderItem->product->url_key) }}"
+                                                    class="text-sm font-medium text-blue-600 hover:underline"
+                                                    target="_blank"
+                                                >
+                                                    {{ $item->orderItem->name }}
+                                                </a>
+                                            @else
+                                                <span class="text-sm font-medium text-gray-800">
+                                                    {{ $item->orderItem->name }}
+                                                </span>
+                                            @endif
+
+                                            @php
+                                                $attributes = array_filter($item->orderItem->additional['attributes'] ?? []);
+                                            @endphp
+
+                                            @if (! empty($attributes))
+                                                <div class="mt-1 space-y-0.5">
+                                                    @foreach ($attributes as $attribute)
+                                                        <p class="text-xs text-gray-500">
+                                                            {{ $attribute['attribute_name'] }}:
+                                                            <span class="font-medium text-gray-700">{{ $attribute['option_label'] }}</span>
+                                                        </p>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="px-4 py-4 align-top text-sm text-gray-600">
+                                    {{ $item->orderItem->product->sku ?? $item->orderItem->sku }}
+                                </td>
+                                
+                                <td class="px-4 py-4 align-top text-sm text-gray-600">
+                                    {{ core()->formatPrice($item->orderItem->price, $item->orderItem->order->order_currency_code) }}
+                                </td>
+                                
+                                <td class="px-4 py-4 align-top text-sm text-gray-600">
+                                    {{ $item->quantity }} / {{ $item->orderItem->qty_ordered }}
+                                </td>
+                                
+                                <td class="px-4 py-4 align-top text-sm text-gray-600">
+                                    @if ($item->resolution == DefaultRMAResolution::RETURN->value)
+                                        @lang('shop::app.customers.account.rma.create.return')
+                                    @else
+                                        {{ ucwords(str_replace('_', ' ', $item->resolution)) }}
+                                    @endif
+                                </td>
+                                
+                                <td class="px-4 py-4 align-top text-sm text-gray-600">
+                                    {{ $item->reason->title }}
+                                </td>
+                            </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div class="md:hidden space-y-4">
+                @if($item = $rma->item)
+                    <div class="rounded-xl border shadow-xs p-4 space-y-3">
+                        <div class="flex items-center gap-3">
+                            @if ($productBaseImage = product_image()->getProductBaseImage($item->orderItem->product))
+                                <img
+                                    src="{{ $productBaseImage['small_image_url'] }}"
+                                    alt="{{ $productBaseImage['alt'] }}"
+                                    class="w-16 h-16 object-cover rounded-sm border"
+                                />
+                            @else
+                                <div class="w-16 h-16 border border-dashed rounded-sm flex items-center justify-center text-gray-300">
+                                    <span class="text-xs">No Image</span>
+                                </div>
+                            @endif
+
+                            <div class="flex-1">
+                                @if (
+                                    $item->orderItem->product?->url_key
+                                    && $item->orderItem->product?->visible_individually
+                                )
+                                    <a
+                                        href="{{ route('shop.product_or_category.index', $item->orderItem->product->url_key) }}"
+                                        class="text-blue-600 hover:underline text-sm font-medium"
+                                        target="_blank"
+                                    >
+                                        {{ $item->orderItem->name }}
+                                    </a>
+                                @else
+                                    <span class="text-sm font-medium text-gray-800">
+                                        {{ $item->orderItem->name }}
+                                    </span>
+                                @endif
+
+                                @php
+                                    $attributes = array_filter($item->orderItem->additional['attributes'] ?? []);
+                                @endphp
+
+                                @if (! empty($attributes))
+                                    <div class="mt-1 space-y-0.5">
+                                        @foreach ($attributes as $attribute)
+                                            <p class="text-xs text-gray-500">
+                                                {{ $attribute['attribute_name'] }}:
+                                                <span class="font-medium text-gray-700">{{ $attribute['option_label'] }}</span>
+                                            </p>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span class="font-medium text-gray-600">@lang('shop::app.rma.table-heading.sku')</span>
+                                <p class="text-gray-600">{{ $item->orderItem->product->sku ?? $item->orderItem->sku }}</p>
+                            </div>
+
+                            <div>
+                                <span class="font-medium text-gray-600">@lang('shop::app.rma.table-heading.price')</span>
+                                <p class="text-gray-600">{{ core()->formatPrice($item->orderItem->price, $item->orderItem->order->order_currency_code) }}</p>
+                            </div>
+
+                            <div>
+                                <span class="font-medium text-gray-600">@lang('shop::app.rma.table-heading.rma-qty')</span>
+                                <p class="text-gray-600">{{ $item->quantity }} / {{ $item->orderItem->qty_ordered }}</p>
+                            </div>
+
+                            <div>
+                                <span class="font-medium text-gray-600">@lang('shop::app.rma.table-heading.resolution-type')</span>
+                                <p class="text-gray-600">{{ ucwords($item->resolution) }}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="font-medium text-gray-600">@lang('shop::app.rma.table-heading.reason')</span>
+
+                            <p class="text-gray-600">{{ $item->reason->title }}</p>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <rma-status-and-conversation></rma-status-and-conversation>
+    </div>
+
+    @push('scripts')
+        <script type="text/x-template" id="rma-status-and-conversation-template">
+            <!-- Conversations -->
+            <div class="mt-8">
+                <p class="required text-xl max-sm:text-lg font-medium">
+                    @lang('shop::app.rma.view-customer-rma.conversations')
+                </p>
+            </div>
+
+            <div class="relative mt-3 flex flex-col-reverse overflow-hidden rounded-xl border shadow-xs bg-white">
+                <div class="border-t border-zinc-200 bg-white p-4 max-md:p-3">
+                    <x-shop::form
+                        v-slot="{ meta, errors, handleSubmit }" 
+                        as="div"
+                    >
+                        <form 
+                            @submit="handleSubmit($event, chatSubmit)" 
+                            ref="chatForm"
+                        >
+                            <input 
+                                type="hidden" 
+                                name="is_admin" 
+                                value="0"
+                            />
+
+                            <input 
+                                type="hidden" 
+                                name="rma_id" 
+                                value="{{ $rma->id }}"
+                            />
+
+                            <x-shop::form.control-group>
+                                <div class="bg-white pl-0! pt-2!">
+                                    <x-shop::form.control-group.control
+                                        type="textarea"
+                                        name="message"
+                                        class="mb-1! px-5 max-md:px-3 py-5 max-md:py-3"
+                                        rules="required"
+                                        maxlength="250"
+                                        :placeholder="trans('shop::app.customers.account.rma.view.enter-message')"
+                                        v-model="message"
+                                        ::disabled="!isChatSend"
+                                    >
+                                    </x-shop::form.control-group.control>
+
+                                    <x-shop::form.control-group.error class="flex" control-name="message" />
+                                </div>
+                            </x-shop::form.control-group>
+
+                            <div class="mb-4 max-md:mb-2">
+                                <button type="button" id="newFileInput" class="secondary-button text-sm max-sm:text-xs hover:bg-gray-200 relative">
+                                    + @lang('shop::app.customers.account.rma.view.add-attachments')
+
+                                    <input
+                                        type="file"
+                                        id="file"
+                                        class="opacity-0 absolute top-0 left-0 w-full h-full cursor-pointer"
+                                        name="file"
+                                        @change="handleFileSelect($event)"
+                                    />
+                                </button>
+
+                                <input type="hidden" name="removed_key" id="removed_key" />
+
+                                <div id="attachmentPreview"></div>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button class="primary-button text-sm max-sm:text-xs max-sm:px-4 max-sm:py-2" :disabled="!isChatSend">
+                                    <svg v-if="!isChatSend" aria-hidden="true" class="w-5 h-5 max-sm:w-4 max-sm:h-4 text-gray-200 animate-spin fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                                    </svg>
+
+                                    @lang('shop::app.customers.account.rma.view.send-message-btn')
+                                </button>
+                            </div>
+                        </form>
+                    </x-shop::form>
+                </div>
+
+                <!-- View conversations -->
+                <div
+                    class="flex h-80 max-md:h-60 flex-col-reverse overflow-y-auto p-5 max-md:p-3 bg-gray-50"
+                    @wheel="getNewMessage()"
+                    :class="!messages.length ? 'justify-center items-center' : ''"
+                >
+                        <template v-if="messages.length">
+                            <div
+                                v-for="message in messages"
+                                :key="message.id"
+                                class="flex mb-4"
+                                :class="message.is_admin == 1 ? 'justify-start' : 'justify-end'"
+                            >
+                                <div
+                                    class="max-w-[70%] w-fit rounded-xl p-3.5 text-left shadow-xs"
+                                    :class="message.is_admin == 1 ? 'bg-gray-100' : 'bg-blue-50'"
+                                >
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-semibold text-xs text-gray-700">
+                                            <template v-if="message.is_admin == 1">
+                                                @lang('shop::app.rma.view-customer-rma.admin')
+                                            </template>
+                                            
+                                            <template v-else>
+                                                {{ auth()->guard('customer')->user()->name }}
+                                            </template>
+                                        </span>
+
+                                        <span class="text-xs text-gray-400">· @{{ dateFormat(message.created_at) }}</span>
+                                    </div>
+
+                                    <div class="value text-sm max-sm:text-xs wrap-break-word">@{{ message.message }}</div>
+
+                                    <div v-if="message.attachment" class="mt-2 flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l7.071-7.071a4 4 0 00-5.657-5.657l-7.071 7.07a6 6 0 108.485 8.486L20.485 13"/></svg>
+                                        <a
+                                            @click="viewAttachmentModal(message.attachment_url, message.attachment)"
+                                            class="text-xs max-sm:text-xs hover:underline cursor-pointer text-blue-700"
+                                        >
+                                            @{{ message.attachment }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template v-else>
+                            <div class="m-auto flex flex-col items-center">
+                                <div class="icon-listing" style="font-size:120px; color:#d7d7d7;"></div>
+
+                                <p class="mt-2 text-gray-300">
+                                    @lang('shop::app.rma.conversation-texts.no-record')
+                                </p>
+                            </div>
+                        </template>
+                </div>
+            </div>
+
+            <x-shop::modal ref="attachmentModal">
+                    <x-slot:header>
+                        <p class="text-lg max-md:text-base font-bold text-gray-800">
+                            @lang('shop::app.customers.account.rma.view.attachment')
+                        </p>
+                    </x-slot>
+
+                    <x-slot:content>
+                        <img
+                            v-if="messagePath && (getAttachmentExtension === 'jpg' || getAttachmentExtension === 'jpeg' || getAttachmentExtension === 'png' || getAttachmentExtension === 'gif')"
+                            :src="messagePath"
+                            class="min-h-125 min-w-125 max-h-125 max-w-125 max-md:min-h-75 max-md:min-w-75 max-md:max-h-75 max-md:max-w-75 rounded-sm m-auto"
+                        />
+
+                        <embed
+                            v-if="messagePath && getAttachmentExtension === 'pdf'"
+                            :src="messagePath"
+                            width="100%" height="500px"
+                            type="application/pdf"
+                        />
+
+                        <video
+                            v-if="messagePath && (getAttachmentExtension === 'mp4' || getAttachmentExtension === 'webm' || getAttachmentExtension === 'ogg')"
+                            controls
+                            class="w-full h-auto max-h-125 max-md:max-h-75 rounded-sm m-auto"
+                        >
+                            <source :src="messagePath" />
+                        </video>
+                    </x-slot>
+
+                    <x-slot:footer>
+                        <div class="flex items-center gap-x-2.5">
+                            <button @click="downloadAttachment(messagePath)" class="transparent-button text-sm max-sm:text-xs">
+                                @lang('shop::app.customers.account.rma.view.download')
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-shop::modal>
+        </script>
+
+        <script type="module">
+            app.component('rma-status-and-conversation', {
+                template: '#rma-status-and-conversation-template',
+                inject: ['$validator'],
+                
+                data() {
+                    return {
+                        error: false,
+                        closeRmaChecked: false,
+                        isChatSend: true,
+                        messages: {},
+                        message: '',
+                        rma: @json($rma),
+                        limit: 5,
+                        messagePath: '',
+                        attachmentName: '',
+                        getAttachmentExtension: '',
+                        allowedFileTypes: @json(core()->getConfigData('sales.rma.setting.allowed_file_extension')),
+                    };
+                },
+
+                mounted() {
+                    this.getMessage();
+                },
+
+                computed: {
+                    allowedFileTypesArray() {
+                        return this.allowedFileTypes
+                            .split(",")
+                            .map(type => type.trim())
+                            .filter(Boolean);
+                    }
+                },
+
+                methods: {
+                    getMessage() {
+                        this.$axios.get(`{{ route('shop.customers.account.rma.get_messages') }}`, {
+                            params: { id: this.rma.id, limit: this.limit }
+                        })
+                        .then(response => {
+                            this.messages = response.data.messages.data;
+                        }).catch(error => {});
+                    },
+
+                    chatSubmit(params, { resetForm, setErrors }) {
+                        let formData = new FormData(this.$refs.chatForm);
+                        const messageInput = formData.get('message');
+                        const sanitizedMessage = this.sanitizeInput(messageInput);
+                        formData.set('message', sanitizedMessage);
+                        this.isChatSend = false;
+
+                        this.$axios.post("{{ route('shop.customers.account.rma.send_message') }}", formData)
+                            .then((response) => {
+                                const attachmentPreview = document.getElementById('attachmentPreview');
+                                attachmentPreview.innerHTML = '';
+                                this.$emitter.emit('add-flash', { type: 'success', message: response.data.messages });
+                                this.getNewMessage();
+                                resetForm();
+                            });
+                    },
+
+                    sanitizeInput(input) {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.textContent = input;
+                        return tempDiv.innerHTML;
+                    },
+
+                    viewAttachmentModal(messagePath, attachmentName) {
+                        this.messagePath = messagePath;
+                        this.attachmentName = attachmentName ?? '';
+                        this.getAttachmentExtension = this.attachmentName.split('.').pop().toLowerCase();
+                        this.$refs.attachmentModal.toggle();
+                    },
+
+                    downloadAttachment(messagePath) {
+                        const link = document.createElement('a');
+                        link.href = messagePath;
+                        link.download = this.attachmentName || messagePath.split('/').pop();
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    },
+
+                    getNewMessage() {
+                        this.limit += 5;
+                        this.getMessage();
+                        this.isChatSend = true;
+                    },
+
+                    resetForm() {
+                        this.message = '';
+                    },
+
+                    validateForm(scope) {
+                        if (!this.closeRmaChecked) {
+                            this.error = true;
+                            return;
+                        }
+                        this.error = false;
+                        document.getElementById('check-form').submit();
+                    },
+
+                    dateFormat(v) {
+                        let date = new Date(v);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        const month = monthNames[date.getMonth()];
+                        const year = date.getFullYear();
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return `${day}-${month}-${year} ${hours}:${minutes}`;
+                    },
+
+                    handleFileSelect($event) {
+                        const attachmentPreview = document.getElementById('attachmentPreview');
+                        attachmentPreview.innerHTML = '';
+                        const inputElement = event.target;
+                        const files = event.target.files;
+                        const fileNames = Array.from(files).map(file => file.name);
+
+                        if (this.allowedFileTypesArray.length) {
+                            const hasAllowedFileType = Array.from(files).every(file =>
+                                this.allowedFileTypesArray.includes(file.type)
+                            );
+
+                            if (!hasAllowedFileType) {
+                                this.$emitter.emit('add-flash', {
+                                    type: 'warning',
+                                    message: "@lang('shop::app.customers.account.rma.view.allowed-file-types')"
+                                });
+                                event.target.value = '';
+                                inputElement.value = '';
+                                return;
+                            }
+                        }
+
+                        const fileParagraph = document.createElement('p');
+                        fileParagraph.classList.add('attachmentPreview', 'border', 'p-3', 'my-2', 'rounded-md');
+                        fileParagraph.innerHTML = fileNames;
+
+                        const removeButton = document.createElement('button');
+                        removeButton.classList.add('removeFile', 'text-blue-600');
+                        removeButton.textContent = "@lang('shop::app.customers.account.rma.view.remove')";
+                        removeButton.style.float = 'right';
+
+                        removeButton.addEventListener('click', function() {
+                            attachmentPreview.innerHTML = '';
+                            event.target.value = '';
+                            inputElement.value = '';
+                        });
+
+                        fileParagraph.appendChild(removeButton);
+                        attachmentPreview.appendChild(fileParagraph);
+                    },
+                }
+            })
+        </script>
+    @endpush
+</x-shop::layouts.account>

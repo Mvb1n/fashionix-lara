@@ -5,6 +5,7 @@ namespace Webkul\Admin\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Webkul\Core\Rules\PhoneNumber;
 use Webkul\Core\Rules\PostCode;
+use Webkul\Core\Rules\StateBelongsToCountry;
 use Webkul\Customer\Rules\VatIdRule;
 
 class AddressRequest extends FormRequest
@@ -27,17 +28,17 @@ class AddressRequest extends FormRequest
     public function rules()
     {
         return [
-            'company_name'    => ['nullable'],
-            'first_name'      => ['required'],
-            'last_name'       => ['required'],
-            'address'         => ['required', 'array', 'min:1'],
-            'country'         => ['required'],
-            'state'           => ['required'],
-            'city'            => ['required'],
-            'postcode'        => ['required', new PostCode],
-            'phone'           => ['required', new PhoneNumber],
-            'vat_id'          => [(new VatIdRule)->setCountry($this->input('country'))],
-            'email'           => ['required'],
+            'company_name' => ['nullable'],
+            'first_name' => ['required'],
+            'last_name' => ['required'],
+            'address' => ['required', 'array', 'min:1'],
+            'country' => ['required'],
+            'state' => ['required', new StateBelongsToCountry($this->input('country'))],
+            'city' => ['required'],
+            'postcode' => ['required', new PostCode],
+            'phone' => ['required', new PhoneNumber],
+            'vat_id' => [(new VatIdRule)->setCountry($this->input('country'))],
+            'email' => ['required'],
             'default_address' => ['sometimes', 'required', 'in:0,1'],
         ];
     }

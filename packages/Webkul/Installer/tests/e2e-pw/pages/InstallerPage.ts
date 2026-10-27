@@ -1,0 +1,125 @@
+import { expect, type Page } from "@playwright/test";
+import { env } from "../utils/env";
+
+interface DatabaseConfig {
+    connection: string;
+    host: string;
+    port: string;
+    database: string;
+    username: string;
+    password: string;
+}
+
+export class InstallerPage {
+    private readonly database: DatabaseConfig;
+
+    constructor(private readonly page: Page) {
+        this.database = {
+            connection: process.env.INSTALLER_DB_CONNECTION ?? "mysql",
+            host: process.env.INSTALLER_DB_HOST ?? "127.0.0.1",
+            port: process.env.INSTALLER_DB_PORT ?? "3306",
+            database: process.env.INSTALLER_DB_DATABASE ?? "bagisto",
+            username: process.env.INSTALLER_DB_USERNAME ?? "root",
+            password: process.env.INSTALLER_DB_PASSWORD ?? "root",
+        };
+    }
+
+    private get documentElement() {
+        return this.page.locator("html");
+    }
+
+    private get adminLoginLink() {
+        return this.page.locator('a[href*="/admin/login"]');
+    }
+
+    private async completeStart(): Promise<void> {
+        await this.page.waitForSelector('select[name="locale"]');
+
+        await this.page.locator('button[type="button"].primary-button').click();
+    }
+
+    private async completeSystemRequirements(): Promise<void> {
+        const continueButton = this.page.locator("div.bg-blue-600.text-gray-50");
+
+        await continueButton.waitFor();
+
+        await continueButton.click();
+    }
+
+    private async completeDatabase(): Promise<void> {
+        await this.page.waitForSelector('select[name="db_connection"]');
+
+        await this.page.selectOption('select[name="db_connection"]', this.database.connection);
+        await this.page.fill('input[name="db_hostname"]', this.database.host);
+        await this.page.fill('input[name="db_port"]', this.database.port);
+        await this.page.fill('input[name="db_name"]', this.database.database);
+        await this.page.fill('input[name="db_username"]', this.database.username);
+        await this.page.fill('input[name="db_password"]', this.database.password);
+
+        await this.page.locator('button[type="submit"]').click();
+    }
+
+    private async startInstallation(): Promise<void> {
+        await this.page.waitForSelector('input[name="db_name"]', { state: "detached" });
+
+        await this.page.locator('button[type="submit"]').click();
+
+        await this.page.waitForSelector('input[name="app_name"]', { timeout: 180 * 1000 });
+    }
+
+    private async completeEnvironment(locale: string): Promise<void> {
+        const allowedLocale = this.page.locator(`input[type="checkbox"][name="${locale}"]`);
+
+        if (await allowedLocale.count() && await allowedLocale.isEnabled()) {
+            await allowedLocale.check();
+        }
+
+        await this.page.locator("button.primary-button").click();
+
+        await this.page.waitForSelector('select[name="sample_products"]', { timeout: 180 * 1000 });
+    }
+
+    private async skipSampleProducts(): Promise<void> {
+        await this.page.selectOption('select[name="sample_products"]', "0");
+
+        await this.page.locator("button.primary-button").click();
+
+        await this.page.waitForSelector('input[name="password"]', { timeout: 120 * 1000 });
+    }
+
+    private async createAdmin(): Promise<void> {
+        await this.page.fill('input[name="email"]', env.adminEmail);
+        await this.page.fill('input[name="password"]', env.adminPassword);
+        await this.page.fill(
+            'input[name="password_confirmation"]',
+            env.adminPassword,
+        );
+
+        await this.page.locator('button[type="submit"].primary-button').click();
+    }
+
+    private async expectCompleted(): Promise<void> {
+        await expect(this.adminLoginLink).toBeVisible({ timeout: 120 * 1000 });
+    }
+
+    async install(locale: string): Promise<void> {
+        await this.page.goto(`install?locale=${locale}`);
+
+        await this.completeStart();
+        await this.completeSystemRequirements();
+        await this.completeDatabase();
+        await this.startInstallation();
+        await this.completeEnvironment(locale);
+        await this.skipSampleProducts();
+        await this.createAdmin();
+        await this.expectCompleted();
+    }
+
+    async expectLayoutDirection(direction: "ltr" | "rtl"): Promise<void> {
+        await expect(this.documentElement).toHaveAttribute("dir", direction);
+    }
+
+    async expectAdminLoginOffered(): Promise<void> {
+        await expect(this.adminLoginLink).toBeVisible();
+    }
+}

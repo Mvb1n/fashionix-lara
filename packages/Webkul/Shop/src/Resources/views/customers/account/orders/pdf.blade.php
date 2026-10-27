@@ -4,17 +4,30 @@
     dir="{{ core()->getCurrentLocale()->direction }}"
 >
     <head>
-        <!-- meta tags -->
-        <meta http-equiv="Cache-control" content="no-cache">
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta
+            http-equiv="Cache-control"
+            content="no-cache"
+        >
+
+        <meta
+            http-equiv="Content-Type"
+            content="text/html; charset=utf-8"
+        />
 
         @php
             $fontPath = [];
 
-            $fontFamily = [
-                'regular' => 'Arial, sans-serif',
-                'bold'    => 'Arial, sans-serif',
-            ];
+            if (app()->getLocale() == 'en' && $orderCurrencyCode == 'INR') {
+                $fontFamily = [
+                    'regular' => 'DejaVu Sans',
+                    'bold'    => 'DejaVu Sans',
+                ];
+            }  else {
+                $fontFamily = [
+                    'regular' => 'Arial, sans-serif',
+                    'bold'    => 'Arial, sans-serif',
+                ];
+            }
 
             if (in_array(app()->getLocale(), ['ar', 'he', 'fa', 'tr', 'ru', 'uk'])) {
                 $fontFamily = [
@@ -126,6 +139,9 @@
                 position: absolute;
                 top: 20px;
                 left: 20px;
+                width: 131px;
+                height: 30px;
+                overflow: hidden;
             }
 
             .logo-container.rtl {
@@ -134,7 +150,9 @@
             }
 
             .logo-container img {
-                max-width: 100%;
+                max-width: 131px;
+                max-height: 30px;
+                width: auto;
                 height: auto;
             }
 
@@ -214,8 +232,8 @@
 
     <body dir="{{ core()->getCurrentLocale()->direction }}">
         <div class="logo-container {{ core()->getCurrentLocale()->direction }}">
-            @if (core()->getConfigData('sales.invoice_settings.pdf_print_outs.logo'))
-                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(Storage::url(core()->getConfigData('sales.invoice_settings.pdf_print_outs.logo')))) }}"/>
+            @if (($logo = core()->getConfigData('sales.invoice_settings.pdf_print_outs.logo')) && Storage::exists($logo))
+                <img src="data:{{ Storage::mimeType($logo) }};base64,{{ base64_encode(Storage::get($logo)) }}"/>
             @else
                 <img src="data:image/png;base64,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"/>
             @endif
@@ -364,9 +382,9 @@
 
                                     <div>{{ $invoice->order->billing_address->postcode . ' ' . $invoice->order->billing_address->city }}</div>
 
-                                    <div>{{ $invoice->order->billing_address->state . ', ' . core()->country_name($invoice->order->billing_address->country) }}</div>
+                                    <div>{{ $invoice->order->billing_address->state . ', ' . core()->countryName($invoice->order->billing_address->country) }}</div>
 
-                                    <div>@lang('shop::app.customers.account.orders.invoice-pdf.contact'): {{ $invoice->order->billing_address->phone }}</div>
+                                    <div>@lang('shop::app.customers.account.orders.invoice-pdf.phone'): {{ $invoice->order->billing_address->phone }}</div>
                                 </td>
                             @endif
 
@@ -380,9 +398,9 @@
 
                                     <div>{{ $invoice->order->shipping_address->postcode . ' ' . $invoice->order->shipping_address->city }}</div>
 
-                                    <div>{{ $invoice->order->shipping_address->state . ', ' . core()->country_name($invoice->order->shipping_address->country) }}</div>
+                                    <div>{{ $invoice->order->shipping_address->state . ', ' . core()->countryName($invoice->order->shipping_address->country) }}</div>
 
-                                    <div>@lang('shop::app.customers.account.orders.invoice-pdf.contact'): {{ $invoice->order->shipping_address->phone }}</div>
+                                    <div>@lang('shop::app.customers.account.orders.invoice-pdf.phone'): {{ $invoice->order->shipping_address->phone }}</div>
                                 </td>
                             @endif
                         </tr>
@@ -499,19 +517,19 @@
 
                                     <td>
                                         @if (core()->getConfigData('sales.taxes.sales.display_prices') == 'including_tax')
-                                            {!! core()->formatBasePrice($item->base_price_incl_tax, true) !!}
+                                            {{ core()->formatPrice($item->price_incl_tax, $orderCurrencyCode) }}
                                         @elseif (core()->getConfigData('sales.taxes.sales.display_prices') == 'both')
-                                            {!! core()->formatBasePrice($item->base_price_incl_tax, true) !!}
+                                            {{ core()->formatPrice($item->price_incl_tax, $orderCurrencyCode) }}
 
                                             <div class="small-text">
                                                 @lang('shop::app.customers.account.orders.invoice-pdf.excl-tax')
 
                                                 <span>
-                                                    {{ core()->formatPrice($item->base_price) }}
+                                                    {{ core()->formatPrice($item->price, $orderCurrencyCode) }}
                                                 </span>
                                             </div>
                                         @else
-                                            {!! core()->formatBasePrice($item->base_price, true) !!}
+                                            {{ core()->formatPrice($item->price, $orderCurrencyCode) }}
                                         @endif
                                     </td>
 
@@ -521,19 +539,19 @@
 
                                     <td>
                                         @if (core()->getConfigData('sales.taxes.sales.display_subtotal') == 'including_tax')
-                                            {!! core()->formatBasePrice($item->base_total_incl_tax, true) !!}
+                                            {{ core()->formatPrice($item->total_incl_tax, $orderCurrencyCode) }}
                                         @elseif (core()->getConfigData('sales.taxes.sales.display_subtotal') == 'both')
-                                            {!! core()->formatBasePrice($item->base_total_incl_tax, true) !!}
+                                            {{ core()->formatPrice($item->total_incl_tax, $orderCurrencyCode) }}
 
                                             <div class="small-text">
                                                 @lang('shop::app.customers.account.orders.invoice-pdf.excl-tax')
 
                                                 <span>
-                                                    {{ core()->formatPrice($item->base_total) }}
+                                                    {{ core()->formatPrice($item->total, $orderCurrencyCode) }}
                                                 </span>
                                             </div>
                                         @else
-                                            {!! core()->formatBasePrice($item->base_total, true) !!}
+                                            {{ core()->formatPrice($item->total, $orderCurrencyCode) }}
                                         @endif
                                     </td>
                                 </tr>
@@ -550,25 +568,25 @@
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.subtotal')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_sub_total_incl_tax, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->sub_total_incl_tax, $orderCurrencyCode) }}</td>
                                 </tr>
                             @elseif (core()->getConfigData('sales.taxes.sales.display_subtotal') == 'both')
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.subtotal-incl-tax')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_sub_total_incl_tax, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->sub_total_incl_tax, $orderCurrencyCode) }}</td>
                                 </tr>
 
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.subtotal-excl-tax')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_sub_total, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->sub_total, $orderCurrencyCode) }}</td>
                                 </tr>
                             @else
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.subtotal')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_sub_total, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->sub_total, $orderCurrencyCode) }}</td>
                                 </tr>
                             @endif
 
@@ -576,38 +594,38 @@
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.shipping-handling')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_shipping_amount_incl_tax, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->shipping_amount_incl_tax, $orderCurrencyCode) }}</td>
                                 </tr>
                             @elseif (core()->getConfigData('sales.taxes.sales.display_shipping_amount') == 'both')
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.shipping-handling-incl-tax')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_shipping_amount_incl_tax, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->shipping_amount_incl_tax, $orderCurrencyCode) }}</td>
                                 </tr>
 
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.shipping-handling-excl-tax')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_shipping_amount, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->shipping_amount, $orderCurrencyCode) }}</td>
                                 </tr>
                             @else
                                 <tr>
                                     <td>@lang('shop::app.customers.account.orders.invoice-pdf.shipping-handling')</td>
                                     <td>-</td>
-                                    <td>{!! core()->formatBasePrice($invoice->base_shipping_amount, true) !!}</td>
+                                    <td>{{ core()->formatPrice($invoice->shipping_amount, $orderCurrencyCode) }}</td>
                                 </tr>
                             @endif
 
                             <tr>
                                 <td>@lang('shop::app.customers.account.orders.invoice-pdf.tax')</td>
                                 <td>-</td>
-                                <td>{!! core()->formatBasePrice($invoice->base_tax_amount, true) !!}</td>
+                                <td>{{ core()->formatPrice($invoice->tax_amount, $orderCurrencyCode) }}</td>
                             </tr>
 
                             <tr>
                                 <td>@lang('shop::app.customers.account.orders.invoice-pdf.discount')</td>
                                 <td>-</td>
-                                <td>{!! core()->formatBasePrice($invoice->base_discount_amount, true) !!}</td>
+                                <td>{{ core()->formatPrice($invoice->discount_amount, $orderCurrencyCode) }}</td>
                             </tr>
 
                             <tr>
@@ -616,7 +634,7 @@
                                 </td>
                                 <td style="border-top: 1px solid #FFFFFF;">-</td>
                                 <td style="border-top: 1px solid #FFFFFF;">
-                                    <b>{!! core()->formatBasePrice($invoice->base_grand_total, true) !!}</b>
+                                    <b>{{ core()->formatPrice($invoice->grand_total, $orderCurrencyCode) }}</b>
                                 </td>
                             </tr>
                         </tbody>

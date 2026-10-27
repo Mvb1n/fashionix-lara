@@ -4,6 +4,7 @@ namespace Webkul\Admin\Http\Controllers\Customers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Customers\GDPRDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Customer\Repositories\CustomerRepository;
@@ -24,7 +25,7 @@ class GDPRController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -40,18 +41,11 @@ class GDPRController extends Controller
      */
     public function edit(int $id)
     {
-        try {
-            $request = $this->gdprDataRequestRepository->findOrFail($id);
+        $request = $this->gdprDataRequestRepository->findOrFail($id);
 
-            return new JsonResponse([
-                'data' => $request,
-            ]);
-        } catch (\Exception $e) {
-            return new JsonResponse([
-                'message' => trans('admin::app.customers.gdpr.index.attribute-reason-error'),
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
+        return new JsonResponse([
+            'data' => $request,
+        ]);
     }
 
     /**
@@ -72,7 +66,7 @@ class GDPRController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => trans('admin::app.customers.gdpr.index.update-success-unsent-email'),
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -82,9 +76,9 @@ class GDPRController extends Controller
      */
     public function delete(int $id)
     {
-        try {
-            $gdprRequest = $this->gdprDataRequestRepository->findOrFail($id);
+        $gdprRequest = $this->gdprDataRequestRepository->findOrFail($id);
 
+        try {
             $gdprRequest->delete();
 
             return new JsonResponse([

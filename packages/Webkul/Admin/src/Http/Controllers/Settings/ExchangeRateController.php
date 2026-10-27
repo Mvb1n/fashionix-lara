@@ -3,9 +3,12 @@
 namespace Webkul\Admin\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Settings\ExchangeRatesDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
+use Webkul\Core\Helpers\Exchange\ExchangeRate;
 use Webkul\Core\Repositories\CurrencyRepository;
 use Webkul\Core\Repositories\ExchangeRateRepository;
 
@@ -13,8 +16,6 @@ class ExchangeRateController extends Controller
 {
     /**
      * Create a new controller instance.
-     *
-     * @return void
      */
     public function __construct(
         protected ExchangeRateRepository $exchangeRateRepository,
@@ -23,16 +24,18 @@ class ExchangeRateController extends Controller
 
     /**
      * Display a listing of the resource.
-     *
-     * @return \Illuminate\View\View
      */
-    public function index()
+    public function index(): View|JsonResponse
     {
         if (request()->ajax()) {
             return datagrid(ExchangeRatesDataGrid::class)->process();
         }
 
-        $currencies = $this->currencyRepository->with('exchange_rate')->all();
+        $baseCurrency = core()->getBaseCurrency();
+
+        $currencies = $this->currencyRepository->with('exchange_rate')
+            ->where('id', '!=', $baseCurrency->id)
+            ->get();
 
         return view('admin::settings.exchange-rates.index', compact('currencies'));
     }
@@ -42,9 +45,11 @@ class ExchangeRateController extends Controller
      */
     public function store(): JsonResponse
     {
+        $baseCurrency = core()->getBaseCurrency();
+
         $this->validate(request(), [
-            'target_currency' => ['required', 'unique:currency_exchange_rates,target_currency'],
-            'rate'            => 'required|numeric',
+            'target_currency' => ['required', 'unique:currency_exchange_rates,target_currency', 'not_in:'.$baseCurrency->id],
+            'rate' => 'required|numeric',
         ]);
 
         Event::dispatch('core.exchange_rate.create.before');
@@ -66,13 +71,17 @@ class ExchangeRateController extends Controller
      */
     public function edit(int $id): JsonResponse
     {
-        $currencies = $this->currencyRepository->all();
+        $baseCurrency = core()->getBaseCurrency();
+
+        $currencies = $this->currencyRepository->with('exchange_rate')
+            ->where('id', '!=', $baseCurrency->id)
+            ->get();
 
         $exchangeRate = $this->exchangeRateRepository->findOrFail($id);
 
         return new JsonResponse([
             'data' => [
-                'currencies'   => $currencies,
+                'currencies' => $currencies,
                 'exchangeRate' => $exchangeRate,
             ],
         ]);
@@ -83,9 +92,11 @@ class ExchangeRateController extends Controller
      */
     public function update(): JsonResponse
     {
+        $baseCurrency = core()->getBaseCurrency();
+
         $this->validate(request(), [
-            'target_currency' => ['required', 'unique:currency_exchange_rates,target_currency,'.request()->id],
-            'rate'            => 'required|numeric',
+            'target_currency' => ['required', 'unique:currency_exchange_rates,target_currency,'.request()->id, 'not_in:'.$baseCurrency->id],
+            'rate' => 'required|numeric',
         ]);
 
         Event::dispatch('core.exchange_rate.update.before', request()->id);
@@ -103,18 +114,18 @@ class ExchangeRateController extends Controller
     }
 
     /**
-     * Update Rates Using Exchange Rates API
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * Update rates using the configured exchange rate API service.
      */
-    public function updateRates()
+    public function updateRates(): RedirectResponse
     {
         try {
-            app(config('services.exchange_api.'.config('services.exchange_api.default').'.class'))->updateRates();
+            ExchangeRate::resolve()->updateRates();
 
             session()->flash('success', trans('admin::app.settings.exchange-rates.index.update-success'));
-        } catch (\Exception $e) {
-            session()->flash('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            report($e);
+
+            session()->flash('error', trans('admin::app.settings.exchange-rates.index.update-rates-error'));
         }
 
         return redirect()->route('admin.settings.exchange_rates.index');

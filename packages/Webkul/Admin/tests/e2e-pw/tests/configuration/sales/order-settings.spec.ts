@@ -1,80 +1,59 @@
-import { test, expect } from '../../../setup';
+import { test } from "../../../setup";
 import {
-    generateName,
-    generateRandomNumericString,
-} from '../../../utils/faker';
+    OrderSettingsConfigurationPage,
+    type OrderSettings,
+} from "../../../pages/admin/configuration/sales/OrderSettingsConfigurationPage";
 
-test.describe('order settings configuration', () => {
-    /**
-     * Navigate to the configuration page.
-     */
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
+}
+
+test.describe("order settings configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let configPage: OrderSettingsConfigurationPage;
+    let original: OrderSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        await adminPage.goto('admin/configuration/sales/order_settings');
+        configPage = new OrderSettingsConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    /**
-     * Update the Order Number Configuration.
-     */
-    test('should update order number settings', async ({ adminPage }) => {
-        await adminPage.fill('input[name="sales[order_settings][order_number][order_number_prefix]"]', generateName());
-        await adminPage.fill('input[name="sales[order_settings][order_number][order_number_length]"]', '5');
-        await adminPage.fill('input[name="sales[order_settings][order_number][order_number_suffix]"]', generateName());
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
     });
 
-    /**
-     * Update the Minimum Order Settings Configuration.
-     */
-    test('should update minimum order settings', async ({ adminPage }) => {
-        // await adminPage.click('label[for="sales[order_settings][minimum_order][enable]"]');
-        // const minimumOrderToggle = await adminPage.locator('input[name="sales[order_settings][minimum_order][enable]"]');
-        // await expect(minimumOrderToggle).toBeChecked();
+    test("should persist the order number format after reload", async () => {
+        const changed = {
+            orderNumberPrefix: other(original.orderNumberPrefix, "E2E", "ORD"),
+            orderNumberLength: other(original.orderNumberLength, "6", "8"),
+            orderNumberSuffix: other(original.orderNumberSuffix, "X", "Y"),
+        };
 
-        // if (await minimumOrderToggle.toBeChecked()) {
-        //     await adminPage.fill('number[name="sales[order_settings][minimum_order][minimum_order_amount]"]', generateRandomNumericString(2));
+        await configPage.applySettings(changed);
 
-        //     await adminPage.click('label[for="sales[order_settings][minimum_order][include_discount_amount]"]');
-        //     const minimumOrderAmountToggle = await adminPage.locator('input[name="sales[order_settings][minimum_order][include_discount_amount]"]');
-        //     // await expect(minimumOrderAmountToggle).toBeChecked();
-
-        //     await adminPage.click('label[for="sales[order_settings][minimum_order][include_tax_to_amount]"]');
-        //     const includeTaxAmountToggle = await adminPage.locator('input[name="sales[order_settings][minimum_order][include_tax_to_amount]"]');
-        //     // await expect(includeDiscountAmountToggle).toBeChecked();
-
-        //     await adminPage.fill('textarea[name="sales[order_settings][minimum_order][description]"]', generateDescription(200));
-        // }
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    /**
-     * Update the Reorder Configuration.
-     */
-    test('should update reorder settings', async ({ adminPage }) => {
-        await adminPage.click('label[for="sales[order_settings][reorder][admin]"]');
-        const adminReorderToggle = await adminPage.locator('input[name="sales[order_settings][reorder][admin]"]');
-        // await expect(adminReorderToggle).toBeChecked();
+    test("should persist the minimum order settings after reload", async () => {
+        const changed = {
+            minimumOrderEnabled: !original.minimumOrderEnabled,
+            minimumOrderAmount: other(original.minimumOrderAmount, "50", "75"),
+        };
 
-        await adminPage.click('label[for="sales[order_settings][reorder][shop]"]');
-        const shopReorderToggle = await adminPage.locator('input[name="sales[order_settings][reorder][shop]"]');
-        // await expect(shopReorderToggle).toBeChecked();
+        await configPage.applySettings(changed);
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        await configPage.expectSettings(changed);
+    });
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test("should persist the reorder settings after reload", async () => {
+        const changed = {
+            reorderInAdmin: !original.reorderInAdmin,
+            reorderInShop: !original.reorderInShop,
+        };
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

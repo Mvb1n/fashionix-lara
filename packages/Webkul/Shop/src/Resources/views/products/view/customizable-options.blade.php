@@ -4,13 +4,23 @@
             'product',
             'customizable_option_prices',
         ])->get();
+
+        $options = $options->map(function ($option) {
+            $option->customizable_option_prices = $option->customizable_option_prices->map(function ($priceOption) {
+                $priceOption->price = core()->convertPrice($priceOption->price);
+                
+                return $priceOption;
+            });
+
+            return $option;
+        });
     @endphp
 
     @if ($options->isNotEmpty())
         {!! view_render_event('bagisto.shop.products.view.customizable-options.before', ['product' => $product]) !!}
 
         <v-product-customizable-options
-            :initial-price="{{ $product->getTypeInstance()->getMinimalPrice() }}"
+            :initial-price="{{ core()->convertPrice($product->getTypeInstance()->getMinimalPrice()) }}"
         >
         </v-product-customizable-options>
 
@@ -52,7 +62,7 @@
                         <!-- Text Field -->
                         <template v-if="option.type == 'text'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -75,7 +85,7 @@
                         <!-- Textarea Field -->
                         <template v-else-if="option.type == 'textarea'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -98,7 +108,7 @@
                         <!-- Checkbox Options -->
                         <template v-else-if="option.type == 'checkbox'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -137,7 +147,7 @@
                         <!-- Radio Options -->
                         <template v-else-if="option.type == 'radio'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -202,7 +212,7 @@
                         <!-- Select Options -->
                         <template v-else-if="option.type == 'select'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -235,7 +245,7 @@
                         <!-- Multiselect Options -->
                         <template v-else-if="option.type == 'multiselect'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -261,7 +271,7 @@
                         <!-- Date Field -->
                         <template v-else-if="option.type == 'date'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -284,7 +294,7 @@
                         <!-- Datetime Field -->
                         <template v-else-if="option.type == 'datetime'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -307,7 +317,7 @@
                         <!-- Time Field -->
                         <template v-else-if="option.type == 'time'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -330,7 +340,7 @@
                         <!-- File -->
                         <template v-else-if="option.type == 'file'">
                             <x-shop::form.control-group.label
-                                class="!mt-0 max-sm:!mb-2.5"
+                                class="mt-0! max-sm:mb-2.5!"
                                 ::class="{ 'required': Boolean(option.is_required) }"
                             >
                                 @{{ option.label }}
@@ -489,6 +499,8 @@
                                         if (selectedItemValues.includes(item.id)) {
                                             totalPrice += parseFloat(item.price);
                                         }
+
+                                        break;
 
                                     case 'file':
                                         if (selectedItemValues[0] instanceof File) {

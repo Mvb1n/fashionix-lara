@@ -1,53 +1,80 @@
-import { test, expect } from "../setup";
+import { test } from "../setup";
+import { ProductCreatePage } from "../pages/admin/catalog/products/ProductCreatePage";
+import { ProductListPage } from "../pages/admin/catalog/products/ProductListPage";
+import { ComparePage } from "../pages/shop/ComparePage";
+import { setConfigSwitch } from "../utils/admin";
+import { uniqueStamp } from "../utils/faker";
 
-test("should add product to compare page", async ({ page }) => {
-    await page.goto("");
+test.describe("product comparison", () => {
+    let products: string[];
+    let productListPage: ProductListPage;
+    let comparePage: ComparePage;
+    let compareOptionWasEnabled: boolean;
 
-    await page
-        .locator("div:nth-child(2) > .-mt-9 > .action-items > .icon-compare")
-        .first()
-        .click();
-    await page.locator(".action-items > .icon-compare").first().click();
-    await page
-        .locator("div:nth-child(3) > .-mt-9 > .action-items > .icon-compare")
-        .first()
-        .click();
+    test.beforeEach(async ({ adminPage, shopPage }) => {
+        compareOptionWasEnabled = await setConfigSwitch(
+            adminPage,
+            "admin/configuration/catalog/products",
+            "catalog[products][settings][compare_option]",
+            true,
+        );
 
-    await expect(
-        page.getByText("Item added successfully to compare list").first()
-    ).toBeVisible();
-});
+        const productCreation = new ProductCreatePage(adminPage);
+        productListPage = new ProductListPage(adminPage);
+        comparePage = new ComparePage(shopPage);
+        products = [`Compare-${uniqueStamp()}`, `Compare-${uniqueStamp()}`];
 
-test("should remove product from the compare page", async ({ page }) => {
-    await page.goto("");
+        for (const name of products) {
+            await productCreation.createProduct({
+                type: "simple",
+                sku: `SKU-${uniqueStamp()}`,
+                name,
+                shortDescription: "Short desc",
+                description: "Full desc",
+                price: 199,
+                weight: 1,
+                inventory: 100,
+            });
+        }
 
-    await page
-        .locator("div:nth-child(2) > .-mt-9 > .action-items > .icon-compare")
-        .first()
-        .click();
-    await page.locator(".action-items > .icon-compare").first().click();
-    await page.locator("div:nth-child(3) > .-mt-9 > div").first().click();
+        for (const name of products) {
+            await comparePage.addToCompareFromListing(name);
+        }
+    });
 
-    await page.getByRole("link", { name: "Compare" }).click();
-    await page.locator(".relative > .icon-cancel").first().click();
-    await page.getByRole("button", { name: "Agree", exact: true }).click();
-});
+    test.afterEach(async ({ adminPage }) => {
+        try {
+            await productListPage.deleteProductsIfPresent(products);
+        } finally {
+            await setConfigSwitch(
+                adminPage,
+                "admin/configuration/catalog/products",
+                "catalog[products][settings][compare_option]",
+                compareOptionWasEnabled,
+            );
+        }
+    });
 
-test("should remove all products from the compare page", async ({ page }) => {
-    await page.goto("");
-    
-    await page
-        .locator("div:nth-child(2) > .-mt-9 > .action-items > .icon-compare")
-        .first()
-        .click();
-    await page.locator(".action-items > .icon-compare").first().click();
-    await page.locator("div:nth-child(3) > .-mt-9 > div").first().click();
+    test("should list every added product on the compare page", async () => {
+        await comparePage.open();
 
-    await page.getByRole("link", { name: "Compare" }).click();
-    await page.getByText("Delete All", { exact: true }).click();
-    await page.getByRole("button", { name: "Agree", exact: true }).click();
+        for (const name of products) {
+            await comparePage.expectProductListed(name);
+        }
+    });
 
-    await expect(
-        page.getByText("All items removed successfully.").first()
-    ).toBeVisible();
+    test("should remove one product and keep the other", async () => {
+        await comparePage.open();
+        await comparePage.removeProduct(products[0]);
+
+        await comparePage.expectProductAbsent(products[0]);
+        await comparePage.expectProductListed(products[1]);
+    });
+
+    test("should remove every product at once", async () => {
+        await comparePage.open();
+        await comparePage.deleteAll();
+
+        await comparePage.expectEmpty();
+    });
 });

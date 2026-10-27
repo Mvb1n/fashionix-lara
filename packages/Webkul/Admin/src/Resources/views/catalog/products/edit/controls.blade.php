@@ -46,7 +46,6 @@
             value="{{ old($attribute->code) ?: $product[$attribute->code] }}"
             :label="$attribute->admin_name"
             :tinymce="(bool) $attribute->enable_wysiwyg"
-            :prompt="core()->getConfigData('general.magic_ai.content_generation.product_' . $attribute->code . '_prompt')"
         />
 
         @break
@@ -72,56 +71,72 @@
 
         @break
     @case('select')
-        <x-admin::form.control-group.control
-            type="select"
-            :id="$attribute->code"
-            :name="$attribute->code"
-            ::rules="{{ $attribute->validations }}"
-            :value="old($attribute->code) ?: $product[$attribute->code]"
-            :label="$attribute->admin_name"
-        >
-            @php
-                $selectedOption = old($attribute->code) ?: $product[$attribute->code];
+        @php
+            $selectedOption = old($attribute->code) ?: $product[$attribute->code];
 
-                if ($attribute->code != 'tax_category_id') {
-                    $options = $attribute->options()->orderBy('sort_order')->get();
-                } else {
-                    $options = app('Webkul\Tax\Repositories\TaxCategoryRepository')->all();
+            if ($attribute->code === 'tax_category_id') {
+                $options = app(\Webkul\Tax\Repositories\TaxCategoryRepository::class)->all();
+            } else if ($attribute->code === 'rma_rule_id') {
+                $rmaRuleRepository = app(\Webkul\RMA\Repositories\RMARuleRepository::class);
+
+                /**
+                 * Only active RMA rules should be assignable to a product.
+                 */
+                $options = $rmaRuleRepository->getActiveRules();
+
+                /**
+                 * Safety Net: if this product already has a rule that has since been
+                 * deactivated, append it to the options list so editing the product
+                 * does not silently drop the existing assignment. The admin can then
+                 * choose to switch to an active rule on save.
+                 */
+                if (
+                    $selectedOption
+                    && ! $options->contains('id', $selectedOption)
+                ) {
+                    $currentRule = $rmaRuleRepository->find($selectedOption);
+
+                    if ($currentRule) {
+                        $options->push($currentRule);
+                    }
                 }
-            @endphp
+            } else {
+                $options = $attribute->options()->orderBy('sort_order')->get();
+            }
 
-            @foreach ($options as $option)
-                <option
-                    value="{{ $option->id }}"
-                    {{ $selectedOption == $option->id ? 'selected' : '' }}
-                >
-                    {{ $option->admin_name ?? $option->name }}
-                </option>
-            @endforeach
-        </x-admin::form.control-group.control>
+            $selectOptions = collect($options)
+                ->map(fn ($option) => ['id' => (string) $option->id, 'label' => $option->admin_name ?? $option->name])
+                ->values();
+        @endphp
+
+        <x-admin::form.control-group.advance.select
+            :name="$attribute->code"
+            :options="$selectOptions"
+            :value="(string) $selectedOption"
+            :placeholder="$attribute->admin_name"
+            :label="$attribute->admin_name"
+            ::clearable="{{ $attribute->is_required ? 'false' : 'true' }}"
+            ::rules="{{ $attribute->validations }}"
+        />
 
         @break
     @case('multiselect')
         @php
-            $selectedOption = old($attribute->code) ?: explode(',', $product[$attribute->code]);
+            $selectedOption = old($attribute->code) ?: array_filter(explode(',', $product[$attribute->code] ?? ''), fn ($id) => $id !== '');
+
+            $multiselectOptions = $attribute->options()->orderBy('sort_order')->get()
+                ->map(fn ($option) => ['id' => (string) $option->id, 'label' => $option->admin_name])
+                ->values();
         @endphp
 
-        <x-admin::form.control-group.control
-            type="multiselect"
-            :id="$attribute->code . '[]'"
+        <x-admin::form.control-group.advance.multiselect
             :name="$attribute->code . '[]'"
-            ::rules="{{ $attribute->validations }}"
+            :options="$multiselectOptions"
+            :value="array_values((array) $selectedOption)"
+            :placeholder="$attribute->admin_name"
             :label="$attribute->admin_name"
-        >
-            @foreach ($attribute->options()->orderBy('sort_order')->get() as $option)
-                <option
-                    value="{{ $option->id }}"
-                    {{ in_array($option->id, $selectedOption) ? 'selected' : ''}}
-                >
-                    {{ $option->admin_name }}
-                </option>
-            @endforeach
-        </x-admin::form.control-group.control>
+            ::rules="{{ $attribute->validations }}"
+        />
 
         @break
     @case('checkbox')
@@ -130,7 +145,7 @@
         @endphp
 
         @foreach ($attribute->options as $option)
-            <div class="mb-2 flex items-center gap-2.5 last:!mb-0">
+            <div class="mb-2 flex items-center gap-2.5 last:mb-0!">
                 <x-admin::form.control-group.control
                     type="checkbox"
                     :id="$attribute->code . '_' . $option->id"
@@ -145,6 +160,7 @@
                 <label
                     class="cursor-pointer select-none text-xs font-medium text-gray-600 dark:text-gray-300"
                     for="{{ $attribute->code . '_' . $option->id }}"
+                    v-pre
                 >
                     {{ $option->admin_name }}
                 </label>
@@ -167,71 +183,33 @@
         @break
     @case('image')
     @case('file')
-        <div class="flex gap-2.5">
-            @if ($product[$attribute->code])
-                <a
-                    href="{{ route('admin.catalog.products.file.download', [$product->id, $attribute->id] )}}"
-                    class="flex"
-                >
-                    @if ($attribute->type == 'image')
-                        @if (Storage::exists($product[$attribute->code]))
-                            <img
-                                src="{{ Storage::url($product[$attribute->code]) }}"
-                                class="h-[45px] w-[45px] overflow-hidden rounded border hover:border-gray-400 dark:border-gray-800"
-                            />
-                        @endif
-                    @else
-                        <div class="inline-flex w-full max-w-max cursor-pointer appearance-none items-center justify-between gap-x-1 rounded-md border border-transparent p-1.5 text-center text-gray-600 transition-all marker:shadow hover:bg-gray-200 active:border-gray-300 dark:text-gray-300 dark:hover:bg-gray-800">
-                            <i class="icon-down-stat text-2xl"></i>
-                        </div>
-                    @endif
-                </a>
+        @php
+            $storedMedia = $product[$attribute->code];
 
-                <input
-                    type="hidden"
-                    name="{{ $attribute->code }}"
-                    value="{{ $product[$attribute->code] }}"
-                />
-            @endif
+            $mediaRules = $storedMedia
+                ? preg_replace('/required:\s*true\s*,?\s*/', '', $attribute->validations)
+                : $attribute->validations;
 
-            <v-field
-                type="file"
-                class="w-full"
-                name="{{ $attribute->code }}"
-                :rules="{{ $attribute->validations }}"
-                v-slot="{ handleChange, handleBlur }"
-                label="{{ $attribute->admin_name }}"
-            >
-                <input
-                    type="file"
-                    id="{{ $attribute->code }}"
-                    :class="[errors['{{ $attribute->code }}'] ? 'border border-red-600 hover:border-red-600' : '']"
-                    class="w-full rounded-md border px-3 py-2.5 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:text-gray-300 dark:file:bg-gray-800 dark:file:dark:text-white dark:hover:border-gray-400 dark:focus:border-gray-400"
-                    name="{{ $attribute->code }}"
-                    @change="handleChange"
-                    @blur="handleBlur"
-                >
-            </v-field>
-        </div>
+            $mediaSource = $storedMedia && Storage::exists($storedMedia)
+                ? Storage::url($storedMedia)
+                : '';
 
-        @if ($product[$attribute->code])
-            <div class="mt-2.5 flex items-center gap-2.5">
-                <x-admin::form.control-group.control
-                    type="checkbox"
-                    :id="$attribute->code . '_delete'"
-                    :name="$attribute->code . '[delete]'"
-                    value="1"
-                    :for="$attribute->code . '_delete'"
-                />
+            $mediaDownloadUrl = $storedMedia
+                ? route('admin.catalog.products.file.download', [$product->id, $attribute->id])
+                : '';
+        @endphp
 
-                <label
-                    for="{{ $attribute->code . '_delete' }}"
-                    class="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-300"
-                >
-                    @lang('admin::app.catalog.products.edit.remove')
-                </label>
-            </div>
-        @endif
+        <x-admin::media.upload
+            name="{{ $attribute->code }}"
+            type="{{ $attribute->type }}"
+            value="{{ $storedMedia }}"
+            src="{{ $mediaSource }}"
+            download-url="{{ $mediaDownloadUrl }}"
+            ::rules="{{ $mediaRules }}"
+            extensions="{{ $attribute->type == 'image' ? 'bmp, jpeg, jpg, png, webp' : '' }}"
+            label="{{ $attribute->admin_name }}"
+            removable="{{ $attribute->is_required ? '0' : '1' }}"
+        />
 
         @break
 @endswitch

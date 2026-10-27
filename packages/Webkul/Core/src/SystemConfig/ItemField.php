@@ -7,19 +7,36 @@ use Illuminate\Support\Str;
 class ItemField
 {
     /**
+     * Rules Laravel applies on its own, which Vee Validate has no validator for.
+     */
+    const SERVER_ONLY_RULES = [
+        'nullable',
+        'sometimes',
+        'present',
+        'filled',
+        'bail',
+        'gte',
+        'lte',
+    ];
+
+    /**
      * Laravel to Vee Validation mappings.
      *
      * @var array
      */
     protected $veeValidateMappings = [
         'max' => [
-            'text'   => 'max',
+            'text' => 'max',
             'number' => 'max_value',
         ],
 
         'min' => [
-            'text'   => 'min',
+            'text' => 'min',
             'number' => 'min_value',
+        ],
+
+        'numeric' => [
+            'text' => 'decimal',
         ],
     ];
 
@@ -38,6 +55,7 @@ class ItemField
         public ?string $default,
         public ?bool $channel_based,
         public ?bool $locale_based,
+        public ?string $placeholder,
         public array|string $options,
         public bool $is_visible = true,
     ) {
@@ -94,6 +112,9 @@ class ItemField
 
     /**
      * Get validation of config item.
+     *
+     * These rules are read by Vee Validate in the browser, so the ones Laravel alone understands
+     * are dropped rather than passed on for it to refuse.
      */
     public function getValidations(): ?string
     {
@@ -101,15 +122,13 @@ class ItemField
             return '';
         }
 
-        foreach ($this->veeValidateMappings as $laravelRule => $veeValidateRule) {
-            if (! array_key_exists($this->getType(), $veeValidateRule)) {
-                continue;
-            }
+        $rules = collect(explode('|', $this->validation))
+            ->reject(fn ($rule) => in_array(Str::before($rule, ':'), self::SERVER_ONLY_RULES))
+            ->map(fn ($rule) => $this->toVeeValidateRule($rule))
+            ->filter()
+            ->all();
 
-            $this->validation = str_replace($laravelRule, $veeValidateRule[$this->getType()], $this->validation);
-        }
-
-        return $this->validation;
+        return implode('|', $rules);
     }
 
     /**
@@ -161,6 +180,14 @@ class ItemField
     }
 
     /**
+     * Get placeholder of config item.
+     */
+    public function getPlaceholder(): ?string
+    {
+        return $this->placeholder;
+    }
+
+    /**
      * Get options of config item.
      */
     public function getOptions(): array
@@ -184,18 +211,19 @@ class ItemField
     public function toArray()
     {
         return [
-            'name'          => $this->getName(),
-            'title'         => $this->getTitle(),
-            'info'          => $this->getInfo(),
-            'type'          => $this->getType(),
-            'path'          => $this->getPath(),
-            'depends'       => $this->getDepends(),
-            'validation'    => $this->getValidations(),
-            'default'       => $this->getDefault(),
+            'name' => $this->getName(),
+            'title' => $this->getTitle(),
+            'info' => $this->getInfo(),
+            'type' => $this->getType(),
+            'path' => $this->getPath(),
+            'depends' => $this->getDepends(),
+            'validation' => $this->getValidations(),
+            'default' => $this->getDefault(),
             'channel_based' => $this->getChannelBased(),
-            'locale_based'  => $this->getLocaleBased(),
-            'options'       => $this->getOptions(),
-            'item_key'      => $this->getItemKey(),
+            'locale_based' => $this->getLocaleBased(),
+            'placeholder' => $this->getPlaceholder(),
+            'options' => $this->getOptions(),
+            'item_key' => $this->getItemKey(),
         ];
     }
 
@@ -232,6 +260,32 @@ class ItemField
         $dependNameKey = $this->getItemKey().'.'.collect(explode(':', $depends))->first();
 
         return $this->getNameField($dependNameKey);
+    }
+
+    /**
+     * Get the values of the depend field that make this one visible.
+     */
+    public function getDependFieldValue(): string
+    {
+        if (empty($depends = $this->getDepends())) {
+            return '';
+        }
+
+        return (string) collect(explode(':', $depends))->last();
+    }
+
+    /**
+     * A single rule under the name Vee Validate knows it by.
+     */
+    protected function toVeeValidateRule(string $rule): string
+    {
+        $name = Str::before($rule, ':');
+
+        if (! array_key_exists($this->getType(), $this->veeValidateMappings[$name] ?? [])) {
+            return $rule;
+        }
+
+        return Str::replaceFirst($name, $this->veeValidateMappings[$name][$this->getType()], $rule);
     }
 
     /**

@@ -19,18 +19,18 @@
 
     <!-- Page Header -->
     <div class="flex flex-wrap">
-        <div class="flex w-full justify-between border border-b border-l-0 border-r-0 border-t-0 px-[60px] py-4 max-lg:px-8 max-md:px-4">
+        <div class="flex w-full justify-between border border-b border-l-0 border-r-0 border-t-0 px-15 py-4 max-lg:px-8 max-md:px-4">
             <div class="flex items-center gap-x-14 max-[1180px]:gap-x-9">
                 {!! view_render_event('bagisto.shop.checkout.cart.logo.before') !!}
 
                 <a
                     href="{{ route('shop.home.index') }}"
-                    class="flex min-h-[30px]"
+                    class="flex min-h-7.5"
                     aria-label="@lang('shop::app.checkout.cart.index.bagisto')"
                 >
                     <img
                         src="{{ core()->getCurrentChannel()->logo_url ?? bagisto_asset('images/logo.svg') }}"
-                        alt="{{ config('app.name') }}"
+                        alt="{{ core()->getCurrentChannel()->logo_alt ?: config('app.name') }}"
                         width="131"
                         height="29"
                     >
@@ -48,7 +48,7 @@
     {!! view_render_event('bagisto.shop.checkout.cart.header.after') !!}
 
     <div class="flex-auto">
-        <div class="container px-[60px] max-lg:px-8 max-md:px-4">
+        <div class="container px-15 max-lg:px-8 max-md:px-4">
 
             {!! view_render_event('bagisto.shop.checkout.cart.breadcrumbs.before') !!}
 
@@ -82,7 +82,7 @@
         <!-- Cross-sell Product Carousal -->
         <x-shop::products.carousel
             :title="trans('shop::app.checkout.cart.index.cross-sell.title')"
-            :src="route('shop.api.checkout.cart.cross-sell.index')"
+            :src="route('shop.api.checkout.cart.cross_sell.index')"
         >
         </x-shop::products.carousel>
 
@@ -103,7 +103,7 @@
                 <!-- Cart Information -->
                 <template v-else>
                     <div
-                        class="mt-8 flex flex-wrap gap-20 pb-8 max-1060:flex-col max-md:mt-0 max-md:gap-[30px] max-md:pb-0"
+                        class="mt-8 flex flex-wrap gap-20 pb-8 max-1060:flex-col max-md:mt-0 max-md:gap-7.5 max-md:pb-0"
                         v-if="cart?.items?.length"
                     >
                         <div class="flex flex-1 flex-col gap-6 max-md:gap-5">
@@ -149,7 +149,10 @@
                                         @lang('shop::app.checkout.cart.index.remove')
                                     </span>
 
-                                    @if (auth()->guard()->check())
+                                    @if (
+                                        auth()->guard()->check()
+                                        && core()->getConfigData('customer.settings.wishlist.wishlist_option')
+                                    )
                                         <span class="mx-2.5 border-r-2 border-zinc-200"></span>
 
                                         <span
@@ -196,11 +199,11 @@
                                         {!! view_render_event('bagisto.shop.checkout.cart.item_image.before') !!}
 
                                         <!-- Cart Item Image -->
-                                        <a :href="`{{ route('shop.product_or_category.index', '') }}/${item.product_url_key}`">
+                                        <a :href="'{{ route('shop.product_or_category.index', ':slug') }}'.replace(':slug', item.product_url_key)">
                                             <x-shop::media.images.lazy
-                                                class="h-[110px] max-w-[110px] rounded-xl max-md:h-20 max-md:max-w-20"
+                                                class="h-27.5 max-w-27.5 rounded-xl max-md:h-20 max-md:max-w-20"
                                                 ::src="item.base_image.small_image_url"
-                                                ::alt="item.name"
+                                                ::alt="item.base_image.alt"
                                                 width="110"
                                                 height="110"
                                                 ::key="item.id"
@@ -214,7 +217,7 @@
                                         <div class="grid place-content-start gap-y-2.5 max-md:gap-y-0">
                                             {!! view_render_event('bagisto.shop.checkout.cart.item_name.before') !!}
 
-                                            <a :href="`{{ route('shop.product_or_category.index', '') }}/${item.product_url_key}`">
+                                            <a :href="'{{ route('shop.product_or_category.index', ':slug') }}'.replace(':slug', item.product_url_key)">
                                                 <p class="text-base font-medium max-sm:text-sm">
                                                     @{{ item.name }}
                                                 </p>
@@ -318,10 +321,13 @@
                                             <div class="flex items-center gap-2.5 max-md:mt-2.5">
                                                 <x-shop::quantity-changer
                                                     v-if="item.can_change_qty"
+                                                    ::key="'qty-' + item.id + '-' + refreshKey"
                                                     class="flex max-w-max items-center gap-x-2.5 rounded-[54px] border border-navyBlue px-3.5 py-1.5 max-md:gap-x-1.5 max-md:px-1 max-md:py-0.5"
                                                     name="quantity"
                                                     ::value="item?.quantity"
+                                                    :removable="true"
                                                     @change="setItemQuantity(item.id, $event)"
+                                                    @remove="removeItem(item.id)"
                                                 />
 
                                                 <!-- For Mobile view Remove Button -->
@@ -432,7 +438,7 @@
                         v-else
                     >
                         <img
-                            class="max-md:h-[100px] max-md:w-[100px]"
+                            class="max-md:h-25 max-md:w-25"
                             src="{{ bagisto_asset('images/thank-you.png') }}"
                             alt="@lang('shop::app.checkout.cart.index.empty-product')"
                             loading="lazy"
@@ -456,6 +462,8 @@
 
                 data() {
                     return  {
+                        refreshKey: 0,
+
                         cart: [],
 
                         allSelected: false,
@@ -475,7 +483,7 @@
                         isLoading: true,
 
                         isStoring: false,
-                    }
+                    };
                 },
 
                 mounted() {
@@ -522,19 +530,41 @@
 
                         this.$axios.put('{{ route('shop.api.checkout.cart.update') }}', { qty: this.applied.quantity })
                             .then(response => {
-                                if (response.data.message) {
+                                if (response.data.data?.items !== undefined) {
                                     this.cart = response.data.data;
 
                                     this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
                                 } else {
-                                    this.$emitter.emit('add-flash', { type: 'warning', message: response.data.data.message });
+                                    /**
+                                     * On failure the endpoint returns `{ data: { message } }`
+                                     * — the server-thrown reason is inside `data`, not at
+                                     * the top level. Read from `data.message` first so the
+                                     * flash actually shows (e.g. "inventory-warning").
+                                     */
+                                    this.$emitter.emit('add-flash', {
+                                        type: 'warning',
+                                        message: response.data.data?.message || response.data.message,
+                                    });
                                 }
 
                                 this.isStoring = false;
 
+                                /**
+                                 * Bump the key to force the quantity-changers to
+                                 * remount from the server's current values. On a
+                                 * rejected update the `value` prop stays the same,
+                                 * so the component's internal watch never fires
+                                 * and the locally-incremented count would stick
+                                 * on screen otherwise.
+                                 */
+                                this.applied.quantity = {};
+                                this.refreshKey++;
                             })
                             .catch(error => {
                                 this.isStoring = false;
+
+                                this.applied.quantity = {};
+                                this.refreshKey++;
                             });
                     },
 

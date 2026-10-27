@@ -1,0 +1,91 @@
+<?php
+
+use Illuminate\Support\Facades\Storage;
+use Spatie\ResponseCache\Facades\ResponseCache;
+use Webkul\Theme\Models\Section;
+
+use function Pest\Laravel\get;
+
+/**
+ * Give the current channel a footer with the links provided.
+ */
+function makeFooterLinks(array $links): Section
+{
+    $channel = core()->getCurrentChannel();
+
+    Section::query()->where('type', Section::FOOTER_LINKS)->delete();
+
+    $section = Section::factory()->create([
+        'channel_id' => $channel->id,
+        'theme_code' => $channel->theme ?: 'default',
+        'type' => Section::FOOTER_LINKS,
+        'status' => 1,
+    ]);
+
+    $section->translateOrNew(app()->getLocale())->options = ['column_1' => $links];
+
+    $section->save();
+
+    return $section;
+}
+
+beforeEach(function () {
+    config(['responsecache.enabled' => false]);
+
+    ResponseCache::clear();
+
+    Storage::fake();
+});
+
+// ============================================================================
+// Footer Links
+// ============================================================================
+
+it('should resolve a footer link recorded as a path against the site serving the request', function () {
+    makeFooterLinks([
+        ['url' => 'page/about-us', 'title' => 'About Us'],
+    ]);
+
+    get(route('shop.home.index'))
+        ->assertOk()
+        ->assertSee('href="'.url('page/about-us').'"', false);
+});
+
+it('should leave a footer link to somewhere else exactly as it was entered', function (string $url) {
+    makeFooterLinks([
+        ['url' => $url, 'title' => 'Elsewhere'],
+    ]);
+
+    get(route('shop.home.index'))
+        ->assertOk()
+        ->assertSee('href="'.$url.'"', false);
+})->with([
+    'external https' => 'https://facebook.com/bagisto',
+    'external http' => 'http://twitter.com/bagisto',
+    'protocol relative' => '//cdn.example.com/promo',
+    'mail address' => 'mailto:hello@example.com',
+    'phone number' => 'tel:+1234567890',
+    'anchor' => '#top',
+]);
+
+it('should render internal and external footer links side by side', function () {
+    makeFooterLinks([
+        ['url' => 'page/about-us', 'title' => 'About Us'],
+        ['url' => 'https://facebook.com/bagisto', 'title' => 'Facebook'],
+    ]);
+
+    get(route('shop.home.index'))
+        ->assertOk()
+        ->assertSee('href="'.url('page/about-us').'"', false)
+        ->assertSee('href="https://facebook.com/bagisto"', false);
+});
+
+it('should still resolve a footer link recorded as a whole url before links became paths', function () {
+    makeFooterLinks([
+        ['url' => config('app.url').'/page/about-us', 'title' => 'About Us'],
+    ]);
+
+    get(route('shop.home.index'))
+        ->assertOk()
+        ->assertSee('href="'.config('app.url').'/page/about-us"', false);
+});

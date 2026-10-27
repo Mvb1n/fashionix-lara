@@ -2,7 +2,11 @@
 
 namespace Webkul\Shop\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\View\View;
+use Webkul\MagicAI\Facades\MagicAI;
 use Webkul\Marketing\Repositories\SearchTermRepository;
+use Webkul\Product\Enums\SearchContextEnum;
 use Webkul\Product\Repositories\SearchRepository;
 
 class SearchController extends Controller
@@ -20,25 +24,27 @@ class SearchController extends Controller
     /**
      * Index to handle the view loaded with the search results
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
         $this->validate(request(), [
-            'query' => ['sometimes', 'required', 'string', 'regex:/^[^\\\\]+$/u'],
+            'query' => ['sometimes', 'bail', 'required', 'string', 'regex:/^[^\\\\]+$/u'],
         ]);
-
-        $searchTerm = $this->searchTermRepository->findOneWhere([
-            'term'       => request()->query('query'),
-            'channel_id' => core()->getCurrentChannel()->id,
-            'locale'     => app()->getLocale(),
-        ]);
-
-        if ($searchTerm?->redirect_url) {
-            return redirect()->to($searchTerm->redirect_url);
-        }
 
         $query = request()->query('query');
+
+        if (is_string($query)) {
+            $searchTerm = $this->searchTermRepository->findOneWhere([
+                'term' => $query,
+                'channel_id' => core()->getCurrentChannel()->id,
+                'locale' => app()->getLocale(),
+            ]);
+
+            if ($searchTerm?->redirect_url) {
+                return redirect()->to($searchTerm->redirect_url);
+            }
+        }
 
         $suggestion = null;
 
@@ -46,37 +52,54 @@ class SearchController extends Controller
             ! request()->has('suggest')
             || request()->query('suggest') !== '0'
         ) {
-            $searchEngine = core()->getConfigData('catalog.products.search.engine') === 'elastic'
-                ? core()->getConfigData('catalog.products.search.storefront_mode')
-                : 'database';
-
             $suggestion = $this->searchRepository
-                ->setSearchEngine($searchEngine)
+                ->setSearchContext(SearchContextEnum::STOREFRONT)
                 ->getSuggestions($query);
         }
 
         return view('shop::search.index', [
-            'query'      => $query,
+            'query' => $query,
             'suggestion' => $suggestion,
-            'params'     => [
-                'sort'  => request()->query('sort'),
+            'params' => [
+                'sort' => request()->query('sort'),
                 'limit' => request()->query('limit'),
-                'mode'  => request()->query('mode'),
+                'mode' => request()->query('mode'),
             ],
         ]);
     }
 
     /**
-     * Upload image for product search with machine learning.
-     *
-     * @return string
+     * Upload image and analyze it for product search keywords.
      */
-    public function upload()
+    public function upload(): JsonResponse
     {
         request()->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
-        return $this->searchRepository->uploadSearchImage(request()->all());
+        $imageUrl = $this->searchRepository->uploadSearchImage(request()->all());
+
+        $keywords = '';
+
+        $useAi = core()->getConfigData('magic_ai.general.settings.enabled')
+            && core()->getConfigData('magic_ai.storefront_features.image_search.enabled');
+
+        if ($useAi) {
+            try {
+                $keywords = MagicAI::analyzeImage(
+                    request()->file('image')->getRealPath()
+                );
+            } catch (\Exception $e) {
+                report($e);
+
+                $useAi = false;
+            }
+        }
+
+        return response()->json([
+            'image_url' => $imageUrl,
+            'keywords' => $keywords,
+            'engine' => $useAi ? 'ai' : 'tensorflow',
+        ]);
     }
 }

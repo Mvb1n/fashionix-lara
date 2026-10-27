@@ -2,20 +2,16 @@
 
 namespace Webkul\Shop\Tests\Concerns;
 
-use Webkul\Customer\Contracts\Customer as CustomerContract;
-use Webkul\Faker\Helpers\Customer as CustomerFaker;
+use Webkul\Product\Tests\Concerns\ProductTestBench;
+use Webkul\Sales\Tests\Concerns\OrderTestBench;
 
 trait ShopTestBench
 {
-    /**
-     * Login as customer.
-     */
-    public function loginAsCustomer(?CustomerContract $customer = null): CustomerContract
-    {
-        $customer = $customer ?? (new CustomerFaker)->factory()->create();
-
-        $this->actingAs($customer);
-
-        return $customer;
-    }
+    use AssertionHelpers;
+    use AuthHelpers;
+    use CartHelpers;
+    use CheckoutHelpers;
+    use OrderTestBench;
+    use PricingHelpers;
+    use ProductTestBench;
 }

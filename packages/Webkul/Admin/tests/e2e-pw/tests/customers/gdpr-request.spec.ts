@@ -1,216 +1,90 @@
-import { test, expect } from "../../setup";
+import { test } from "../../setup";
 import { loginAsCustomer } from "../../utils/customer";
-import { generateDescription } from "../../utils/faker";
 import {
-    enableGDPR,
-    enableGDPRAgreement,
-    enableCookiesNotice,
-} from "../../utils/gdpr";
+    GDPRConfigurationPage,
+    type GdprSettings,
+} from "../../pages/admin/configuration/general/GDPRConfigurationPage";
+import { CustomerGDPRPage } from "../../pages/admin/customers/CustomerGDPRPage";
+import { uniqueStamp } from "../../utils/faker";
 
-test.describe("customer agreement configuration", () => {
+function getGdprRequestMessage(prefix: string): string {
+    return `${prefix} ${uniqueStamp()}`;
+}
+
+test.describe("gdpr request management", () => {
+    let gdprConfig: GDPRConfigurationPage;
+    let original: GdprSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        await enableGDPR(adminPage);
+        gdprConfig = new GDPRConfigurationPage(adminPage);
+        original = await gdprConfig.readSettings();
 
-        await enableGDPRAgreement(adminPage);
+        await gdprConfig.applySettings({ enabled: true });
+    });
 
-        await enableCookiesNotice(adminPage);
+    test.afterEach(async () => {
+        await gdprConfig.applySettings({ enabled: original.enabled });
     });
 
     test("should edit gdpr request state pending to processing", async ({
         adminPage,
     }) => {
-        /**
-         * Customer login.
-         */
+        const gdprPage = new CustomerGDPRPage(adminPage);
+
         await loginAsCustomer(adminPage);
-
-        await adminPage.goto("customer/account/gdpr");
-
-        /**
-         * Create GDPR request.
-         */
-        await adminPage.getByRole("button", { name: "Create Request" }).click();
-        await adminPage.locator('select[name="type"]').selectOption("update");
-        await adminPage.locator('textarea[name="message"]').click();
-        await adminPage
-            .locator('textarea[name="message"]')
-            .fill(generateDescription());
-        await adminPage.getByRole("button", { name: "Save" }).click();
-        await expect(adminPage.getByRole('paragraph').filter({ hasText: 'Request created successfully' })).toBeVisible({ timeout: 5000 });
-        await adminPage.locator(".icon-cancel").first().click();
-
-        /**
-         * GDPR request is pending.
-         */
-        await expect(adminPage.locator("#main")).toContainText("Pending");
-
-        /**
-         * Change state of GDPR request to processing.
-         */
-        await adminPage.goto("admin/customers/gdpr");
-        await adminPage.locator(".row > .flex > a").first().click();
-        await adminPage.waitForSelector("#status", { state: "visible" });
-        await adminPage.selectOption("#status", "processing");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-
-        /**
-         * Update the GDPR request (pending --> processing).
-         */
-        await adminPage.goto("customer/account/gdpr");
-        await expect(adminPage.locator("#main")).toContainText("Processing");
-        await expect(adminPage.locator("#main")).toContainText("Update");
+        const requestMessage = getGdprRequestMessage("Update request:");
+        await gdprPage.createRequest("update", requestMessage);
+        await gdprPage.expectRequestState(requestMessage, "Pending", "Update");
+        await gdprPage.updateRequestStatus(requestMessage, "processing");
+        await gdprPage.expectRequestState(
+            requestMessage,
+            "Processing",
+            "Update",
+        );
     });
 
     test("should edit gdpr request state processing to completed", async ({
         adminPage,
     }) => {
-        /**
-         * Customer login.
-         */
+        const gdprPage = new CustomerGDPRPage(adminPage);
+
         await loginAsCustomer(adminPage);
-
-        await adminPage.goto("customer/account/profile");
-
-        /**
-         * Create GDPR request.
-         */
-        await adminPage
-            .getByRole("link", { name: " GDPR Requests " })
-            .click();
-        await adminPage.getByRole("button", { name: "Create Request" }).click();
-        await adminPage.locator('select[name="type"]').selectOption("delete");
-        await adminPage.locator('textarea[name="message"]').click();
-        await adminPage
-            .locator('textarea[name="message"]')
-            .fill("Delete my last name - Verma");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-        await expect(adminPage.getByRole('paragraph').filter({ hasText: 'Request created successfully' })).toBeVisible();
-        await adminPage.locator(".icon-cancel").first().click();
-
-        /**
-         * Check request is pending.
-         */
-        await expect(adminPage.locator("#main")).toContainText("Pending");
-
-        /**
-         * Change state of GDPR request to processing.
-         */
-        await adminPage.goto("admin/customers/gdpr");
-        await adminPage.locator(".row > .flex > a").first().click();
-        await adminPage.waitForSelector("#status", { state: "visible" });
-        await adminPage.selectOption("#status", "processing");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-
-        /**
-         * Update the GDPR request (processing --> completed).
-         */
-        await adminPage.goto("customer/account/gdpr");
-        await expect(adminPage.locator("#main")).toContainText("Processing");
-        await expect(adminPage.locator("#main")).toContainText("Delete");
-
-        /**
-         * Change state of GDPR request to completed.
-         */
-        await adminPage.goto("admin/customers/gdpr");
-        await adminPage.locator(".row > .flex > a").first().click();
-        await adminPage.waitForSelector("#status", { state: "visible" });
-        await adminPage.selectOption("#status", "completed");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-
-        /**
-         * Update the GDPR request (processing --> completed).
-         */
-        await adminPage.goto("customer/account/gdpr");
-        await expect(adminPage.locator("#main")).toContainText("Completed");
-        await expect(adminPage.locator("#main")).toContainText("Delete");
-    });
-
-    test("should delete gdpr request", async ({ adminPage }) => {
-        /**
-         * Customer login.
-         */
-        await loginAsCustomer(adminPage);
-
-        await adminPage.goto("customer/account/profile");
-
-        /**
-         * Create GDPR request.
-         */
-        await adminPage
-            .getByRole("link", { name: " GDPR Requests " })
-            .click();
-        await adminPage.getByRole("button", { name: "Create Request" }).click();
-        await adminPage.locator('select[name="type"]').selectOption("update");
-        await adminPage.locator('textarea[name="message"]').click();
-        await adminPage
-            .locator('textarea[name="message"]')
-            .fill("Update Phone No.: 123456");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-        await expect(adminPage.getByRole('paragraph').filter({ hasText: 'Request created successfully' })).toBeVisible();
-        await adminPage.locator(".icon-cancel").first().click();
-
-        /**
-         * Check request is pending.
-         */
-        await expect(adminPage.locator("#main")).toContainText("Pending");
-
-        /**
-         * Verify the GDPR request.
-         */
-        await adminPage.goto("admin/customers/gdpr");
-        await adminPage
-            .locator(".row > .flex > a:nth-child(2)")
-            .first()
-            .click();
-        await adminPage
-            .getByRole("button", { name: "Agree", exact: true })
-            .click();
-        await adminPage.getByText("Data Request deleted").click();
-        await adminPage.goto("customer/account/gdpr");
-        await expect(adminPage.locator("#main")).not.toHaveText(
-            "Update Phone No.: 123456"
+        const requestMessage = getGdprRequestMessage("Delete request:");
+        await gdprPage.createRequest("delete", requestMessage);
+        await gdprPage.expectRequestState(requestMessage, "Pending", "Delete");
+        await gdprPage.updateRequestStatus(requestMessage, "processing");
+        await gdprPage.expectRequestState(
+            requestMessage,
+            "Processing",
+            "Delete",
+        );
+        await gdprPage.updateRequestStatus(requestMessage, "completed");
+        await gdprPage.expectRequestState(
+            requestMessage,
+            "Completed",
+            "Delete",
         );
     });
 
-    test("should decline gdpr request ", async ({ adminPage }) => {
-        /**
-         * Customer login.
-         */
+    test("should remove a gdpr request from the grid", async ({ adminPage }) => {
+        const gdprPage = new CustomerGDPRPage(adminPage);
+
         await loginAsCustomer(adminPage);
-        await adminPage.goto("customer/account/gdpr");
+        const requestMessage = getGdprRequestMessage("Delete request:");
+        await gdprPage.createRequest("update", requestMessage);
+        await gdprPage.expectRequestState(requestMessage, "Pending", "Update");
+        await gdprPage.deleteRequest(requestMessage);
+        await gdprPage.expectRequestAbsent(requestMessage);
+    });
 
-        /**
-         * Create GDPR request.
-         */
-        await adminPage.getByRole("button", { name: "Create Request" }).click();
-        await adminPage.locator('select[name="type"]').selectOption("update");
-        await adminPage.locator('textarea[name="message"]').click();
-        await adminPage
-            .locator('textarea[name="message"]')
-            .fill(generateDescription());
-        await adminPage.getByRole("button", { name: "Save" }).click();
-        await expect(adminPage.locator('#app')).toContainText('Request created successfully', { timeout: 5000 });
-        await adminPage.locator(".icon-cancel").first().click();
+    test("should mark a gdpr request as declined", async ({ adminPage }) => {
+        const gdprPage = new CustomerGDPRPage(adminPage);
 
-        /**
-         * Check request is pending.
-         */
-        await expect(adminPage.locator("#main")).toContainText("Pending");
-
-        /**
-         * Change state of GDPR request to declined.
-         */
-        await adminPage.goto("admin/customers/gdpr");
-        await adminPage.locator(".row > .flex > a").first().click();
-        await adminPage.waitForSelector("#status", { state: "visible" });
-        await adminPage.selectOption("#status", "declined");
-        await adminPage.getByRole("button", { name: "Save" }).click();
-
-        /**
-         * Update the GDPR request (pending --> declined).
-         */
-        await adminPage.goto("customer/account/gdpr");
-        await expect(adminPage.locator("#main")).toContainText("Declined");
-        await expect(adminPage.locator("#main")).toContainText("Update");
+        await loginAsCustomer(adminPage);
+        const requestMessage = getGdprRequestMessage("Decline request:");
+        await gdprPage.createRequest("update", requestMessage);
+        await gdprPage.expectRequestState(requestMessage, "Pending", "Update");
+        await gdprPage.updateRequestStatus(requestMessage, "declined");
+        await gdprPage.expectRequestState(requestMessage, "Declined", "Update");
     });
 });

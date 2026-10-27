@@ -9,8 +9,6 @@ class CustomerServiceProvider extends ServiceProvider
 {
     /**
      * Bootstrap application services.
-     *
-     * @param  \Illuminate\Routing\Router  $router
      */
     public function boot(): void
     {

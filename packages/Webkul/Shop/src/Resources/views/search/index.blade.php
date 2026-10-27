@@ -22,13 +22,13 @@
         {{ $title }}
     </x-slot>
 
-    <div class="container px-[60px] max-lg:px-8 max-sm:px-4">
+    <div class="container px-15 max-lg:px-8 max-sm:px-4">
         @if (request()->has('image-search'))
             @include('shop::search.images.results')
         @endif
 
         <div class="mt-8 flex items-center justify-between max-md:mt-5">
-            <h2 class="text-2xl font-medium max-sm:text-base">
+            <h2 class="break-all text-2xl font-medium max-sm:text-base">
                 <span v-text="'{{ preg_replace('/[,\\"\\\']+/', '', $title) }}'" ></span>
             </h2>
         </div>
@@ -36,7 +36,7 @@
         @if ($searchInstead)
             <form
                 action="{{ route('shop.search.index', ['suggest' => false]) }}"
-                class="flex max-w-[445px] items-center"
+                class="flex max-w-111.25 items-center"
                 role="search"
             >
                 <input
@@ -53,7 +53,10 @@
                     value="0"
                 >
 
-                <p class="mt-1 text-sm text-gray-600">
+                <p
+                    class="mt-1 text-sm text-gray-600"
+                    v-pre
+                >
                     {{ trans('shop::app.search.suggest') }}
 
                     <button
@@ -78,7 +81,7 @@
             type="text/x-template"
             id="v-search-template"
         >
-            <div class="container px-[60px] max-lg:px-8 max-sm:px-4">
+            <div class="container px-15 max-lg:px-8 max-sm:px-4">
                 <div class="flex items-start gap-10 max-lg:gap-5 md:mt-10">
                     <!-- Product Listing Filters -->
                     @include('shop::categories.filters')
@@ -113,7 +116,7 @@
                                 <template v-else>
                                     <div class="m-auto grid w-full place-content-center items-center justify-items-center py-32 text-center">
                                         <img
-                                            class="max-sm:h-[100px] max-sm:w-[100px]"
+                                            class="max-sm:h-25 max-sm:w-25"
                                             src="{{ bagisto_asset('images/thank-you.png') }}"
                                             alt="Empty result"
                                             loading="lazy"
@@ -156,7 +159,7 @@
                                 <template v-else>
                                     <div class="m-auto grid w-full place-content-center items-center justify-items-center py-32 text-center">
                                         <img
-                                            class="max-sm:h-[100px] max-sm:w-[100px]"
+                                            class="max-sm:h-25 max-sm:w-25"
                                             src="{{ bagisto_asset('images/thank-you.png') }}"
                                             alt="Empty result"
                                             loading="lazy"
@@ -176,7 +179,7 @@
 
                         <!-- Load More Button -->
                         <button
-                            class="secondary-button mx-auto mt-[60px] block w-max rounded-2xl px-11 py-3 text-center text-base max-md:rounded-lg max-md:text-sm max-sm:mt-7 max-sm:px-7 max-sm:py-2"
+                            class="secondary-button mx-auto mt-15 block w-max rounded-2xl px-11 py-3 text-center text-base max-md:rounded-lg max-md:text-sm max-sm:mt-7 max-sm:px-7 max-sm:py-2"
                             @click="loadMoreProducts"
                             v-if="links.next"
                         >

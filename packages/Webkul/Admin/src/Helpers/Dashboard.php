@@ -8,7 +8,6 @@ use Illuminate\Support\Collection;
 use Webkul\Admin\Helpers\Reporting\Customer;
 use Webkul\Admin\Helpers\Reporting\Product;
 use Webkul\Admin\Helpers\Reporting\Sale;
-use Webkul\Admin\Helpers\Reporting\Visitor;
 
 class Dashboard
 {
@@ -20,8 +19,7 @@ class Dashboard
     public function __construct(
         protected Sale $saleReporting,
         protected Product $productReporting,
-        protected Customer $customerReporting,
-        protected Visitor $visitorReporting
+        protected Customer $customerReporting
     ) {}
 
     /**
@@ -30,12 +28,12 @@ class Dashboard
     public function getOverAllStats(): array
     {
         return [
-            'total_customers'       => $this->customerReporting->getTotalCustomersProgress(),
-            'total_orders'          => $this->saleReporting->getTotalOrdersProgress(),
-            'total_sales'           => $this->saleReporting->getTotalSalesProgress(),
-            'avg_sales'             => $this->saleReporting->getAverageSalesProgress(),
+            'total_customers' => $this->customerReporting->getTotalCustomersProgress(),
+            'total_orders' => $this->saleReporting->getTotalOrdersProgress(),
+            'total_sales' => $this->saleReporting->getTotalSalesProgress(),
+            'avg_sales' => $this->saleReporting->getAverageSalesProgress(),
             'total_unpaid_invoices' => [
-                'total'           => $total = $this->saleReporting->getTotalPendingInvoicesAmount(),
+                'total' => $total = $this->saleReporting->getTotalPendingInvoicesAmount(),
                 'formatted_total' => core()->formatBasePrice($total),
             ],
         ];
@@ -50,34 +48,34 @@ class Dashboard
 
         $orders = $orders->map(function ($order) {
             return [
-                'id'                         => $order->id,
-                'increment_id'               => $order->id,
-                'status'                     => $order->status,
-                'status_label'               => $order->status_label,
-                'payment_method'             => core()->getConfigData('sales.payment_methods.'.$order->payment->method.'.title'),
-                'base_grand_total'           => $order->base_grand_total,
-                'formatted_base_grand_total' => core()->formatPrice($order->base_grand_total),
-                'channel_name'               => $order->channel_name,
-                'customer_email'             => $order->customer_email,
-                'customer_name'              => $order->customer_full_name,
-                'items'                      => view('admin::sales.orders.items', compact('order'))->render(),
-                'billing_address'            => $order?->billing_address->city.($order?->billing_address->country ? ', '.core()->country_name($order?->billing_address->country) : ''),
-                'created_at'                 => $order->created_at->format('d M Y, H:i:s'),
+                'id' => $order->id,
+                'increment_id' => $order->id,
+                'status' => $order->status,
+                'status_label' => $order->status_label,
+                'payment_method' => core()->getConfigData('sales.payment_methods.'.$order->payment->method.'.title'),
+                'base_grand_total' => $order->base_grand_total,
+                'formatted_base_grand_total' => core()->formatBasePrice($order->base_grand_total),
+                'channel_name' => $order->channel_name,
+                'customer_email' => $order->customer_email,
+                'customer_name' => $order->customer_full_name,
+                'items' => view('admin::sales.orders.items', compact('order'))->render(),
+                'billing_address' => $order?->billing_address->city.($order?->billing_address->country ? ', '.core()->countryName($order?->billing_address->country) : ''),
+                'created_at' => $order->created_at->format('d M Y, H:i:s'),
             ];
         });
 
         return [
-            'total_sales'     => $this->saleReporting->getTodaySalesProgress(),
-            'total_orders'    => $this->saleReporting->getTodayOrdersProgress(),
+            'total_sales' => $this->saleReporting->getTodaySalesProgress(),
+            'total_orders' => $this->saleReporting->getTodayOrdersProgress(),
             'total_customers' => $this->customerReporting->getTodayCustomersProgress(),
-            'orders'          => $orders,
+            'orders' => $orders,
         ];
     }
 
     /**
      * Returns the today statistics.
      *
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return EloquentCollection
      */
     public function getStockThresholdProducts()
     {
@@ -85,13 +83,13 @@ class Dashboard
 
         $products = $products->map(function ($product) {
             return [
-                'id'              => $product->product_id,
-                'sku'             => $product->product->sku,
-                'name'            => $product->product->name,
-                'price'           => $product->product->price,
-                'formatted_price' => core()->formatPrice($product->product->price),
-                'total_qty'       => $product->total_qty,
-                'image'           => $product->product->base_image_url,
+                'id' => $product->product_id,
+                'sku' => $product->product->sku,
+                'name' => $product->product->name,
+                'price' => $product->product->price,
+                'formatted_price' => core()->formatBasePrice($product->product->price),
+                'total_qty' => $product->total_qty,
+                'image' => $product->product->base_image_url,
             ];
         });
 
@@ -105,20 +103,8 @@ class Dashboard
     {
         return [
             'total_orders' => $this->saleReporting->getTotalOrdersProgress(),
-            'total_sales'  => $this->saleReporting->getTotalSalesProgress(),
-            'over_time'    => $this->saleReporting->getCurrentTotalSalesOverTime(),
-        ];
-    }
-
-    /**
-     * Returns visitors statistics.
-     */
-    public function getVisitorStats(): array
-    {
-        return [
-            'total'     => $this->visitorReporting->getTotalVisitorsProgress(),
-            'unique'    => $this->visitorReporting->getTotalUniqueVisitorsProgress(),
-            'over_time' => $this->visitorReporting->getCurrentTotalVisitorsOverTime(),
+            'total_sales' => $this->saleReporting->getTotalSalesProgress(),
+            'over_time' => $this->saleReporting->getCurrentTotalSalesOverTime(),
         ];
     }
 
@@ -169,6 +155,6 @@ class Dashboard
      */
     public function getDateRange(): string
     {
-        return $this->getStartDate()->format('d M').' - '.$this->getEndDate()->format('d M');
+        return $this->getStartDate()->translatedFormat('d M').' - '.$this->getEndDate()->translatedFormat('d M');
     }
 }

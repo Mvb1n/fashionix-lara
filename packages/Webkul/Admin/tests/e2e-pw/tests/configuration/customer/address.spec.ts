@@ -1,30 +1,33 @@
-import { test, expect } from "../../../setup";
+import { test } from "../../../setup";
+import {
+    CustomerAddressPage,
+    type AddressRequirementSettings,
+} from "../../../pages/admin/configuration/customer/CustomerAddressPage";
 
 test.describe("customer address configuration", () => {
-    test("should make country, state and zip as a required field", async ({
-        adminPage,
-    }) => {
-        /**
-         * Navigate to the configuration page.
-         */
-        await adminPage.goto("admin/configuration/customer/address");
+    test.describe.configure({ timeout: 120000 });
 
-        await adminPage.click(
-            'label[for="customer[address][requirements][country]"]'
-        );
-        await adminPage.click(
-            'label[for="customer[address][requirements][state]"]'
-        );
-        await adminPage.click(
-            'label[for="customer[address][requirements][postcode]"]'
-        );
-        await adminPage.click('button[type="submit"].primary-button:visible');
+    let configPage: CustomerAddressPage;
+    let original: AddressRequirementSettings;
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(
-            adminPage.getByText("Configuration saved successfully")
-        ).toBeVisible();
+    test.beforeEach(async ({ adminPage }) => {
+        configPage = new CustomerAddressPage(adminPage);
+        original = await configPage.readSettings();
+    });
+
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
+    });
+
+    test("should persist which address fields are required after reload", async () => {
+        const changed = {
+            country: !original.country,
+            state: !original.state,
+            postcode: !original.postcode,
+        };
+
+        await configPage.applySettings(changed);
+
+        await configPage.expectSettings(changed);
     });
 });

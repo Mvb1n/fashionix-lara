@@ -3,6 +3,8 @@
 namespace Webkul\CartRule\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Webkul\CartRule\Listeners\Cart;
+use Webkul\CartRule\Listeners\Order;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -12,12 +14,12 @@ class EventServiceProvider extends ServiceProvider
      * @var array
      */
     protected $listen = [
-        'checkout.order.save.after'           => [
-            'Webkul\CartRule\Listeners\Order@manageCartRule',
+        'checkout.order.save.after' => [
+            [Order::class, 'manageCartRule'],
         ],
 
         'checkout.cart.collect.totals.before' => [
-            'Webkul\CartRule\Listeners\Cart@applyCartRules',
+            [Cart::class, 'applyCartRules'],
         ],
     ];
 }

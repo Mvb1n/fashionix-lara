@@ -6,9 +6,11 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Webkul\CartRule\Exceptions\CouponUsageLimitExceededException;
 use Webkul\Core\Eloquent\Repository;
 use Webkul\Product\Repositories\ProductCustomizableOptionRepository;
 use Webkul\Sales\Contracts\Order as OrderContract;
+use Webkul\Sales\Exceptions\InsufficientInventoryException;
 use Webkul\Sales\Generators\OrderSequencer;
 use Webkul\Sales\Models\Order;
 
@@ -39,10 +41,12 @@ class OrderRepository extends Repository
     /**
      * This method will try attempt to a create order.
      *
-     * @return \Webkul\Sales\Contracts\Order
+     * @return OrderContract
      */
-    public function createOrderIfNotThenRetry(array $data)
+    public function createOrderIfNotThenRetry(array $data, int $attempt = 1, ?int $maxAttempts = null)
     {
+        $maxAttempts = $maxAttempts ?? core()->getConfigData('sales.order_settings.order_creation.max_retry_attempts') ?? 3;
+
         DB::beginTransaction();
 
         try {
@@ -81,21 +85,35 @@ class OrderRepository extends Repository
             }
 
             Event::dispatch('checkout.order.save.after', $order);
+
+            DB::commit();
         } catch (\Exception $e) {
-            /* rolling back first */
             DB::rollBack();
+
+            /**
+             * Do not retry when coupon usage limits are exceeded — this is a
+             * definitive business-logic failure, not a transient DB error.
+             */
+            if (
+                $e instanceof CouponUsageLimitExceededException
+                || $e instanceof InsufficientInventoryException
+            ) {
+                throw $e;
+            }
 
             /* storing log for errors */
             Log::error(
                 'OrderRepository:createOrderIfNotThenRetry: '.$e->getMessage(),
-                ['data' => $data]
+                ['data' => $data, 'attempt' => $attempt, 'max_attempts' => $maxAttempts]
             );
 
-            /* recalling */
-            return $this->createOrderIfNotThenRetry($data);
-        } finally {
-            /* commit in each case */
-            DB::commit();
+            /* recalling if max attempts not reached */
+            if ($attempt < $maxAttempts) {
+                return $this->createOrderIfNotThenRetry($data, $attempt + 1, $maxAttempts);
+            }
+
+            /* rethrow the exception if max attempts reached */
+            throw $e;
         }
 
         return $order;
@@ -104,7 +122,7 @@ class OrderRepository extends Repository
     /**
      * Create order.
      *
-     * @return \Webkul\Sales\Contracts\Order
+     * @return OrderContract
      */
     public function create(array $data)
     {
@@ -114,23 +132,26 @@ class OrderRepository extends Repository
     /**
      * Cancel order. This method should be independent as admin also can cancel the order.
      *
-     * @param  \Webkul\Sales\Models\Order|int  $orderOrId
+     * @param  Order|int  $orderOrId
+     * @param  bool  $force  When true, customer-facing cancellation policies
+     *                       (currently the booking `allow_cancellation` flag)
+     *                       are ignored. Intended for admin overrides.
      * @return bool
      */
-    public function cancel($orderOrId)
+    public function cancel($orderOrId, bool $force = false)
     {
         /* order */
         $order = $this->resolveOrderInstance($orderOrId);
 
         /* check wether order can be cancelled or not */
-        if (! $order->canCancel()) {
+        if (! $order->canCancel($force)) {
             return false;
         }
 
         Event::dispatch('sales.order.cancel.before', $order);
 
         foreach ($order->items as $item) {
-            if (! $item->qty_to_cancel) {
+            if (! $item->canCancel($force)) {
                 continue;
             }
 
@@ -187,7 +208,7 @@ class OrderRepository extends Repository
     /**
      * Is order in completed state.
      *
-     * @param  \Webkul\Sales\Contracts\Order  $order
+     * @param  OrderContract  $order
      * @return bool
      */
     public function isInCompletedState($order)
@@ -252,7 +273,7 @@ class OrderRepository extends Repository
     /**
      * Is order in cancelled state.
      *
-     * @param  \Webkul\Sales\Contracts\Order  $order
+     * @param  OrderContract  $order
      * @return bool
      */
     public function isInCanceledState($order)
@@ -289,7 +310,7 @@ class OrderRepository extends Repository
     /**
      * Update order status.
      *
-     * @param  \Webkul\Sales\Contracts\Order  $order
+     * @param  OrderContract  $order
      * @param  string  $orderState
      * @return void
      */
@@ -323,7 +344,7 @@ class OrderRepository extends Repository
     /**
      * Collect totals.
      *
-     * @param  \Webkul\Sales\Contracts\Order  $order
+     * @param  OrderContract  $order
      * @return mixed
      */
     public function collectTotals($order)
@@ -386,8 +407,8 @@ class OrderRepository extends Repository
     /**
      * This method will find order if id is given else pass the order as it is.
      *
-     * @param  \Webkul\Sales\Models\Order|int  $orderOrId
-     * @return \Webkul\Sales\Contracts\Order
+     * @param  Order|int  $orderOrId
+     * @return OrderContract
      */
     protected function resolveOrderInstance($orderOrId)
     {

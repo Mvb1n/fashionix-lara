@@ -1,0 +1,84 @@
+name: Pest Tests
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  pest_tests:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        php: ['8.4']
+        db: [mysql, mariadb, pgsql]
+        include:
+          - db: mysql
+            db-label: MySQL
+            db-image: mysql:8.0
+            db-port: 3306
+            db-user: root
+            db-password: root
+            db-health: mysqladmin ping
+            php-db-ext: pdo_mysql
+
+          - db: mariadb
+            db-label: MariaDB
+            db-image: mariadb:10.11
+            db-port: 3306
+            db-user: root
+            db-password: root
+            db-health: healthcheck.sh --connect --innodb_initialized
+            php-db-ext: pdo_mysql
+
+          - db: pgsql
+            db-label: PostgreSQL
+            db-image: postgres:16
+            db-port: 5432
+            db-user: postgres
+            db-password: postgres
+            db-health: pg_isready
+            php-db-ext: pdo_pgsql
+
+    name: PHP ${{ matrix.php }} - ${{ matrix.db-label }}
+
+    services:
+      database:
+        image: ${{ matrix.db-image }}
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ matrix.db-password }}
+          MYSQL_DATABASE: bagisto
+          POSTGRES_USER: ${{ matrix.db-user }}
+          POSTGRES_PASSWORD: ${{ matrix.db-password }}
+          POSTGRES_DB: bagisto
+        ports:
+          - ${{ matrix.db-port }}
+        options: --health-cmd="${{ matrix.db-health }}" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, fileinfo, gd, intl, mbstring, openssl, pdo, ${{ matrix.php-db-ext }}, tokenizer, zip
+          ini-values: error_reporting=E_ALL
+          tools: composer:v2
+
+      - name: Setup Bagisto
+        uses: ./.github/actions/setup-bagisto
+        with:
+          db-connection: ${{ matrix.db }}
+          db-port: ${{ job.services.database.ports[matrix.db-port] }}
+          db-username: ${{ matrix.db-user }}
+          db-password: ${{ matrix.db-password }}
+          app-env: testing
+          app-debug: "true"
+
+      - name: Run Pest Tests
+        run: vendor/bin/pest --colors=always

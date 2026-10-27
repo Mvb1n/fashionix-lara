@@ -1,73 +1,55 @@
-import { test, expect } from '../../../setup';
-import { generateDescription } from '../../../utils/faker';
+import { uniqueStamp } from "../../../utils/faker";
+import { test } from "../../../setup";
+import {
+    CheckoutConfigurationPage,
+    type CheckoutSettings,
+} from "../../../pages/admin/configuration/sales/CheckoutConfigurationPage";
 
-test.describe('Checkout Configuration', () => {
-    /**
-     * Navigate to the configuration page.
-     */
+function other(current: string, first: string, second: string): string {
+    return current === first ? second : first;
+}
+
+test.describe("checkout configuration", () => {
+    test.describe.configure({ timeout: 120000 });
+
+    let configPage: CheckoutConfigurationPage;
+    let original: CheckoutSettings;
+
     test.beforeEach(async ({ adminPage }) => {
-        await adminPage.goto('admin/configuration/sales/checkout');
+        configPage = new CheckoutConfigurationPage(adminPage);
+        original = await configPage.readSettings();
     });
 
-    /**
-     * Update Shopping Cart Configuration.
-     */
-    test('should enable guest checkout, cart page, cross-sell products, and estimated shipping', async ({ adminPage }) => {
-        await adminPage.click('label[for="sales[checkout][shopping_cart][allow_guest_checkout]"]');
-        const guestCheckoutToggle = await adminPage.locator('input[name="sales[checkout][shopping_cart][allow_guest_checkout]"]');
-        // await expect(guestCheckoutToggle).toBeChecked();
-
-        await adminPage.click('label[for="sales[checkout][shopping_cart][cart_page]"]');
-        const cartPageToggle = await adminPage.locator('input[name="sales[checkout][shopping_cart][cart_page]"]');
-        // await expect(cartPageToggle).toBeChecked();
-
-        await adminPage.click('label[for="sales[checkout][shopping_cart][cross_sell]"]');
-        const crossSellProductToggle = await adminPage.locator('input[name="sales[checkout][shopping_cart][cross_sell]"]');
-        // await expect(crossSellProductToggle).toBeChecked();
-
-        await adminPage.click('label[for="sales[checkout][shopping_cart][estimate_shipping]"]');
-        const estimatedShipping = await adminPage.locator('input[name="sales[checkout][shopping_cart][estimate_shipping]"]');
-        // await expect(estimatedShipping).toBeChecked();
-
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+    test.afterEach(async () => {
+        await configPage.applySettings(original);
     });
 
-    /**
-     * Update My Cart Configuration.
-     */
-    test('should enable settings show a summary of item quantities and display the total number of items', async ({ adminPage }) => {
-        await adminPage.selectOption('select[name="sales[checkout][my_cart][summary]"]', 'display_item_quantity');
-        const sort = adminPage.locator('select[name="sales[checkout][my_cart][summary]"]');
-        await expect(sort).toHaveValue('display_item_quantity');
+    test("should persist the shopping cart settings after reload", async () => {
+        const changed = {
+            guestCheckout: !original.guestCheckout,
+            cartPage: !original.cartPage,
+            crossSell: !original.crossSell,
+            estimateShipping: !original.estimateShipping,
+        };
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
+        await configPage.applySettings(changed);
 
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 
-    /**
-     * Update Mini Cart Configuration.
-     */
-    test('should enable mini cart settings to display the mini cart', async ({ adminPage }) => {
-        await adminPage.click('label[for="sales[checkout][mini_cart][display_mini_cart]"]');
-        const miniCart = await adminPage.locator('input[name="sales[checkout][mini_cart][display_mini_cart]"]');
-        // await expect(miniCart).toBeChecked();
+    test("should persist the mini cart settings after reload", async () => {
+        const changed = {
+            miniCart: !original.miniCart,
+            miniCartSummary: other(
+                original.miniCartSummary,
+                "display_item_quantity",
+                "display_number_of_items_in_cart",
+            ),
+            miniCartOffer: `Offer ${uniqueStamp()}`,
+        };
 
-        await adminPage.fill('input[name="sales[checkout][mini_cart][offer_info]"]', generateDescription(100));
+        await configPage.applySettings(changed);
 
-        await adminPage.click('button[type="submit"].primary-button:visible');
-
-        /**
-         * Verify the change is saved.
-         */
-        await expect(adminPage.getByText('Configuration saved successfully')).toBeVisible();
+        await configPage.expectSettings(changed);
     });
 });

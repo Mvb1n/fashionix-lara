@@ -1,23 +1,17 @@
-export async function loginAsAdmin(page) {
-    /**
-     * Admin credentials.
-     */
+import type { Page } from "@playwright/test";
+import { env } from "./env";
+
+export async function loginAsAdmin(page: Page) {
     const adminCredentials = {
-        email: "admin@example.com",
-        password: "admin123",
+        email: env.adminEmail,
+        password: env.adminPassword,
     };
 
-    /**
-     * Authenticate the admin user.
-     */
     await page.goto("admin/login");
     await page.fill('input[name="email"]', adminCredentials.email);
     await page.fill('input[name="password"]', adminCredentials.password);
     await page.press('input[name="password"]', "Enter");
 
-    /**
-     * Wait for the dashboard to load.
-     */
     await page.waitForURL("**/admin/dashboard");
 
     return adminCredentials;

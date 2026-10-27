@@ -4,9 +4,11 @@ namespace Webkul\Shop\Http\Controllers\API;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Webkul\CartRule\Repositories\CartRuleCouponRepository;
 use Webkul\Checkout\Facades\Cart;
 use Webkul\Checkout\Models\CartAddress;
+use Webkul\Product\Exceptions\InsufficientProductInventoryException;
 use Webkul\Product\Repositories\ProductRepository;
 use Webkul\Shipping\Facades\Shipping;
 use Webkul\Shop\Http\Resources\CartResource;
@@ -29,6 +31,14 @@ class CartController extends APIController
      */
     public function index(): JsonResource
     {
+        /**
+         * Skip the totals recalculation when there is no cart - there is
+         * nothing to collect and the empty response is the same either way.
+         */
+        if (! Cart::getCart()) {
+            return new JsonResource(['data' => null]);
+        }
+
         Cart::collectTotals();
 
         $response = [
@@ -50,7 +60,11 @@ class CartController extends APIController
         $this->validate(request(), [
             'product_id' => 'required|integer|exists:products,id',
             'is_buy_now' => 'integer|in:0,1',
-            'quantity'   => 'integer|min:1',
+            'quantity' => 'integer|min:1',
+            'qty' => 'array',
+            'qty.*' => 'integer|min:0',
+            'bundle_option_qty' => 'array',
+            'bundle_option_qty.*' => 'integer|min:1',
         ]);
 
         $product = $this->productRepository->with('parent')->findOrFail(request()->input('product_id'));
@@ -62,7 +76,7 @@ class CartController extends APIController
 
             $response = [];
 
-            if (request()->get('is_buy_now')) {
+            if (request()->input('is_buy_now')) {
                 Cart::deActivateCart();
 
                 $response['redirect'] = route('shop.checkout.onepage.index');
@@ -71,13 +85,17 @@ class CartController extends APIController
             $cart = Cart::addProduct($product, request()->all());
 
             return new JsonResource(array_merge([
-                'data'    => new CartResource($cart),
+                'data' => new CartResource($cart),
                 'message' => trans('shop::app.checkout.cart.item-add-to-cart'),
             ], $response));
+        } catch (InsufficientProductInventoryException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
         } catch (\Exception $exception) {
             return response()->json([
                 'redirect_uri' => route('shop.product_or_category.index', $product->url_key),
-                'message'      => $exception->getMessage(),
+                'message' => $exception->getMessage(),
             ], Response::HTTP_BAD_REQUEST);
         }
     }
@@ -96,13 +114,13 @@ class CartController extends APIController
         Cart::collectTotals();
 
         return new JsonResource([
-            'data'    => new CartResource(Cart::getCart()),
+            'data' => new CartResource(Cart::getCart()),
             'message' => trans('shop::app.checkout.cart.success-remove'),
         ]);
     }
 
     /**
-     * Method for remove selected items from cart
+     * Method for remove selected items from cart.
      */
     public function destroySelected(): JsonResource
     {
@@ -110,26 +128,41 @@ class CartController extends APIController
             Cart::removeItem($id);
         }
 
+        Cart::collectTotals();
+
         return new JsonResource([
-            'data'     => new CartResource(Cart::getCart()) ?? null,
-            'message'  => trans('shop::app.checkout.cart.index.remove-selected-success'),
+            'data' => new CartResource(Cart::getCart()) ?? null,
+            'message' => trans('shop::app.checkout.cart.index.remove-selected-success'),
         ]);
     }
 
     /**
-     * Method for move to wishlist selected items from cart
+     * Method for move to wishlist selected items from cart.
      */
     public function moveToWishlist(): JsonResource
     {
+        if (! core()->getConfigData('customer.settings.wishlist.wishlist_option')) {
+            abort(403, trans('shop::app.errors.403.title'));
+        }
+
+        $this->validate(request(), [
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'qty' => 'required|array',
+            'qty.*' => 'integer|min:1',
+        ]);
+
         foreach (request()->input('ids') as $index => $id) {
             $qty = request()->input('qty')[$index];
 
             Cart::moveToWishlist($id, $qty);
         }
 
+        Cart::collectTotals();
+
         return new JsonResource([
-            'data'     => new CartResource(Cart::getCart()) ?? null,
-            'message'  => trans('shop::app.checkout.cart.index.move-to-wishlist-success'),
+            'data' => new CartResource(Cart::getCart()) ?? null,
+            'message' => trans('shop::app.checkout.cart.index.move-to-wishlist-success'),
         ]);
     }
 
@@ -138,11 +171,18 @@ class CartController extends APIController
      */
     public function update(): JsonResource
     {
+        $this->validate(request(), [
+            'qty' => 'present|array',
+            'qty.*' => 'required|integer|min:0',
+        ]);
+
         try {
             Cart::updateItems(request()->input());
 
+            Cart::collectTotals();
+
             return new JsonResource([
-                'data'    => new CartResource(Cart::getCart()),
+                'data' => new CartResource(Cart::getCart()),
                 'message' => trans('shop::app.checkout.cart.index.quantity-update'),
             ]);
         } catch (\Exception $exception) {
@@ -153,24 +193,24 @@ class CartController extends APIController
     }
 
     /**
-     * Estimate Shipping and Tax amount
+     * Estimate Shipping and Tax amount.
      */
     public function estimateShippingMethods(): JsonResource
     {
         $this->validate(request(), [
-            'country'         => 'required',
-            'state'           => 'required',
-            'postcode'        => 'required',
+            'country' => 'required',
+            'state' => 'required',
+            'postcode' => 'required',
             'shipping_method' => 'sometimes|required',
         ]);
 
         $cart = Cart::getCart();
 
         $address = (new CartAddress)->fill([
-            'country'  => request()->input('country'),
-            'state'    => request()->input('state'),
+            'country' => request()->input('country'),
+            'state' => request()->input('state'),
             'postcode' => request()->input('postcode'),
-            'cart_id'  => $cart->id,
+            'cart_id' => $cart->id,
         ]);
 
         $cart->setRelation('billing_address', $address);
@@ -188,8 +228,8 @@ class CartController extends APIController
         $cartResource = (new CartResource(Cart::getCart()))->jsonSerialize();
 
         return new JsonResource([
-            'data'     => [
-                'cart'             => $cartResource,
+            'data' => [
+                'cart' => $cartResource,
                 'shipping_methods' => array_values(Shipping::collectRates()['shippingMethods']),
             ],
         ]);
@@ -210,16 +250,16 @@ class CartController extends APIController
 
                 if (! $coupon) {
                     return (new JsonResource([
-                        'data'     => new CartResource(Cart::getCart()),
-                        'message'  => trans('shop::app.checkout.coupon.invalid'),
+                        'data' => new CartResource(Cart::getCart()),
+                        'message' => trans('shop::app.checkout.coupon.invalid'),
                     ]))->response()->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
                 if ($coupon->cart_rule->status) {
                     if (Cart::getCart()->coupon_code == $coupon->code) {
                         return (new JsonResource([
-                            'data'     => new CartResource(Cart::getCart()),
-                            'message'  => trans('shop::app.checkout.coupon.already-applied'),
+                            'data' => new CartResource(Cart::getCart()),
+                            'message' => trans('shop::app.checkout.coupon.already-applied'),
                         ]))->response()->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
                     }
 
@@ -227,20 +267,20 @@ class CartController extends APIController
 
                     if (Cart::getCart()->coupon_code == $coupon->code) {
                         return new JsonResource([
-                            'data'     => new CartResource(Cart::getCart()),
-                            'message'  => trans('shop::app.checkout.coupon.success-apply'),
+                            'data' => new CartResource(Cart::getCart()),
+                            'message' => trans('shop::app.checkout.coupon.success-apply'),
                         ]);
                     }
                 }
 
                 return (new JsonResource([
-                    'data'     => new CartResource(Cart::getCart()),
-                    'message'  => trans('Coupon not found.'),
+                    'data' => new CartResource(Cart::getCart()),
+                    'message' => trans('shop::app.checkout.coupon.apply-issue'),
                 ]))->response()->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         } catch (\Exception $e) {
             return (new JsonResource([
-                'data'    => new CartResource(Cart::getCart()),
+                'data' => new CartResource(Cart::getCart()),
                 'message' => trans('shop::app.checkout.coupon.error'),
             ]))->response()->setStatusCode(Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -254,15 +294,15 @@ class CartController extends APIController
         Cart::removeCouponCode()->collectTotals();
 
         return new JsonResource([
-            'data'     => new CartResource(Cart::getCart()),
-            'message'  => trans('shop::app.checkout.coupon.remove'),
+            'data' => new CartResource(Cart::getCart()),
+            'message' => trans('shop::app.checkout.coupon.remove'),
         ]);
     }
 
     /**
      * Cross-sell product listings.
      *
-     * @return \Illuminate\Http\Resources\Json\JsonResource::collection
+     * @return JsonResource::collection
      */
     public function crossSellProducts()
     {
@@ -276,11 +316,14 @@ class CartController extends APIController
 
         $productIds = $cart->items->pluck('product_id')->toArray();
 
+        $crossSellIds = DB::table('product_cross_sells')
+            ->whereIn('parent_id', $productIds)
+            ->whereNotIn('child_id', $productIds)
+            ->distinct()
+            ->pluck('child_id');
+
         $products = $this->productRepository
-            ->select('products.*', 'product_cross_sells.child_id')
-            ->join('product_cross_sells', 'products.id', '=', 'product_cross_sells.child_id')
-            ->whereIn('product_cross_sells.parent_id', $productIds)
-            ->groupBy('product_cross_sells.child_id')
+            ->whereIn('products.id', $crossSellIds)
             ->take(core()->getConfigData('catalog.products.cart_view_page.no_of_cross_sells_products'))
             ->get();
 

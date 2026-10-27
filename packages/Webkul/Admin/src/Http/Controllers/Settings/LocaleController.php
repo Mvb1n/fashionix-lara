@@ -3,9 +3,12 @@
 namespace Webkul\Admin\Http\Controllers\Settings;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Event;
+use Illuminate\View\View;
 use Webkul\Admin\DataGrids\Settings\LocalesDataGrid;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Core\Repositories\LocaleRepository;
+use Webkul\Core\Rules\Code;
 
 class LocaleController extends Controller
 {
@@ -19,7 +22,7 @@ class LocaleController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function index()
     {
@@ -36,19 +39,23 @@ class LocaleController extends Controller
     public function store(): JsonResponse
     {
         $this->validate(request(), [
-            'code'        => ['required', 'unique:locales,code', new \Webkul\Core\Rules\Code],
-            'name'        => 'required',
-            'direction'   => 'required|in:ltr,rtl',
-            'logo_path'   => 'array',
+            'code' => ['required', 'unique:locales,code', new Code],
+            'name' => 'required',
+            'direction' => 'required|in:ltr,rtl',
+            'logo_path' => 'array',
             'logo_path.*' => 'image|extensions:jpeg,jpg,png,svg,webp',
         ]);
 
-        $this->localeRepository->create(request()->only([
+        Event::dispatch('core.locale.create.before');
+
+        $locale = $this->localeRepository->create(request()->only([
             'code',
             'name',
             'direction',
             'logo_path',
         ]));
+
+        Event::dispatch('core.locale.create.after', $locale);
 
         return new JsonResponse([
             'message' => trans('admin::app.settings.locales.index.create-success'),
@@ -73,17 +80,21 @@ class LocaleController extends Controller
     public function update(): JsonResponse
     {
         $this->validate(request(), [
-            'name'        => 'required',
-            'direction'   => 'required|in:ltr,rtl',
-            'logo_path'   => 'array',
+            'name' => 'required',
+            'direction' => 'required|in:ltr,rtl',
+            'logo_path' => 'array',
             'logo_path.*' => 'image|extensions:jpeg,jpg,png,svg,webp',
         ]);
 
-        $this->localeRepository->update(request()->only([
+        Event::dispatch('core.locale.update.before', request()->id);
+
+        $locale = $this->localeRepository->update(request()->only([
             'name',
             'direction',
             'logo_path',
         ]), request()->id);
+
+        Event::dispatch('core.locale.update.after', $locale);
 
         return new JsonResponse([
             'message' => trans('admin::app.settings.locales.index.update-success'),
@@ -95,16 +106,16 @@ class LocaleController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $locale = $this->localeRepository->findOrFail($id);
+        $this->localeRepository->findOrFail($id);
 
-        if ($locale->count() == 1) {
+        if ($this->localeRepository->count() == 1) {
             return response()->json([
                 'message' => trans('admin::app.settings.locales.index.last-delete-error'),
             ], 400);
         }
 
         try {
-            $locale->delete($id);
+            $this->localeRepository->delete($id);
 
             return new JsonResponse([
                 'message' => trans('admin::app.settings.locales.index.delete-success'),

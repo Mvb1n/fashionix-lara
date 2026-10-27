@@ -43,7 +43,7 @@
             <x-shop::form.control-group class="mt-4">
                 <x-shop::form.control-group.control
                     type="image"
-                    class="max-md:[&>*]:[&>*]:rounded-full mb-0 rounded-xl !p-0 text-gray-700 max-md:grid max-md:justify-center"
+                    class="max-md:[&>*]:[&>*]:rounded-full mb-0 rounded-xl p-0! text-gray-700 max-md:grid max-md:justify-center"
                     name="image[]"
                     :label="trans('Image')"
                     :is-multiple="false"
@@ -103,7 +103,7 @@
                 </x-shop::form.control-group.label>
 
                 <x-shop::form.control-group.control
-                    type="text"
+                    type="email"
                     name="email"
                     rules="required|email"
                     :value="old('email') ?? $customer->email"
@@ -178,7 +178,7 @@
                 <x-shop::form.control-group.control
                     type="date"
                     name="date_of_birth"
-                    :value="old('date_of_birth') ?? $customer->date_of_birth"
+                    :value="old('date_of_birth') ?? $customer->date_of_birth?->format('Y-m-d')"
                     :label="trans('shop::app.customers.account.profile.edit.dob')"
                     :placeholder="trans('shop::app.customers.account.profile.edit.dob')"
                 />
@@ -251,12 +251,12 @@
                     type="checkbox"
                     name="subscribed_to_news_letter"
                     id="is-subscribed"
-                    class="peer hidden"
+                    class="peer sr-only"
                     @checked($customer->subscribed_to_news_letter)
                 />
 
                 <label
-                    class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue"
+                    class="icon-uncheck peer-checked:icon-check-box cursor-pointer text-2xl text-navyBlue peer-checked:text-navyBlue peer-focus-visible:ring-2 peer-focus-visible:ring-navyBlue peer-focus-visible:ring-offset-2 peer-focus-visible:outline-hidden rounded"
                     for="is-subscribed"
                 ></label>
 

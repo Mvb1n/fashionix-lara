@@ -3,11 +3,17 @@
 namespace Webkul\Shop\Http\Controllers\Customer;
 
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Contracts\Auth\CanResetPassword;
+use Illuminate\Contracts\Auth\PasswordBroker;
 use Illuminate\Foundation\Auth\ResetsPasswords;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
+use Webkul\Core\Helpers\SessionPurger;
 use Webkul\Customer\Repositories\CustomerRepository;
 use Webkul\Shop\Http\Controllers\Controller;
 
@@ -28,7 +34,7 @@ class ResetPasswordController extends Controller
      * If no token is present, display the link request form.
      *
      * @param  string|null  $token
-     * @return \Illuminate\View\View
+     * @return View
      */
     public function create($token = null)
     {
@@ -41,25 +47,28 @@ class ResetPasswordController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function store()
     {
         try {
             $this->validate(request(), [
-                'token'    => 'required',
-                'email'    => 'required|email',
+                'token' => 'required',
+                'email' => 'required|email',
                 'password' => 'required|confirmed|min:6',
             ]);
 
             $response = $this->broker()->reset(
-                request(['email', 'password', 'password_confirmation', 'token']), function ($customer, $password) {
+                $this->credentials(request()), function ($customer, $password) {
                     $this->resetPassword($customer, $password);
                 }
             );
 
             if ($response == Password::PASSWORD_RESET) {
-                $customer = $this->customerRepository->findOneByField('email', request('email'));
+                $customer = $this->customerRepository->findOneWhere([
+                    'email' => request('email'),
+                    'channel_id' => core()->getCurrentChannel()->id,
+                ]);
 
                 Event::dispatch('customer.password.update.after', $customer);
 
@@ -79,9 +88,19 @@ class ResetPasswordController extends Controller
     }
 
     /**
+     * Get the broker to be used during password reset.
+     *
+     * @return PasswordBroker
+     */
+    public function broker()
+    {
+        return Password::broker('customers');
+    }
+
+    /**
      * Reset the given customer password.
      *
-     * @param  \Illuminate\Contracts\Auth\CanResetPassword  $customer
+     * @param  CanResetPassword  $customer
      * @param  string  $password
      * @return void
      */
@@ -93,16 +112,20 @@ class ResetPasswordController extends Controller
 
         $customer->save();
 
+        app(SessionPurger::class)->forget('customer', $customer->id);
+
         event(new PasswordReset($customer));
     }
 
     /**
-     * Get the broker to be used during password reset.
-     *
-     * @return \Illuminate\Contracts\Auth\PasswordBroker
+     * The credentials a password is reset with, scoped to the current channel because a customer
+     * may only sign in on the channel they registered against.
      */
-    public function broker()
+    protected function credentials(Request $request): array
     {
-        return Password::broker('customers');
+        return array_merge(
+            $request->only(['email', 'password', 'password_confirmation', 'token']),
+            ['channel_id' => core()->getCurrentChannel()->id],
+        );
     }
 }

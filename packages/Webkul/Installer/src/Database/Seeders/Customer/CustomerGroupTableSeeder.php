@@ -4,9 +4,12 @@ namespace Webkul\Installer\Database\Seeders\Customer;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Core\Concerns\SyncsPostgresSequences;
 
 class CustomerGroupTableSeeder extends Seeder
 {
+    use SyncsPostgresSequences;
+
     /**
      * Seed the application's database.
      *
@@ -21,21 +24,23 @@ class CustomerGroupTableSeeder extends Seeder
 
         DB::table('customer_groups')->insert([
             [
-                'id'              => 1,
-                'code'            => 'guest',
-                'name'            => trans('installer::app.seeders.customer.customer-groups.guest', [], $defaultLocale),
+                'id' => 1,
+                'code' => 'guest',
+                'name' => trans('installer::app.seeders.customer.customer-groups.guest', [], $defaultLocale),
                 'is_user_defined' => 0,
             ], [
-                'id'              => 2,
-                'code'            => 'general',
-                'name'            => trans('installer::app.seeders.customer.customer-groups.general', [], $defaultLocale),
+                'id' => 2,
+                'code' => 'general',
+                'name' => trans('installer::app.seeders.customer.customer-groups.general', [], $defaultLocale),
                 'is_user_defined' => 0,
             ], [
-                'id'              => 3,
-                'code'            => 'wholesale',
-                'name'            => trans('installer::app.seeders.customer.customer-groups.wholesale', [], $defaultLocale),
+                'id' => 3,
+                'code' => 'wholesale',
+                'name' => trans('installer::app.seeders.customer.customer-groups.wholesale', [], $defaultLocale),
                 'is_user_defined' => 0,
             ],
         ]);
+
+        $this->syncPostgresSequences(['customer_groups']);
     }
 }

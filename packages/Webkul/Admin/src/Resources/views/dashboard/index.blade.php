@@ -4,13 +4,13 @@
     </x-slot>
 
     <!-- User Details Section -->
-    <div class="mb-5 flex items-center justify-between gap-4 max-sm:flex-wrap">
+    <div class="flex items-center justify-between gap-4 mb-5 max-sm:flex-wrap">
         <div class="grid gap-1.5">
-            <p class="text-xl font-bold !leading-normal text-gray-800 dark:text-white">
+            <p class="text-xl font-bold leading-normal! text-gray-800 dark:text-white" v-pre>
                 @lang('admin::app.dashboard.index.user-name', ['user_name' => auth()->guard('admin')->user()->name])
             </p>
 
-            <p class="!leading-normal text-gray-600 dark:text-gray-300">
+            <p class="leading-normal! text-gray-600 dark:text-gray-300">
                 @lang('admin::app.dashboard.index.user-info')
             </p>
         </div>
@@ -19,9 +19,8 @@
         <v-dashboard-filters>
             <!-- Shimmer -->
             <div class="flex gap-1.5">
-                <div class="shimmer h-[39px] w-[132px] rounded-md"></div>
-                <div class="shimmer h-[39px] w-[140px] rounded-md"></div>
-                <div class="shimmer h-[39px] w-[140px] rounded-md"></div>
+                <div class="shimmer h-9.75 w-33 rounded-md"></div>
+                <div class="shimmer h-9.75 w-60 rounded-md"></div>
             </div>
         </v-dashboard-filters>
     </div>
@@ -29,7 +28,7 @@
     <!-- Body Component -->
     <div class="mt-3.5 flex gap-2.5 max-xl:flex-wrap">
         <!-- Left Section -->
-        <div class="flex flex-1 flex-col gap-8 max-xl:flex-auto">
+        <div class="flex flex-col flex-1 gap-8 max-xl:flex-auto">
             {!! view_render_event('bagisto.admin.dashboard.overall_details.before') !!}
 
             <!-- Overall Details -->
@@ -74,7 +73,7 @@
         </div>
 
         <!-- Right Section -->
-        <div class="flex w-[360px] max-w-full flex-col gap-2 max-sm:w-full">
+        <div class="flex w-90 max-w-full flex-col gap-2 max-sm:w-full">
             <!-- First Component -->
             <p class="text-base font-semibold text-gray-600 dark:text-gray-300">
                 @lang('admin::app.dashboard.index.store-stats')
@@ -83,12 +82,9 @@
             {!! view_render_event('bagisto.admin.dashboard.store_stats.before') !!}
 
             <!-- Store Stats -->
-            <div class="box-shadow rounded bg-white dark:bg-gray-900">
+            <div class="bg-white rounded-sm box-shadow dark:bg-gray-900">
                 <!-- Total Sales Details -->
                 @include('admin::dashboard.total-sales')
-
-                <!-- Total Visitors Details -->
-                @include('admin::dashboard.total-visitors')
 
                 <!-- Top Selling Products -->
                 @include('admin::dashboard.top-selling-products')
@@ -118,15 +114,15 @@
                         <x-slot:toggle>
                             <button
                                 type="button"
-                                class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center text-sm leading-6 text-gray-600 transition-all marker:shadow hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                class="inline-flex w-full cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-1.5 text-center text-sm leading-6 text-gray-600 transition-all marker:shadow-sm hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                             >
                                 @{{ channels.find(channel => channel.code == filters.channel).name }}
                                 
-                                <span class="icon-sort-down text-2xl"></span>
+                                <span class="text-2xl icon-sort-down"></span>
                             </button>
                         </x-slot>
 
-                        <x-slot:menu class="!p-0 shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
+                        <x-slot:menu class="p-0! shadow-[0_5px_20px_rgba(0,0,0,0.15)] dark:border-gray-800">
                             <x-admin::dropdown.menu.item
                                 v-for="channel in channels"
                                 ::class="{'bg-gray-100 dark:bg-gray-950': channel.code == filters.channel}"
@@ -138,21 +134,13 @@
                     </x-admin::dropdown>
                 </template>
 
-                <x-admin::flat-picker.date class="!w-[140px]" ::allow-input="false">
-                    <input
-                        class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
-                        v-model="filters.start"
-                        placeholder="@lang('admin::app.dashboard.index.start-date')"
-                    />
-                </x-admin::flat-picker.date>
-
-                <x-admin::flat-picker.date class="!w-[140px]" ::allow-input="false">
-                    <input
-                        class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
-                        v-model="filters.end"
-                        placeholder="@lang('admin::app.dashboard.index.end-date')"
-                    />
-                </x-admin::flat-picker.date>
+                <x-admin::date-range-picker
+                    :start-label="trans('admin::app.dashboard.index.start-date')"
+                    :end-label="trans('admin::app.dashboard.index.end-date')"
+                    ::start="filters.start"
+                    ::end="filters.end"
+                    @change="applyDateRange"
+                />
             </div>
         </script>
 
@@ -188,6 +176,21 @@
 
                         deep: true
                     }
+                },
+
+                methods: {
+                    /**
+                     * Take a chosen range in one assignment, so the widgets are asked to reload once
+                     * rather than once per end of the range.
+                     *
+                     * @param {object} range
+                     * @param {string} range.start
+                     * @param {string} range.end
+                     * @returns {void}
+                     */
+                    applyDateRange({ start, end }) {
+                        this.filters = { ...this.filters, start, end };
+                    },
                 },
             });
         </script>

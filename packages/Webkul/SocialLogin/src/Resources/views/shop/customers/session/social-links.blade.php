@@ -1,19 +1,15 @@
-<div class="flex gap-3">
-    @foreach(['enable_facebook', 'enable_twitter', 'enable_google', 'enable_linkedin-openid', 'enable_github'] as $social)
-        @if (! core()->getConfigData('customer.settings.social_login.' . $social))
+<div class="mt-6 flex gap-3">
+    @foreach (\Webkul\SocialLogin\Http\Controllers\LoginController::PROVIDERS as $provider => $field)
+        @if (! core()->getConfigData('customer.settings.social_login.'.$field))
             @continue
         @endif
 
-        @php 
-            $icon = explode('_', $social); 
-        @endphp
-
         <a
-            href="{{ route('customer.social-login.index', $icon[1]) }}"
+            href="{{ route('customer.social_login.index', $provider) }}"
             class="transition-all hover:opacity-[0.8]"
-            aria-label="{{ $icon[0] }}"
+            aria-label="{{ $provider }}"
         >
-            @include('social_login::icons.' . $icon[1])
+            @include('social_login::icons.'.$provider)
         </a>
     @endforeach
 </div>

@@ -1,13 +1,14 @@
 <?php
 
 use Webkul\Theme\Facades\Themes;
+use Webkul\Theme\ThemeStorage;
 use Webkul\Theme\ViewRenderEventManager;
 
 if (! function_exists('themes')) {
     /**
      * Themes.
      *
-     * @return \Webkul\Theme\Themes
+     * @return Webkul\Theme\Themes
      */
     function themes()
     {
@@ -27,22 +28,30 @@ if (! function_exists('bagisto_asset')) {
     }
 }
 
+if (! function_exists('bagisto_theme_storage')) {
+    /**
+     * Bagisto theme storage.
+     *
+     * Resolves what a theme has stored, where `bagisto_asset()` resolves what it ships.
+     *
+     * @return ThemeStorage
+     */
+    function bagisto_theme_storage()
+    {
+        return app(ThemeStorage::class);
+    }
+}
+
 if (! function_exists('view_render_event')) {
     /**
      * View render event.
      *
-     * @param  string  $eventName
-     * @param  mixed  $params
      * @return mixed
      */
-    function view_render_event($eventName, $params = null)
+    function view_render_event(string $eventName, mixed $params = null)
     {
-        app()->singleton(ViewRenderEventManager::class);
-
-        $viewEventManager = app()->make(ViewRenderEventManager::class);
-
-        $viewEventManager->handleRenderEvent($eventName, $params);
-
-        return $viewEventManager->render();
+        return app(ViewRenderEventManager::class)
+            ->handleRenderEvent($eventName, $params)
+            ->render();
     }
 }

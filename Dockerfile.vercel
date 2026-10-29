@@ -8,7 +8,6 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
         exif \
         gd \
         gmp \
-        imagick \
         intl \
         mbstring \
         pdo_mysql \
